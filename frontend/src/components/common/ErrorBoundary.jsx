@@ -3,7 +3,7 @@ import { AlertTriangle, RefreshCw, Home } from 'lucide-react'
 import config from '../../config/env.config'
 
 /**
- * Error Boundary Component
+ * Error Boundary Components
  * Catches JavaScript errors anywhere in the child component tree
  */
 class ErrorBoundary extends Component {
