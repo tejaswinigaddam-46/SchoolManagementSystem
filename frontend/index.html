@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="School Management System - Comprehensive solution for educational institutions" />
+    <meta name="keywords" content="school management, education, students, teachers, administration" />
+    <meta name="author" content="SMS Development Team" />
+    
+    <!-- Preconnect to fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    
+    <!-- Inter font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- JetBrains Mono font for code/monospace -->
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <title>School Management System</title>
+    
+    <style>
+      /* Prevent flash of unstyled content */
+      body {
+        font-family: Inter, ui-sans-serif, system-ui;
+      }
+      body.loaded {
+        visibility: visible;
+      }
+      
+      /* Loading spinner styles */
+      .loading-spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid rgba(59, 130, 246, 0.3);
+        border-radius: 50%;
+        border-top-color: #3b82f6;
+        animation: spin 1s ease-in-out infinite;
+      }
+      
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+      
+      /* Initial loading screen */
+      .initial-loading {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, rgb(59, 130, 246), rgba(59, 130, 246, 0.867));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+      }
+      
+      .initial-loading .content {
+        text-align: center;
+        color: white;
+      }
+      
+      .initial-loading .spinner {
+        width: 40px;
+        height: 40px;
+        border: 4px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        border-top-color: white;
+        animation: spin 1s ease-in-out infinite;
+        margin: 0 auto 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Initial loading screen -->
+    <div id="initial-loading" class="initial-loading">
+      <div class="content">
+        <div class="spinner"></div>
+        <h2 style="margin: 0; font-weight: 600; font-size: 1.25rem;">School Management System</h2>
+        <p style="margin: 8px 0 0; opacity: 0.9;">Loading application...</p>
+      </div>
+    </div>
+    
+    <!-- React root -->
+    <div id="root"></div>
+    
+    <!-- Vite script -->
+    <script type="module" src="/src/main.jsx"></script>
+    
+    <script>
+      // Remove initial loading screen once React loads
+      window.addEventListener('load', () => {
+        setTimeout(() => {
+          const loadingEl = document.getElementById('initial-loading');
+          if (loadingEl) {
+            loadingEl.style.opacity = '0';
+            loadingEl.style.transition = 'opacity 0.3s ease';
+            setTimeout(() => {
+              loadingEl.remove();
+              document.body.classList.add('loaded');
+            }, 300);
+          }
+        }, 500);
+      });
+    </script>
+  </body>
+</html>

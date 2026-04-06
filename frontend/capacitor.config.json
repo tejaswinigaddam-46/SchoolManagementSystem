@@ -1,0 +1,5 @@
+{
+  "appId": "com.smsfrontend.app",
+  "appName": "sms-frontend",
+  "webDir": "dist"
+}
