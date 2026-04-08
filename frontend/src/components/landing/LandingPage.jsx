@@ -1,7 +1,6 @@
 import { lazy, Suspense, useRef } from 'react';
 import { Helmet } from 'react-helmet-async';
 import Hero from './Hero';
-import ProblemSolution from './ProblemSolution';
 import MobileAppSection from './MobileAppSection';
 import HowItWorks from './HowItWorks';
 import Footer from './Footer';
@@ -32,15 +31,15 @@ export default function LandingPage() {
       <Helmet>
         {/* Primary Meta Tags */}
         <title>
-          School Management Software | Multi-Tenant ERP for Schools in India
+          School Management Software | Multi-Tenant Platform for Schools in India
         </title>
         <meta
           name="description"
-          content="Complete school management system with web and mobile apps for admins, teachers, parents, and students. Features include automated payroll, attendance tracking, AI tutor, quiz generator, fee management, and real-time performance analytics. Trusted by 500+ schools across India."
+          content="Complete school management system with web and mobile apps for admins, teachers, parents, and students. Features include automated payroll, attendance tracking, AI tutor, quiz generator, fee management, and real-time performance analytics."
         />
         <meta
           name="keywords"
-          content="school management software India, school ERP system, student management system, multi-tenant school software, school administration software, payroll management for schools, attendance tracking system, AI tutor for students, school mobile app, parent communication app, fee management software, academic performance tracking"
+          content="school management software India, school management system, student management system, multi-tenant school software, school administration software, payroll management for schools, attendance tracking system, AI tutor for students, school mobile app, parent communication app, fee management software, academic performance tracking"
         />
 
         {/* Open Graph / Facebook */}
@@ -48,7 +47,7 @@ export default function LandingPage() {
         <meta property="og:url" content="https://eukolia.shop/" />
         <meta
           property="og:title"
-          content="School Management Software | Multi-Tenant ERP for Schools"
+          content="School Management Software | Multi-Tenant Platform for Schools"
         />
         <meta
           property="og:description"
@@ -61,11 +60,11 @@ export default function LandingPage() {
         <meta property="twitter:url" content="https://eukolia.shop/" />
         <meta
           property="twitter:title"
-          content="School Management Software | Multi-Tenant ERP for Schools"
+          content="School Management Software | Multi-Tenant Platform for Schools"
         />
         <meta
           property="twitter:description"
-          content="Complete school ERP with mobile apps, AI tutor, automated payroll, and real-time tracking."
+          content="Complete school management software with mobile apps, AI tutor, automated payroll, and real-time tracking."
         />
         <meta
           property="twitter:image"
@@ -75,7 +74,7 @@ export default function LandingPage() {
         {/* Additional Meta Tags */}
         <meta name="robots" content="index, follow" />
         <meta name="language" content="English" />
-        <meta name="author" content="SchoolERP" />
+        <meta name="author" content="School Management Software" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <link rel="canonical" href="https://eukolia.shop/" />
 
@@ -84,7 +83,7 @@ export default function LandingPage() {
           {JSON.stringify({
             '@context': 'https://schema.org',
             '@type': 'SoftwareApplication',
-            name: 'SchoolERP - School Management Software',
+            name: 'School Management Software',
             applicationCategory: 'EducationApplication',
             operatingSystem: 'Web, Android, iOS',
             offers: {
@@ -96,7 +95,7 @@ export default function LandingPage() {
             aggregateRating: {
               '@type': 'AggregateRating',
               ratingValue: '4.8',
-              ratingCount: '500',
+              ratingCount: '100',
             },
             description:
               'Complete school management system with AI-powered features for modern institutions in India',
@@ -109,32 +108,39 @@ export default function LandingPage() {
         {/* Hero Section */}
         <Hero onDemoClick={scrollToDemo} />
 
-        {/* Problem Solution Section */}
-        <ProblemSolution />
+        {/* Benefits Section - Lazy Loaded (replacing ProblemSolution) */}
+        <Suspense fallback={<SectionLoader />}>
+          <div id="benefits">
+            <Benefits />
+          </div>
+        </Suspense>
 
         {/* Role-Based Features - Lazy Loaded */}
         <Suspense fallback={<SectionLoader />}>
-          <RoleFeatures />
+          <div id="features">
+            <RoleFeatures />
+          </div>
         </Suspense>
 
         {/* Mobile App Section */}
-        <MobileAppSection />
+        <div id="mobile-apps">
+          <MobileAppSection />
+        </div>
 
-        {/* AI Features Section - Lazy Loaded */}
+        {/* AI Features Section - Lazy Loaded with light blue background */}
         <Suspense fallback={<SectionLoader />}>
-          <AIFeatures />
+          <div id="ai-features">
+            <AIFeatures />
+          </div>
         </Suspense>
 
         {/* How It Works Section */}
-        <HowItWorks />
-
-        {/* Benefits Section - Lazy Loaded */}
-        <Suspense fallback={<SectionLoader />}>
-          <Benefits />
-        </Suspense>
+        <div id="how-it-works">
+          <HowItWorks />
+        </div>
 
         {/* Demo Form Section - Lazy Loaded */}
-        <div ref={demoFormRef}>
+        <div ref={demoFormRef} id="demo-form">
           <Suspense fallback={<SectionLoader />}>
             <DemoForm />
           </Suspense>

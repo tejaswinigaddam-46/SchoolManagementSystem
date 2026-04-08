@@ -117,9 +117,6 @@ export default function HowItWorks() {
                   Book a free demo and see it in action
                 </div>
               </div>
-              <button className="px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-xl shadow-medium hover:shadow-lg transition-all whitespace-nowrap">
-                Schedule Demo →
-              </button>
             </div>
           </div>
         </div>

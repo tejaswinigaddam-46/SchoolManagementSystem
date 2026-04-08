@@ -4,7 +4,7 @@ import {
   GraduationCap,
   UserCheck,
   BookOpen,
-  DollarSign,
+  IndianRupee,
   BarChart3,
   ClipboardCheck,
   Calendar,
@@ -33,7 +33,7 @@ export default function RoleFeatures() {
           'Manage students, parents, teachers, and staff with role-based access control',
       },
       {
-        icon: DollarSign,
+        icon: IndianRupee,
         title: 'Automated Payroll System',
         description:
           'Process salaries, track attendance, generate pay slips with full compliance',
@@ -51,7 +51,7 @@ export default function RoleFeatures() {
           'Manage classes, sections, subjects, timetables, and exam schedules',
       },
       {
-        icon: DollarSign,
+        icon: IndianRupee,
         title: 'Fee Management',
         description:
           'Configure fee structures, track payments, generate receipts automatically',
@@ -83,7 +83,7 @@ export default function RoleFeatures() {
           'Enter marks, generate report cards, and track student performance',
       },
       {
-        icon: DollarSign,
+        icon: IndianRupee,
         title: 'Payroll Visibility',
         description: 'View salary slips, attendance records, and leave balance',
       },
@@ -119,7 +119,7 @@ export default function RoleFeatures() {
           'Get instant notifications when your child is marked absent',
       },
       {
-        icon: DollarSign,
+        icon: IndianRupee,
         title: 'Fee Management',
         description: 'View fee dues, payment history, and make online payments',
       },
@@ -173,8 +173,12 @@ export default function RoleFeatures() {
   };
 
   return (
-    <section className="py-16 md:py-24 bg-gradient-to-br from-secondary-50 to-white">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+    <section className="py-16 md:py-24 bg-gradient-to-br from-accent-50 via-blue-50 to-white relative overflow-hidden">
+      {/* Background decorative elements */}
+      <div className="absolute top-0 left-0 w-96 h-96 bg-primary-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30" />
+      <div className="absolute bottom-0 right-0 w-96 h-96 bg-accent-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30" />
+
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="max-w-6xl mx-auto">
           {/* Section Header */}
           <div className="text-center mb-12">

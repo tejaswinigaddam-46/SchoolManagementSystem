@@ -2,10 +2,10 @@ import { GraduationCap, Sparkles, ArrowRight } from 'lucide-react';
 
 export default function Hero({ onDemoClick }) {
   return (
-    <section className="relative overflow-hidden bg-gradient-to-br from-primary-50 via-white to-accent-50 pt-16 pb-24 md:pt-24 md:pb-32">
+    <section className="relative overflow-hidden bg-gradient-to-br from-accent-50 via-blue-50 to-white pt-16 pb-24 md:pt-24 md:pb-32">
       {/* Background decorative elements */}
-      <div className="absolute top-0 right-0 w-96 h-96 bg-primary-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob" />
-      <div className="absolute bottom-0 left-0 w-96 h-96 bg-accent-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000" />
+      <div className="absolute top-0 right-0 w-96 h-96 bg-primary-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob" />
+      <div className="absolute bottom-0 left-0 w-96 h-96 bg-accent-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000" />
 
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="max-w-5xl mx-auto text-center">
@@ -32,8 +32,8 @@ export default function Hero({ onDemoClick }) {
             learning and real-time insights.
           </p>
 
-          {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
+          {/* CTA Button */}
+          <div className="flex items-center justify-center mb-12">
             <button
               onClick={onDemoClick}
               className="group w-full sm:w-auto px-8 py-4 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-xl shadow-medium hover:shadow-lg transition-all duration-300 flex items-center justify-center gap-2 transform hover:scale-105"
@@ -41,17 +41,10 @@ export default function Hero({ onDemoClick }) {
               Book a Free Demo
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </button>
-            <button className="w-full sm:w-auto px-8 py-4 bg-white hover:bg-secondary-50 text-secondary-800 font-semibold rounded-xl shadow-soft hover:shadow-medium transition-all duration-300 border border-secondary-200">
-              Watch Demo Video
-            </button>
           </div>
 
           {/* Trust indicators */}
           <div className="flex flex-wrap items-center justify-center gap-8 text-sm text-secondary-600">
-            <div className="flex items-center gap-2">
-              <GraduationCap className="w-5 h-5 text-primary-600" />
-              <span>500+ Schools Trust Us</span>
-            </div>
             <div className="flex items-center gap-2">
               <svg
                 className="w-5 h-5 text-success-600"
@@ -79,7 +72,17 @@ export default function Hero({ onDemoClick }) {
                   clipRule="evenodd"
                 />
               </svg>
-              <span>Bank-Grade Security</span>
+              <span>Secure Platform</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <svg
+                className="w-5 h-5 text-warning-600"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              </svg>
+              <span>24/7 Support</span>
             </div>
           </div>
         </div>

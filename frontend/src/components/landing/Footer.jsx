@@ -12,30 +12,32 @@ import {
 export default function Footer() {
   const currentYear = new Date().getFullYear();
 
+  const handleScrollToSection = (sectionId) => (e) => {
+    e.preventDefault();
+    const element = document.getElementById(sectionId);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
   const footerLinks = {
     product: [
-      { label: 'Features', href: '#features' },
-      { label: 'How It Works', href: '#how-it-works' },
-      { label: 'Pricing', href: '#pricing' },
-      { label: 'Mobile Apps', href: '#mobile-apps' },
+      { label: 'Features', sectionId: 'features' },
+      { label: 'How It Works', sectionId: 'how-it-works' },
+      { label: 'Mobile Apps', sectionId: 'mobile-apps' },
+      { label: 'AI Features', sectionId: 'ai-features' },
     ],
     company: [
-      { label: 'About Us', href: '#about' },
-      { label: 'Contact', href: '#contact' },
-      { label: 'Careers', href: '#careers' },
-      { label: 'Blog', href: '#blog' },
+      { label: 'About Us', sectionId: 'about' },
+      { label: 'Contact', sectionId: 'demo-form' },
+      { label: 'Careers', sectionId: 'careers' },
+      { label: 'Blog', sectionId: 'blog' },
     ],
     support: [
-      { label: 'Help Center', href: '#help' },
-      { label: 'Documentation', href: '#docs' },
-      { label: 'API Reference', href: '#api' },
-      { label: 'System Status', href: '#status' },
-    ],
-    legal: [
-      { label: 'Privacy Policy', href: '#privacy' },
-      { label: 'Terms of Service', href: '#terms' },
-      { label: 'Cookie Policy', href: '#cookies' },
-      { label: 'GDPR Compliance', href: '#gdpr' },
+      { label: 'Help Center', sectionId: 'help' },
+      { label: 'Documentation', sectionId: 'docs' },
+      { label: 'Book Demo', sectionId: 'demo-form' },
+      { label: 'System Status', sectionId: 'status' },
     ],
   };
 
@@ -50,19 +52,20 @@ export default function Footer() {
     <footer className="bg-secondary-900 text-white">
       {/* Main Footer Content */}
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-8 lg:gap-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 lg:gap-12">
           {/* Brand Column */}
           <div className="lg:col-span-2">
             <div className="flex items-center gap-2 mb-4">
               <div className="w-10 h-10 bg-gradient-to-br from-primary-600 to-accent-600 rounded-xl flex items-center justify-center">
                 <GraduationCap className="w-6 h-6 text-white" />
               </div>
-              <span className="text-xl font-bold">SchoolERP</span>
+              <span className="text-xl font-bold">
+                School Management Software
+              </span>
             </div>
             <p className="text-secondary-400 mb-6 leading-relaxed">
-              The most comprehensive school management software in India.
-              Trusted by 500+ institutions for efficient administration,
-              payroll, and student tracking.
+              Comprehensive school management software for modern institutions.
+              Streamline administration, payroll, and student tracking.
             </p>
 
             {/* Contact Info */}
@@ -79,10 +82,10 @@ export default function Footer() {
               <div className="flex items-start gap-3 text-sm">
                 <Phone className="w-4 h-4 text-primary-400 mt-0.5 flex-shrink-0" />
                 <a
-                  href="tel:+911234567890"
+                  href="tel:+918897930859"
                   className="text-secondary-400 hover:text-white transition-colors"
                 >
-                  +91 123 456 7890
+                  +91 8897930859
                 </a>
               </div>
               <div className="flex items-start gap-3 text-sm">
@@ -98,12 +101,12 @@ export default function Footer() {
             <ul className="space-y-2">
               {footerLinks.product.map((link, index) => (
                 <li key={index}>
-                  <a
-                    href={link.href}
-                    className="text-sm text-secondary-400 hover:text-white transition-colors"
+                  <button
+                    onClick={handleScrollToSection(link.sectionId)}
+                    className="text-sm text-secondary-400 hover:text-white transition-colors text-left"
                   >
                     {link.label}
-                  </a>
+                  </button>
                 </li>
               ))}
             </ul>
@@ -115,12 +118,12 @@ export default function Footer() {
             <ul className="space-y-2">
               {footerLinks.company.map((link, index) => (
                 <li key={index}>
-                  <a
-                    href={link.href}
-                    className="text-sm text-secondary-400 hover:text-white transition-colors"
+                  <button
+                    onClick={handleScrollToSection(link.sectionId)}
+                    className="text-sm text-secondary-400 hover:text-white transition-colors text-left"
                   >
                     {link.label}
-                  </a>
+                  </button>
                 </li>
               ))}
             </ul>
@@ -132,29 +135,12 @@ export default function Footer() {
             <ul className="space-y-2">
               {footerLinks.support.map((link, index) => (
                 <li key={index}>
-                  <a
-                    href={link.href}
-                    className="text-sm text-secondary-400 hover:text-white transition-colors"
+                  <button
+                    onClick={handleScrollToSection(link.sectionId)}
+                    className="text-sm text-secondary-400 hover:text-white transition-colors text-left"
                   >
                     {link.label}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Legal Links */}
-          <div>
-            <h3 className="font-bold text-white mb-4">Legal</h3>
-            <ul className="space-y-2">
-              {footerLinks.legal.map((link, index) => (
-                <li key={index}>
-                  <a
-                    href={link.href}
-                    className="text-sm text-secondary-400 hover:text-white transition-colors"
-                  >
-                    {link.label}
-                  </a>
+                  </button>
                 </li>
               ))}
             </ul>
@@ -169,8 +155,8 @@ export default function Footer() {
                 School Management Software India
               </h4>
               <p className="text-secondary-400 text-xs leading-relaxed">
-                Complete school ERP system for Indian schools with multi-tenant
-                architecture, payroll, and attendance management.
+                Complete school management system for Indian schools with
+                multi-tenant architecture, payroll, and attendance management.
               </p>
             </div>
             <div>
@@ -193,7 +179,7 @@ export default function Footer() {
             </div>
             <div>
               <h4 className="font-semibold text-white mb-2">
-                School ERP with Mobile App
+                School Management with Mobile App
               </h4>
               <p className="text-secondary-400 text-xs leading-relaxed">
                 Mobile apps for parents and students with AI tutor, quiz
@@ -210,8 +196,8 @@ export default function Footer() {
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             {/* Copyright */}
             <p className="text-sm text-secondary-400">
-              © {currentYear} SchoolERP. All rights reserved. | School
-              Management Software India
+              © {currentYear} School Management Software. All rights reserved. |
+              School Management Software India
             </p>
 
             {/* Social Links */}

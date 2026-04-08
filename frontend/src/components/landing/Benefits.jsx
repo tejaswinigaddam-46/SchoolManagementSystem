@@ -45,7 +45,7 @@ export default function Benefits() {
       icon: Shield,
       title: 'Enhanced Security',
       description:
-        'Protect sensitive data with bank-grade encryption and access controls',
+        'Protect sensitive data with secure encryption and access controls',
       metric: '100% secure',
       color: 'error',
     },
@@ -145,35 +145,10 @@ export default function Benefits() {
             ))}
           </div>
 
-          {/* Stats Section */}
-          <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-6 p-8 bg-white rounded-2xl shadow-soft border border-secondary-100">
-            <div className="text-center">
-              <div className="text-3xl font-bold text-primary-600 mb-2">
-                500+
-              </div>
-              <div className="text-sm text-secondary-600">Active Schools</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-accent-600 mb-2">
-                50K+
-              </div>
-              <div className="text-sm text-secondary-600">
-                Students Enrolled
-              </div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-success-600 mb-2">
-                99.9%
-              </div>
-              <div className="text-sm text-secondary-600">Uptime Guarantee</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-warning-600 mb-2">
-                24/7
-              </div>
-              <div className="text-sm text-secondary-600">
-                Support Available
-              </div>
+          {/* Bottom CTA */}
+          <div className="mt-12 text-center">
+            <div className="inline-flex items-center gap-2 px-6 py-3 text-transparent bg-clip-text bg-gradient-to-r from-primary-600 to-accent-600 text-xl font-bold">
+              <span>One Platform. All Solutions.</span>
             </div>
           </div>
         </div>

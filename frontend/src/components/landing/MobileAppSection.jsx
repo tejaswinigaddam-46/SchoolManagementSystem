@@ -1,4 +1,4 @@
-import { Smartphone, Apple, Download, Bell, TrendingUp } from 'lucide-react';
+import { Smartphone, Apple, Bell, TrendingUp } from 'lucide-react';
 
 export default function MobileAppSection() {
   const features = [
@@ -13,15 +13,10 @@ export default function MobileAppSection() {
       title: 'Performance Tracking',
       description: 'Monitor student progress with detailed analytics',
     },
-    {
-      icon: Download,
-      title: 'Offline Access',
-      description: 'View important data even without internet connection',
-    },
   ];
 
   return (
-    <section className="py-16 md:py-24 bg-gradient-to-br from-primary-50 via-accent-50 to-white">
+    <section className="py-16 md:py-24 bg-white">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="max-w-6xl mx-auto">
           <div className="grid md:grid-cols-2 gap-12 items-center">
