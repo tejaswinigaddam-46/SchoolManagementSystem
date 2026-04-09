@@ -53,7 +53,6 @@ export default function LandingPage() {
           property="og:description"
           content="Transform your school with our all-in-one management platform. Manage students, staff, payroll, and communication with AI-powered features."
         />
-        <meta property="og:image" content="https://eukolia.shop/og-image.jpg" />
 
         {/* Twitter */}
         <meta property="twitter:card" content="summary_large_image" />
@@ -65,10 +64,6 @@ export default function LandingPage() {
         <meta
           property="twitter:description"
           content="Complete school management software with mobile apps, AI tutor, automated payroll, and real-time tracking."
-        />
-        <meta
-          property="twitter:image"
-          content="https://eukolia.shop/og-image.jpg"
         />
 
         {/* Additional Meta Tags */}

@@ -7,14 +7,13 @@ export default defineConfig({
     // Note: vite-plugin-ssg is available if you want to enable static site generation
     // Uncomment below to enable SSG for the landing page
     // This will pre-render the landing page for better SEO
-    /*
+
     VitePluginSSG({
       routes: ['/'],
       onBeforePageRender: (route, app) => {
         // Custom logic before rendering
-      }
-    })
-    */
+      },
+    }),
   ],
   // Development server configuration
   server: {
