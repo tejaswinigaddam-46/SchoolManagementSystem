@@ -135,7 +135,7 @@ function App() {
 
             {/* Protected routes - wrap individual routes with ProtectedRoute */}
             <Route
-              path="/app"
+              path="/"
               element={
                 <ProtectedRoute>
                   {' '}
