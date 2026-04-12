@@ -1,45 +1,23 @@
-import { useState, useEffect } from 'react'
+import { AlertCircle, Building2, Calendar, Edit, Filter, Layers, Loader2, Mail, MapPin,
+    Phone, Plus, Save, Search, Star, Trash2 } from 'lucide-react'
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { 
-  Building2, 
-  Plus, 
-  Edit, 
-  Trash2, 
-  MapPin, 
-  Phone, 
-  Mail, 
-  Calendar,
-  Layers,
-  Building,
-  AlertCircle,
-  CheckCircle,
-  Shield,
-  Save,
-  X,
-  Loader2,
-  Info,
-  Search,
-  Filter,
-  Star,
-  StarOff
-} from 'lucide-react'
-import LoadingSpinner from '../components/ui/LoadingSpinner'
-import PhoneInput from '../components/ui/PhoneInput'
-import PhoneNumberDisplay from '../components/ui/PhoneNumberDisplay'
-import Modal from '../components/ui/Modal'
-
-// Campus Form Component moved outside to prevent re-creation on every render
-import ConfirmationDialog from '../components/ui/ConfirmationDialog'
-import { useAuth } from '../contexts/AuthContext'
-import {campusService} from '../services/campusService'
-import { PERMISSIONS } from '../config/permissions'
 import { toast } from 'react-hot-toast'
+import { campusService } from '../services/campusService'
+import { PERMISSIONS } from '../config/permissions'
+import { useAuth } from '../contexts/AuthContext'
+import ConfirmationDialog from '../components/ui/ConfirmationDialog'
+import LoadingSpinner from '../components/ui/LoadingSpinner'
+import Modal from '../components/ui/Modal'
+import PhoneInput, { validatePhone } from '../components/ui/PhoneInput'
+import PhoneNumberDisplay from '../components/ui/PhoneNumberDisplay'
+import RequiredAsterisk from '../components/ui/RequiredAsterisk'
 
-// Campus Form Component moved outside to prevent re-creation on every render
+// Campus Form Component 
 const CampusForm = ({ campus, onClose, onSuccess }) => {
   const { getTenantId } = useAuth()
   const queryClient = useQueryClient()
-  
+
   const [formData, setFormData] = useState({
     campus_name: campus?.campus_name || '',
     address: campus?.address || '',
@@ -49,71 +27,79 @@ const CampusForm = ({ campus, onClose, onSuccess }) => {
     year_established: campus?.year_established || '',
     no_of_floors: campus?.no_of_floors || 1
   })
-  
+
   const [errors, setErrors] = useState({})
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const validateForm = () => {
     const newErrors = {}
-    
+
     if (!formData.campus_name.trim()) {
       newErrors.campus_name = 'Campus name is required'
     }
-    
+
     if (!formData.address.trim()) {
       newErrors.address = 'Address is required'
     }
-    
-    if (formData.phone_number && !/^[\+]?[0-9\s\-\(\)]{10,20}$/.test(formData.phone_number)) {
-      newErrors.phone_number = 'Invalid phone number format'
+
+    const phoneError = validatePhone(formData.phone_number, true)
+    if (phoneError) {
+      newErrors.phone_number = phoneError
     }
-    
-    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+
+    if (!formData.email.trim()) {
+      newErrors.email = 'Email is required'
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = 'Invalid email format'
     }
     
-    if (formData.year_established && (
-      formData.year_established < 1500 || 
+    if (!formData.year_established) {
+      newErrors.year_established = 'Year established is required'
+    }
+
+    if (formData.year_established < 1500 ||
       formData.year_established > new Date().getFullYear()
-    )) {
+    ) {
       newErrors.year_established = 'Invalid year'
     }
-    
+
     if (formData.no_of_floors < 1 || formData.no_of_floors > 200) {
       newErrors.no_of_floors = 'Number of floors must be between 1 and 200'
     }
-    
+
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    
+
     if (!validateForm()) {
       toast.error('Please fix the errors in the form')
       return
     }
-    
+
     setIsSubmitting(true)
-    
+
     try {
       const submitData = {
         ...formData,
-        year_established: formData.year_established ? parseInt(formData.year_established) : null,
+        year_established: parseInt(formData.year_established),
         no_of_floors: parseInt(formData.no_of_floors)
       }
-      
+
+      // Update existing campus
       if (campus) {
-        // Update existing campus
         const response = await campusService.updateCampus(campus.campus_id, submitData)
         toast.success('Campus updated successfully')
-        
+
         // Update the campus in React Query cache
         if (response?.data?.campus) {
           queryClient.setQueryData(['campuses', getTenantId()], (oldData) => {
             if (oldData?.data) {
-              const updatedCampuses = oldData.data.map(c => 
+              const updatedCampuses = oldData.data.map(c =>
                 c.campus_id === campus.campus_id ? response.data.campus : c
               )
               return {
@@ -128,7 +114,7 @@ const CampusForm = ({ campus, onClose, onSuccess }) => {
         // Create new campus
         const response = await campusService.createCampus(submitData)
         toast.success('Campus created successfully')
-        
+
         // Add the created campus (with campus_id) to React Query cache
         if (response?.data?.campus) {
           queryClient.setQueryData(['campuses', getTenantId()], (oldData) => {
@@ -145,7 +131,7 @@ const CampusForm = ({ campus, onClose, onSuccess }) => {
           })
         }
       }
-      
+
       onSuccess()
     } catch (error) {
       console.error('Form submission error:', error)
@@ -177,7 +163,7 @@ const CampusForm = ({ campus, onClose, onSuccess }) => {
         {/* Campus Name */}
         <div>
           <label className="block text-sm font-medium text-secondary-700 mb-1">
-            Campus Name *
+            Campus Name <RequiredAsterisk />
           </label>
           <input
             type="text"
@@ -194,7 +180,7 @@ const CampusForm = ({ campus, onClose, onSuccess }) => {
         {/* Address */}
         <div>
           <label className="block text-sm font-medium text-secondary-700 mb-1">
-            Address *
+            Address <RequiredAsterisk />
           </label>
           <textarea
             value={formData.address}
@@ -214,6 +200,7 @@ const CampusForm = ({ campus, onClose, onSuccess }) => {
             <PhoneInput
               label="Phone Number"
               name="phone_number"
+              required={true}
               value={formData.phone_number}
               onChange={(e) => handleChange('phone_number', e.target.value)}
               error={errors.phone_number}
@@ -223,7 +210,7 @@ const CampusForm = ({ campus, onClose, onSuccess }) => {
           {/* Email */}
           <div>
             <label className="block text-sm font-medium text-secondary-700 mb-1">
-              Email
+              Email <RequiredAsterisk />
             </label>
             <input
               type="email"
@@ -242,7 +229,7 @@ const CampusForm = ({ campus, onClose, onSuccess }) => {
           {/* Year Established */}
           <div>
             <label className="block text-sm font-medium text-secondary-700 mb-1">
-              Year Established
+              Year Established <RequiredAsterisk />
             </label>
             <input
               type="number"
@@ -261,7 +248,7 @@ const CampusForm = ({ campus, onClose, onSuccess }) => {
           {/* Number of Floors */}
           <div>
             <label className="block text-sm font-medium text-secondary-700 mb-1">
-              Number of Floors *
+              Number of Floors <RequiredAsterisk />
             </label>
             <input
               type="number"
@@ -327,8 +314,8 @@ const CampusForm = ({ campus, onClose, onSuccess }) => {
   )
 }
 
-// Campus Card Component moved outside to prevent re-creation on every render
-const CampusCard = ({ campus, onEdit, onDelete, isAdmin }) => {
+// Campus Card Component
+const CampusCard = ({ campus, onEdit, onDelete }) => {
   const [isDeleting, setIsDeleting] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
@@ -339,7 +326,7 @@ const CampusCard = ({ campus, onEdit, onDelete, isAdmin }) => {
   const handleDeleteConfirm = async () => {
     setIsDeleting(true)
     setShowDeleteConfirm(false)
-    
+
     try {
       await onDelete(campus.campus_id)
     } finally {
@@ -386,17 +373,17 @@ const CampusCard = ({ campus, onEdit, onDelete, isAdmin }) => {
               </p>
             </div>
           </div>
+
           
-          {isAdmin && (
             <div className="flex items-center space-x-2">
-              <button
+               {PERMISSIONS.CAMPUS_UPDATE && (<button
                 onClick={() => onEdit(campus)}
                 className="p-2 text-secondary-500 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
                 title="Edit campus"
               >
                 <Edit className="h-4 w-4" />
-              </button>
-              <button
+              </button>)}
+              {PERMISSIONS.CAMPUS_DELETE && (<button
                 onClick={handleDeleteClick}
                 disabled={isDeleting}
                 className="p-2 text-secondary-500 hover:text-error-600 hover:bg-error-50 rounded-lg transition-colors"
@@ -407,9 +394,8 @@ const CampusCard = ({ campus, onEdit, onDelete, isAdmin }) => {
                 ) : (
                   <Trash2 className="h-4 w-4" />
                 )}
-              </button>
+              </button>)}
             </div>
-          )}
         </div>
 
         <div className="space-y-3">
@@ -417,21 +403,21 @@ const CampusCard = ({ campus, onEdit, onDelete, isAdmin }) => {
             <MapPin className="h-4 w-4 text-secondary-400 mt-0.5 flex-shrink-0" />
             <p className="text-sm text-secondary-700">{campus.address}</p>
           </div>
-          
+
           {campus.phone_number && (
             <div className="flex items-center space-x-2">
               <Phone className="h-4 w-4 text-secondary-400" />
               <PhoneNumberDisplay value={campus.phone_number} className="text-sm" />
             </div>
           )}
-          
+
           {campus.email && (
             <div className="flex items-center space-x-2">
               <Mail className="h-4 w-4 text-secondary-400" />
               <p className="text-sm text-secondary-700">{campus.email}</p>
             </div>
           )}
-          
+
           <div className="flex items-center justify-between pt-2 border-t border-secondary-100">
             <div className="flex items-center space-x-4">
               {campus.year_established && (
@@ -440,7 +426,7 @@ const CampusCard = ({ campus, onEdit, onDelete, isAdmin }) => {
                   <span className="text-sm text-secondary-600">Est. {campus.year_established}</span>
                 </div>
               )}
-              
+
               <div className="flex items-center space-x-1">
                 <Layers className="h-4 w-4 text-secondary-400" />
                 <span className="text-sm text-secondary-600">
@@ -469,34 +455,24 @@ const CampusCard = ({ campus, onEdit, onDelete, isAdmin }) => {
 }
 
 export default function CampusManagementPage() {
-  console.log('%c[Campus Page Mount]', 'color: yellow;');
-  
-  // Get user context and tenant context
-  const { user, isAuthenticated, loading: authLoading, getFullName, getPrimaryRole, hasRole, hasPermission } = useAuth()
-  const { tenant, getTenantName, getTenantId } = useAuth()
 
-  const canCreateCampus =
-    hasPermission && hasPermission(PERMISSIONS.CAMPUS_CREATE)
-  const canEditCampus =
-    hasPermission && hasPermission(PERMISSIONS.CAMPUS_UPDATE)
-  const canDeleteCampus =
-    hasPermission && hasPermission(PERMISSIONS.CAMPUS_DELETE)
-  const canManageCampuses = canCreateCampus || canEditCampus || canDeleteCampus
-  
+  // Get user context and tenant context
+  const { isAuthenticated, loading: authLoading, getFullName, getTenantId, hasPermission } = useAuth()
+
   // State management
   const [searchTerm, setSearchTerm] = useState('')
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [editingCampus, setEditingCampus] = useState(null)
   const [filterMainCampus, setFilterMainCampus] = useState(false)
-  
+
   const queryClient = useQueryClient()
 
   // Fetch campuses
-  const { 
-    data: campusesResponse, 
-    isLoading, 
-    error, 
-    refetch 
+  const {
+    data: campusesResponse,
+    isLoading,
+    error,
+    refetch
   } = useQuery({
     queryKey: ['campuses', getTenantId()],
     queryFn: campusService.getAllCampuses,
@@ -510,7 +486,7 @@ export default function CampusManagementPage() {
   const deleteMutation = useMutation({
     mutationFn: campusService.deleteCampus,
     onSuccess: () => {
-      queryClient.invalidateQueries(['campuses'])
+     queryClient.invalidateQueries(['campuses'])
       toast.success('Campus deleted successfully')
     },
     onError: (error) => {
@@ -522,7 +498,7 @@ export default function CampusManagementPage() {
   // Filter campuses
   const filteredCampuses = campuses.filter(campus => {
     const matchesSearch = campus.campus_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         campus.address.toLowerCase().includes(searchTerm.toLowerCase())
+      campus.address.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesFilter = !filterMainCampus || campus.is_main_campus
     return matchesSearch && matchesFilter
   })
@@ -534,30 +510,8 @@ export default function CampusManagementPage() {
 
   const handleEditSuccess = () => {
     setEditingCampus(null)
-    // No need to invalidate queries since we're updating cache directly in form
   }
 
-  // Debug logging to track user context
-  // useEffect(() => {
-  //   console.log('🏫 CampusManagementPage - User Context Check:', {
-  //     user,
-  //     isAuthenticated,
-  //     authLoading,
-  //     fullName: getFullName(),
-  //     isAdmin: isAdmin(),
-  //     primaryRole: getPrimaryRole(),
-  //     tenant: getTenantName()
-  //   })
-  // }, [user, isAuthenticated, authLoading, getFullName, isAdmin, getPrimaryRole, getTenantName])
-  
-  // Add useEffect to track if component stays mounted
-  useEffect(() => {
-    console.log('🏫 CampusManagementPage mounted with user:', user?.email || 'No user')
-    return () => {
-      console.log('🏫 CampusManagementPage unmounted')
-    }
-  }, [user])
-  
   // Show loading if auth is still loading
   if (authLoading) {
     return (
@@ -569,20 +523,20 @@ export default function CampusManagementPage() {
       </div>
     )
   }
-  
-  // Show error if user context is missing
-  if (!isAuthenticated) {
-    return (
-      <div className="flex items-center justify-center p-8">
-        <div className="text-center">
-          <AlertCircle className="h-12 w-12 text-error-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-secondary-900 mb-2">Authentication Required</h2>
-          <p className="text-secondary-600">Please log in to access campus management.</p>
-        </div>
-      </div>
-    )
-  }
-  
+
+  // // Show error if user context is missing
+  // if (!isAuthenticated) {
+  //   return (
+  //     <div className="flex items-center justify-center p-8">
+  //       <div className="text-center">
+  //         <AlertCircle className="h-12 w-12 text-error-500 mx-auto mb-4" />
+  //         <h2 className="text-xl font-semibold text-secondary-900 mb-2">Authentication Required</h2>
+  //         <p className="text-secondary-600">Please log in to access campus management.</p>
+  //       </div>
+  //     </div>
+  //   )
+  // }
+
   return (
     <div className="space-y-6">
       <div className="mb-6">
@@ -606,15 +560,14 @@ export default function CampusManagementPage() {
               className="input pl-10 min-w-0 sm:w-80"
             />
           </div>
-          
+
           {/* Filter */}
           <button
             onClick={() => setFilterMainCampus(!filterMainCampus)}
-            className={`flex items-center space-x-2 px-3 py-2 rounded-lg border transition-colors ${
-              filterMainCampus
-                ? 'bg-primary-50 border-primary-200 text-primary-700'
-                : 'bg-white border-secondary-200 text-secondary-700 hover:bg-secondary-50'
-            }`}
+            className={`flex items-center space-x-2 px-3 py-2 rounded-lg border transition-colors ${filterMainCampus
+              ? 'bg-primary-50 border-primary-200 text-primary-700'
+              : 'bg-white border-secondary-200 text-secondary-700 hover:bg-secondary-50'
+              }`}
           >
             <Filter className="h-4 w-4" />
             <span className="text-sm">Main Campus Only</span>
@@ -622,7 +575,7 @@ export default function CampusManagementPage() {
         </div>
 
         {/* Add Campus Button */}
-        {canManageCampuses && (
+        {PERMISSIONS.CAMPUS_CREATE && (
           <button
             onClick={() => setShowCreateModal(true)}
             className="btn-primary whitespace-nowrap"
@@ -646,7 +599,7 @@ export default function CampusManagementPage() {
             </div>
           </div>
         </div>
-        
+
         <div className="bg-white rounded-lg border border-secondary-200 p-6">
           <div className="flex items-center space-x-3">
             <div className="p-3 bg-yellow-100 rounded-lg">
@@ -660,7 +613,7 @@ export default function CampusManagementPage() {
             </div>
           </div>
         </div>
-        
+
         <div className="bg-white rounded-lg border border-secondary-200 p-6">
           <div className="flex items-center space-x-3">
             <div className="p-3 bg-green-100 rounded-lg">
@@ -683,7 +636,7 @@ export default function CampusManagementPage() {
             Campus Locations ({filteredCampuses.length})
           </h2>
         </div>
-        
+
         <div className="p-6">
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
@@ -707,12 +660,12 @@ export default function CampusManagementPage() {
                 {searchTerm || filterMainCampus ? 'No campuses found' : 'No campuses yet'}
               </h3>
               <p className="text-secondary-600 mb-4">
-                {searchTerm || filterMainCampus 
+                {searchTerm || filterMainCampus
                   ? 'Try adjusting your search or filters.'
                   : 'Get started by adding your first campus location.'
                 }
               </p>
-              {canManageCampuses && !searchTerm && !filterMainCampus && (
+              {PERMISSIONS.CAMPUS_CREATE && !searchTerm && !filterMainCampus && (
                 <button
                   onClick={() => setShowCreateModal(true)}
                   className="btn-primary"
@@ -730,7 +683,6 @@ export default function CampusManagementPage() {
                   campus={campus}
                   onEdit={setEditingCampus}
                   onDelete={deleteMutation.mutate}
-                  isAdmin={canManageCampuses}
                 />
               ))}
             </div>
@@ -739,9 +691,9 @@ export default function CampusManagementPage() {
       </div>
 
       {/* Create Campus Modal */}
-      <Modal 
-        isOpen={showCreateModal} 
-        onClose={() => setShowCreateModal(false)} 
+      <Modal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
         size="lg"
         showCloseButton={false}
         closeOnBackdrop={false}
@@ -753,9 +705,9 @@ export default function CampusManagementPage() {
       </Modal>
 
       {/* Edit Campus Modal */}
-      <Modal 
-        isOpen={!!editingCampus} 
-        onClose={() => setEditingCampus(null)} 
+      <Modal
+        isOpen={!!editingCampus}
+        onClose={() => setEditingCampus(null)}
         size="lg"
         showCloseButton={false}
         closeOnBackdrop={false}

@@ -1,4 +1,23 @@
 import React, { useState, useEffect } from 'react';
+import RequiredAsterisk from './RequiredAsterisk';
+
+/**
+ * Validates a phone number
+ * @param {string} value - The phone number to validate
+ * @param {boolean} required - Whether the field is required
+ * @returns {string|null} Error message or null if valid
+ */
+export const validatePhone = (value, required = false) => {
+  if (required && (!value || !value.trim())) {
+    return 'Phone number is required';
+  }
+  
+  if (value && !/^[\+]?[0-9\s\-\(\)]{10,20}$/.test(value)) {
+    return 'Invalid phone number format';
+  }
+  
+  return null;
+};
 
 const COUNTRY_CODES = [
   { code: '+91', country: 'IN', label: 'India (+91)', flag: '🇮🇳' },
@@ -63,24 +82,24 @@ const PhoneInput = ({
   };
 
   return (
-    <div className={`flex flex-col ${className}`}>
+    <div className={`flex flex-col gap-0.5 ${className}`}>
       {label && (
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          {label} {required && <span className="text-red-500">*</span>}
+          {label} {required && <RequiredAsterisk />}
         </label>
       )}
-      <div className="flex rounded-md shadow-sm">
+      <div className="flex gap-2">
         <select
           value={countryCode}
           onChange={handleCodeChange}
           disabled={disabled}
           className={`
-            inline-flex items-center px-2 rounded-l-md border border-r-0 border-gray-300 
-            bg-gray-50 text-gray-900 text-sm focus:ring-blue-500 focus:border-blue-500
-            ${disabled ? 'cursor-not-allowed opacity-75' : ''}
-            ${error ? 'border-red-300' : ''}
+            block rounded-md border border-gray-300 bg-gray-50 py-2 pl-2 pr-1 text-gray-900 text-sm 
+            focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200
+            ${disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:bg-gray-100'}
+            ${error ? 'border-red-500 ring-red-500' : ''}
           `}
-          style={{ width: 'auto', minWidth: '90px' }}
+          style={{ width: 'auto', minWidth: '64px' }}
         >
           {COUNTRY_CODES.map((c) => (
             <option key={c.code} value={c.code}>
@@ -88,19 +107,22 @@ const PhoneInput = ({
             </option>
           ))}
         </select>
-        <input
-          type="tel"
-          name={name}
-          value={phoneNumber}
-          onChange={handleNumberChange}
-          disabled={disabled}
-          placeholder={placeholder}
-          className={`
-            flex-1 block w-full rounded-none rounded-r-md border-gray-300 focus:ring-blue-500 focus:border-blue-500 sm:text-sm
-            ${disabled ? 'bg-gray-100 cursor-not-allowed' : ''}
-            ${error ? 'border-red-500 text-red-900 placeholder-red-300' : ''}
-          `}
-        />
+        <div className="w-40">
+          <input
+            type="tel"
+            name={name}
+            value={phoneNumber}
+            onChange={handleNumberChange}
+            disabled={disabled}
+            placeholder={placeholder}
+            className={`
+              block w-full rounded-md border border-gray-300 py-2 px-3 text-gray-900 text-sm
+              focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200
+              ${disabled ? 'bg-gray-100 cursor-not-allowed opacity-60' : 'bg-white'}
+              ${error ? 'border-red-500 text-red-900 placeholder-red-300 ring-1 ring-red-500' : ''}
+            `}
+          />
+        </div>
       </div>
       {helperText && !error && (
         <p className="mt-1 text-xs text-gray-500">{helperText}</p>
