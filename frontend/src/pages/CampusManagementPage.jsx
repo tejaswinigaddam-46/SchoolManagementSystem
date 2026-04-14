@@ -349,18 +349,18 @@ const CampusCard = ({ campus, onEdit, onDelete }) => {
   return (
     <>
       <div className="bg-white rounded-lg border border-secondary-200 p-6 hover:shadow-lg transition-shadow">
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex items-start space-x-3">
-            <div className="p-2 bg-primary-100 rounded-lg">
+        <div className="flex flex-col sm:flex-row items-start justify-between mb-4 space-y-3 sm:space-y-0">
+          <div className="flex items-start space-x-3 min-w-0 w-full">
+            <div className="p-2 bg-primary-100 rounded-lg flex-shrink-0">
               <Building2 className="h-6 w-6 text-primary-600" />
             </div>
-            <div>
-              <div className="flex items-center space-x-2">
-                <h3 className="text-lg font-semibold text-secondary-900">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2 w-full">
+                <h3 className="text-lg font-semibold text-secondary-900 break-all sm:break-words line-clamp-2">
                   {campus.campus_name}
                 </h3>
                 {campus.is_main_campus && (
-                  <div className="flex items-center space-x-1">
+                  <div className="flex items-center space-x-1 flex-shrink-0">
                     <Star className="h-4 w-4 text-yellow-500 fill-current" />
                     <span className="text-xs font-medium text-yellow-700 bg-yellow-100 px-2 py-1 rounded-full">
                       Main Campus
@@ -368,14 +368,14 @@ const CampusCard = ({ campus, onEdit, onDelete }) => {
                   </div>
                 )}
               </div>
-              <p className="text-sm text-secondary-600 mt-1">
+              <p className="text-sm text-secondary-600 mt-1 truncate">
                 Created {formatDate(campus.created_at)}
               </p>
             </div>
           </div>
 
           
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 self-end sm:self-start">
                {PERMISSIONS.CAMPUS_UPDATE && (<button
                 onClick={() => onEdit(campus)}
                 className="p-2 text-secondary-500 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
@@ -538,17 +538,18 @@ export default function CampusManagementPage() {
   // }
 
   return (
-    <div className="space-y-6">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-secondary-900 mb-2">Campus Management</h1>
+    <div className="flex flex-col gap-6">
+      {/* Header */}
+      <div>
+        <h1 className="font-bold text-3xl text-secondary mb-2">Campus Management</h1>
         <p className="text-secondary-600">
           Welcome, {getFullName()}! Manage your campus locations and facilities.
         </p>
       </div>
 
       {/* Header Actions */}
-      <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
-        <div className="flex flex-col sm:flex-row gap-3 flex-1">
+      <div className="flex flex-col gap-4 items-start sm:flex-row sm:items-center">
+        <div className="flex flex-col gap-3 flex-1 sm:flex-row">
           {/* Search */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-secondary-400" />
@@ -557,16 +558,16 @@ export default function CampusManagementPage() {
               placeholder="Search campuses..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="input pl-10 min-w-0 sm:w-80"
+              className="input pl-10 sm:w-80"
             />
           </div>
 
           {/* Filter */}
           <button
             onClick={() => setFilterMainCampus(!filterMainCampus)}
-            className={`flex items-center space-x-2 px-3 py-2 rounded-lg border transition-colors ${filterMainCampus
+            className={`flex items-center gap-2 p-3 rounded-lg border transition-colors ${filterMainCampus
               ? 'bg-primary-50 border-primary-200 text-primary-700'
-              : 'bg-white border-secondary-200 text-secondary-700 hover:bg-secondary-50'
+              : 'bg-white text-secondary-700 hover:bg-primary-50'
               }`}
           >
             <Filter className="h-4 w-4" />
@@ -578,10 +579,10 @@ export default function CampusManagementPage() {
         {PERMISSIONS.CAMPUS_CREATE && (
           <button
             onClick={() => setShowCreateModal(true)}
-            className="btn-primary whitespace-nowrap"
+            className="btn-primary flex items-center gap-2"
           >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Campus
+            <Plus className="h-4 w-4" />
+            Add Campus 
           </button>
         )}
       </div>
@@ -589,23 +590,23 @@ export default function CampusManagementPage() {
       {/* Campus Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white rounded-lg border border-secondary-200 p-6">
-          <div className="flex items-center space-x-3">
-            <div className="p-3 bg-primary-100 rounded-lg">
-              <Building2 className="h-6 w-6 text-primary-600" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-secondary-600">Total Campuses</p>
-              <p className="text-2xl font-bold text-secondary-900">{campuses.length}</p>
-            </div>
+         <div className="flex items-center gap-3">
+          <div className="p-3 bg-primary-100 rounded-lg">
+            <Building2 className="h-6 w-6 text-primary-600" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-secondary-600">Total Campuses</p>
+            <p className="text-2xl font-bold text-secondary-900">{campuses.length}</p>
+          </div>
           </div>
         </div>
-
+        
         <div className="bg-white rounded-lg border border-secondary-200 p-6">
-          <div className="flex items-center space-x-3">
-            <div className="p-3 bg-yellow-100 rounded-lg">
-              <Star className="h-6 w-6 text-yellow-600" />
-            </div>
-            <div>
+          <div className="flex items-center gap-3">
+          <div className="p-3 bg-yellow-100 rounded-lg">
+            <Star className="h-6 w-6 text-yellow-600" />
+          </div>
+          <div>
               <p className="text-sm font-medium text-secondary-600">Main Campuses</p>
               <p className="text-2xl font-bold text-secondary-900">
                 {campuses.filter(c => c.is_main_campus).length}
@@ -615,11 +616,11 @@ export default function CampusManagementPage() {
         </div>
 
         <div className="bg-white rounded-lg border border-secondary-200 p-6">
-          <div className="flex items-center space-x-3">
-            <div className="p-3 bg-green-100 rounded-lg">
-              <Layers className="h-6 w-6 text-green-600" />
-            </div>
-            <div>
+          <div className="flex items-center gap-3">
+          <div className="p-3 bg-green-100 rounded-lg">
+             <Layers className="h-6 w-6 text-green-600" />
+          </div>
+          <div>
               <p className="text-sm font-medium text-secondary-600">Total Floors</p>
               <p className="text-2xl font-bold text-secondary-900">
                 {campuses.reduce((total, campus) => total + (campus.no_of_floors || 0), 0)}

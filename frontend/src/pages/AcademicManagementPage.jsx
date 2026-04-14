@@ -1,52 +1,16 @@
 import { useState } from 'react'
-import { 
-  BookOpen,
-  Calendar,
-  AlertCircle,
-  Building2
-} from 'lucide-react'
+import { AlertCircle, BookOpen, Building2, Calendar } from 'lucide-react'
+import AcademicYearsSection from '../components/forms/AcademicYearsSection'
+import CurriculaSection from '../components/forms/CurriculaSection'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import { useAuth } from '../contexts/AuthContext'
-import CurriculaSection from '../components/forms/CurriculaSection'
-import AcademicYearsSection from '../components/forms/AcademicYearsSection'
 import { PERMISSIONS } from '../config/permissions'
 
 export default function AcademicManagementPage() {
-  console.log('%c[Academic Page Mount]', 'color: cyan;');
   
   // Get auth context - use the correct properties and functions
-  const { 
-    isAuthenticated, 
-    loading: authLoading, 
-    getFullName, 
-    getPrimaryRole,
-    getCampusId,
-    getCampusName,
-    getTenantId,
-    role,
-    campusId,
-    campusName,
-    tenantId,
-    isMainCampus,
-    hasPermission
-  } = useAuth()
-  
-  // DEBUG: Comprehensive logging to understand the auth state
-  console.log('%c[Academic Page Debug - Full Auth State]', 'color: red; font-weight: bold;', {
-    isAuthenticated,
-    authLoading,
-    fullName: getFullName(),
-    primaryRole: getPrimaryRole(),
-    role,
-    campusId: getCampusId(),
-    campusName: getCampusName(),
-    tenantId: getTenantId(),
-    campusIdDirect: campusId,
-    campusNameDirect: campusName,
-    tenantIdDirect: tenantId,
-    isMainCampus,
-    timestamp: new Date().toISOString()
-  })
+  const { campusId, campusName, getFullName, hasPermission, isAuthenticated, isMainCampus,
+    loading: authLoading, role} = useAuth()
   
   // State management for active tab
   const [activeTab, setActiveTab] = useState('curricula')
@@ -71,12 +35,6 @@ export default function AcademicManagementPage() {
 
   // Show loading if auth is still loading OR if essential data is missing
   if (authLoading || (isAuthenticated && !campusId)) {
-    console.log('%c[Academic Page] Still loading user data', 'color: orange;', {
-      authLoading,
-      isAuthenticated,
-      role,
-      campusId
-    })
     return (
       <div className="flex items-center justify-center p-8">
         <div className="text-center">
@@ -92,27 +50,14 @@ export default function AcademicManagementPage() {
     )
   }
   
-  // Show error if not authenticated\
+  // Show error if not authenticated
   if (!isAuthenticated) {
-    console.log('%c[Academic Page] Authentication check failed', 'color: red;', {
-      isAuthenticated,
-      role,
-      campusId
-    })
     return (
       <div className="flex items-center justify-center p-8">
         <div className="text-center">
           <AlertCircle className="h-12 w-12 text-error-500 mx-auto mb-4" />
           <h2 className="text-xl font-semibold text-secondary-900 mb-2">Authentication Required</h2>
           <p className="text-secondary-600">Please log in to access academic management.</p>
-          <div className="mt-4 text-xs text-gray-500 bg-gray-100 p-3 rounded max-w-md">
-            <strong>DEBUG INFO:</strong><br/>
-            isAuthenticated: {String(isAuthenticated)}<br/>
-            role: {role || 'undefined'}<br/>
-            campusId: {campusId || 'undefined'}<br/>
-            authLoading: {String(authLoading)}<br/>
-            timestamp: {new Date().toISOString()}
-          </div>
         </div>
       </div>
     )
@@ -171,7 +116,6 @@ export default function AcademicManagementPage() {
           <div className="p-3 bg-primary-100 rounded-lg">
             <Building2 className="h-6 w-6 text-primary-600" />
           </div>
-          <div>
             <h3 className="text-lg font-semibold text-primary-900">
               {campusName || 'Campus Name'}
               {isMainCampus && (
@@ -180,21 +124,14 @@ export default function AcademicManagementPage() {
                 </span>
               )}
             </h3>
-            <p className="text-primary-700 mt-1">Campus Management</p>
-            <div className="flex items-center space-x-4 mt-2 text-sm text-primary-600">
-              <span>Campus ID: {campusId}</span>
-              <span>•</span>
-              <span>Role: {role}</span>
-            </div>
-          </div>
         </div>
       </div>
 
       {/* Main Content Card */}
-      <div className="bg-white rounded-lg border border-secondary-200 shadow-sm">
+      <div className="bg-white rounded-xl border border-secondary-200 shadow-sm overflow-hidden">
         {/* Tab Navigation */}
-        <div className="border-b border-secondary-200">
-          <nav className="-mb-px flex">
+        <div className="p-4 bg-secondary-50/30">
+          <div className="flex w-full gap-4">
             {tabs.map((tab) => {
               const Icon = tab.icon
               const isActive = activeTab === tab.id
@@ -203,24 +140,30 @@ export default function AcademicManagementPage() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`group flex-1 py-4 px-6 border-b-2 font-medium text-sm transition-colors ${
-                    isActive
-                      ? 'border-primary-500 text-primary-600 bg-primary-50'
-                      : 'border-transparent text-secondary-500 hover:text-secondary-700 hover:border-secondary-300 hover:bg-secondary-50'
-                  }`}
+                  className={`
+                    flex-1 flex flex-col items-center justify-center py-4 px-6 rounded-xl transition-all duration-300 border
+                    ${
+                      isActive
+                        ? 'bg-primary-50 text-primary-700 border-transparent shadow-md'
+                        : 'bg-white border-secondary-300 text-secondary-500 hover:bg-secondary-50 hover:border-secondary-300 hover:text-secondary-700'
+                    }
+                  `}
                 >
-                  <div className="flex items-center justify-center space-x-2">
-                    <Icon className={`h-5 w-5 ${isActive ? 'text-primary-600' : 'text-secondary-400 group-hover:text-secondary-600'}`} />
-                    <span>{tab.name}</span>
+                  <div className="flex items-center space-x-3">
+                    <Icon className={`h-5 w-5 ${isActive ? 'text-primary-600' : 'text-secondary-400'}`} />
+                    <span className={`font-bold text-medium tracking-wide ${isActive ? 'text-primary-900' : ''}`}>
+                      {tab.name}
+                    </span>
                   </div>
-                  <div className={`text-xs mt-1 ${isActive ? 'text-primary-500' : 'text-secondary-400'}`}>
+                  <span className={`text-sm mt-1 font-medium ${isActive ? 'text-primary-600' : 'text-secondary-400'}`}>
                     {tab.description}
-                  </div>
+                  </span>
                 </button>
               )
             })}
-          </nav>
+          </div>
         </div>
+        <div className="h-px bg-secondary-200 mx-4" />
 
         {/* Tab Content */}
         <div className="p-6">
@@ -234,7 +177,6 @@ export default function AcademicManagementPage() {
                   </h2>
                 </div>
                 <p className="text-secondary-600">
-                  Define and manage different curriculum types and educational standards for your campus.
                   Create curriculum frameworks that will be used in academic year configurations.
                 </p>
               </div>
@@ -246,13 +188,12 @@ export default function AcademicManagementPage() {
             <div>
               <div className="mb-6">
                 <div className="flex items-center space-x-2 mb-2">
-                  <Calendar className="h-6 w-6 text-orange-600" />
+                  <Calendar className="h-6 w-6 text-blue-600" />
                   <h2 className="text-xl font-semibold text-secondary-900">
                     Academic Year Configuration
                   </h2>
                 </div>
                 <p className="text-secondary-600">
-                  Set up academic year schedules, terms, and class configurations for your campus.
                   Configure year types, medium of instruction, class ranges, and associate them with curricula.
                 </p>
               </div>
@@ -280,7 +221,7 @@ export default function AcademicManagementPage() {
           </div>
           <div>
             <h4 className="font-medium text-secondary-800 mb-2 flex items-center">
-              <Calendar className="h-4 w-4 mr-2 text-orange-600" />
+              <Calendar className="h-4 w-4 mr-2 text-blue-600" />
               Academic Years
             </h4>
             <ul className="text-sm text-secondary-600 space-y-1">

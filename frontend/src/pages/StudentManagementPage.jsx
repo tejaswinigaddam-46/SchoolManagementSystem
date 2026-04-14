@@ -962,7 +962,7 @@ const StudentManagement = () => {
 
   if (showAddForm || showEditForm || showBulkImport || showBulkUpdate) {
     return (
-      <div className="p-6">
+      <div className="space-y-6">
         <div className="max-w-4xl mx-auto">
           {showBulkImport ? (
             <div className="mb-6">
