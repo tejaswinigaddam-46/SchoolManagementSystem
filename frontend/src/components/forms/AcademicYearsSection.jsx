@@ -3,8 +3,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { 
   Calendar,
   Plus, 
-  Edit, 
-  Trash2,
   AlertCircle,
   Search,
   Loader2,
@@ -15,12 +13,13 @@ import {
 } from 'lucide-react'
 import LoadingSpinner from '../ui/LoadingSpinner'
 import Modal from '../ui/Modal'
-import ConfirmationDialog from '../ui/ConfirmationDialog'
 import { useAuth } from '../../contexts/AuthContext'
 import { academicService } from '../../services/academicService'
 import classService from '../../services/classService'
 import { toast } from 'react-hot-toast'
 import { PERMISSIONS } from '../../config/permissions'
+import { EditButton, DeleteButton, ActionButtonGroup } from '../ui/ActionButtons'
+import RequiredAsterisk from '../ui/RequiredAsterisk'
 
 // Academic Year Form Component
 const AcademicYearForm = ({ academicYear, campusId, onClose, onSuccess }) => {
@@ -224,7 +223,7 @@ const AcademicYearForm = ({ academicYear, campusId, onClose, onSuccess }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-secondary-700 mb-1">
-              Year Name *
+              Year Name <RequiredAsterisk />
             </label>
             <input
               type="text"
@@ -242,7 +241,7 @@ const AcademicYearForm = ({ academicYear, campusId, onClose, onSuccess }) => {
 
           <div>
             <label className="block text-sm font-medium text-secondary-700 mb-1">
-              Year Type *
+              Year Type <RequiredAsterisk />
             </label>
             <select
               value={formData.year_type}
@@ -265,7 +264,7 @@ const AcademicYearForm = ({ academicYear, campusId, onClose, onSuccess }) => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-secondary-700 mb-1">
-              Medium *
+              Medium <RequiredAsterisk />
             </label>
             <input
               type="text"
@@ -283,7 +282,7 @@ const AcademicYearForm = ({ academicYear, campusId, onClose, onSuccess }) => {
 
           <div>
             <label className="block text-sm font-medium text-secondary-700 mb-1">
-              From Class *
+              From Class <RequiredAsterisk />
             </label>
             <select
               value={formData.fromclass}
@@ -306,7 +305,7 @@ const AcademicYearForm = ({ academicYear, campusId, onClose, onSuccess }) => {
 
           <div>
             <label className="block text-sm font-medium text-secondary-700 mb-1">
-              To Class *
+              To Class <RequiredAsterisk />
             </label>
             <select
               value={formData.toclass}
@@ -331,7 +330,7 @@ const AcademicYearForm = ({ academicYear, campusId, onClose, onSuccess }) => {
         {/* Curriculum */}
         <div>
           <label className="block text-sm font-medium text-secondary-700 mb-1">
-            Curriculum *
+            Curriculum <RequiredAsterisk />
           </label>
           <select
             value={formData.curriculum_id}
@@ -473,25 +472,14 @@ const AcademicYearForm = ({ academicYear, campusId, onClose, onSuccess }) => {
 // Academic Year Card Component
 const AcademicYearCard = ({ academicYear, onEdit, onDelete, isAdmin }) => {
   const [isDeleting, setIsDeleting] = useState(false)
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-
-  const handleDeleteClick = () => {
-    setShowDeleteConfirm(true)
-  }
 
   const handleDeleteConfirm = async () => {
     setIsDeleting(true)
-    setShowDeleteConfirm(false)
-    
     try {
       await onDelete(academicYear.academic_year_id)
     } finally {
       setIsDeleting(false)
     }
-  }
-
-  const handleDeleteCancel = () => {
-    setShowDeleteConfirm(false)
   }
 
   const formatDate = (dateString) => {
@@ -517,106 +505,83 @@ const AcademicYearCard = ({ academicYear, onEdit, onDelete, isAdmin }) => {
   }
 
   return (
-    <>
-      <div className="bg-white rounded-lg border border-secondary-200 p-6 hover:shadow-md transition-shadow">
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex items-start space-x-3">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <Calendar className="h-6 w-6 text-blue-600" />
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold text-secondary-900 mb-1">
-                {academicYear.year_name}
-              </h3>
-              <div className="flex items-center space-x-2 mb-2">
-                <span className={`text-xs font-medium px-2 py-1 rounded-full ${getYearTypeColor(academicYear.year_type)}`}>
-                  {academicYear.year_type}
-                </span>
-                <span className="text-xs bg-secondary-100 text-secondary-700 px-2 py-1 rounded-full">
-                  {academicYear.medium}
-                </span>
-              </div>
-            </div>
+    <div className="bg-white rounded-lg border border-secondary-200 p-6 hover:shadow-md transition-shadow">
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex items-start space-x-3">
+          <div className="p-2 bg-blue-100 rounded-lg">
+            <Calendar className="h-6 w-6 text-blue-600" />
           </div>
-          
-          {isAdmin && (
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={() => onEdit(academicYear)}
-                className="p-2 text-secondary-500 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
-                title="Edit academic year"
-              >
-                <Edit className="h-4 w-4" />
-              </button>
-              <button
-                onClick={handleDeleteClick}
-                disabled={isDeleting}
-                className="p-2 text-secondary-500 hover:text-error-600 hover:bg-error-50 rounded-lg transition-colors"
-                title="Delete academic year"
-              >
-                {isDeleting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Trash2 className="h-4 w-4" />
-                )}
-              </button>
-            </div>
-          )}
-        </div>
-
-        <div className="space-y-3">
-          <div className="flex items-center space-x-2">
-            <GraduationCap className="h-4 w-4 text-secondary-400" />
-            <span className="text-sm text-secondary-700">
-              Classes: {academicYear.fromclass} to {academicYear.toclass}
-            </span>
-          </div>
-
-          {academicYear.curriculum_name && (
-            <div className="flex items-center space-x-2">
-              <BookOpen className="h-4 w-4 text-secondary-400" />
-              <span className="text-sm text-secondary-700">
-                {academicYear.curriculum_name} ({academicYear.curriculum_code})
+          <div>
+            <h3 className="text-lg font-semibold text-secondary-900 mb-1">
+              {academicYear.year_name}
+            </h3>
+            <div className="flex items-center space-x-2 mb-2">
+              <span className={`text-xs font-medium px-2 py-1 rounded-full ${getYearTypeColor(academicYear.year_type)}`}>
+                {academicYear.year_type}
+              </span>
+              <span className="text-xs bg-secondary-100 text-secondary-700 px-2 py-1 rounded-full">
+                {academicYear.medium}
               </span>
             </div>
-          )}
-
-          <div className="flex items-center space-x-2">
-            <Calendar className="h-4 w-4 text-secondary-400" />
-            <span className="text-sm text-secondary-700">
-              {formatDate(academicYear.start_date)} - {formatDate(academicYear.end_date)}
-            </span>
-          </div>
-
-          {(academicYear.start_time_of_day || academicYear.end_time_of_day) && (
-            <div className="flex items-center space-x-2">
-              <Clock className="h-4 w-4 text-secondary-400" />
-              <span className="text-sm text-secondary-700">
-                {academicYear.start_time_of_day || 'Start'} - {academicYear.end_time_of_day || 'End'}
-                {academicYear.shift_type && ` (${academicYear.shift_type})`}
-              </span>
-            </div>
-          )}
-
-          <div className="text-xs text-secondary-500 pt-2 border-t border-secondary-100">
-            ID: {academicYear.academic_year_id}
           </div>
         </div>
+        
+        {isAdmin && (
+          <ActionButtonGroup>
+            <EditButton
+              onClick={() => onEdit(academicYear)}
+              title="Edit academic year"
+            />
+            <DeleteButton
+              onClick={handleDeleteConfirm}
+              isDeleting={isDeleting}
+              title="Delete academic year"
+              confirmTitle="Delete Academic Year"
+              confirmMessage={`Are you sure you want to delete "${academicYear.year_name}"? This action cannot be undone and may affect associated data.`}
+            />
+          </ActionButtonGroup>
+        )}
       </div>
 
-      {/* Delete Confirmation Dialog */}
-      <ConfirmationDialog
-        isOpen={showDeleteConfirm}
-        onClose={handleDeleteCancel}
-        onConfirm={handleDeleteConfirm}
-        title="Delete Academic Year"
-        message={`Are you sure you want to delete "${academicYear.year_name}"? This action cannot be undone and may affect associated data.`}
-        confirmText="Delete Academic Year"
-        cancelText="Cancel"
-        variant="danger"
-        isLoading={isDeleting}
-      />
-    </>
+      <div className="space-y-3">
+        <div className="flex items-center space-x-2">
+          <GraduationCap className="h-4 w-4 text-secondary-400" />
+          <span className="text-sm text-secondary-700">
+            Classes: {academicYear.fromclass} to {academicYear.toclass}
+          </span>
+        </div>
+
+        {academicYear.curriculum_name && (
+          <div className="flex items-center space-x-2">
+            <BookOpen className="h-4 w-4 text-secondary-400" />
+            <span className="text-sm text-secondary-700">
+              {academicYear.curriculum_name} ({academicYear.curriculum_code})
+            </span>
+          </div>
+        )}
+
+        <div className="flex items-center space-x-2">
+          <Calendar className="h-4 w-4 text-secondary-400" />
+          <span className="text-sm text-secondary-700">
+            {formatDate(academicYear.start_date)} - {formatDate(academicYear.end_date)}
+          </span>
+        </div>
+
+        {(academicYear.start_time_of_day || academicYear.end_time_of_day) && (
+          <div className="flex items-center space-x-2">
+            <Clock className="h-4 w-4 text-secondary-400" />
+            <span className="text-sm text-secondary-700">
+              {academicYear.start_time_of_day || 'Start'} - {academicYear.end_time_of_day || 'End'}
+              {academicYear.shift_type && ` (${academicYear.shift_type})`}
+            </span>
+          </div>
+        )}
+
+        <div className="text-xs text-secondary-500 pt-2 border-t border-secondary-100">
+          ID: {academicYear.academic_year_id}
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -628,8 +593,6 @@ export default function AcademicYearsSection({ campusId }) {
   const [searchTerm, setSearchTerm] = useState('')
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [editingAcademicYear, setEditingAcademicYear] = useState(null)
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-  const [academicYearToDelete, setAcademicYearToDelete] = useState(null)
   
   const queryClient = useQueryClient()
 
@@ -690,21 +653,6 @@ export default function AcademicYearsSection({ campusId }) {
 
   const handleEditSuccess = () => {
     setEditingAcademicYear(null)
-  }
-
-  const handleDeleteClick = (academicYear) => {
-    setAcademicYearToDelete(academicYear)
-    setShowDeleteConfirm(true)
-  }
-
-  const handleDeleteCancel = () => {
-    setShowDeleteConfirm(false)
-    setAcademicYearToDelete(null)
-  }
-
-  const handleDeleteConfirm = () => {
-    if (!academicYearToDelete) return
-    deleteMutation.mutate(academicYearToDelete.academic_year_id)
   }
 
   return (
@@ -925,26 +873,25 @@ export default function AcademicYearsSection({ campusId }) {
                     </td>
                     {canManageAcademicYears && (
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex items-center justify-end space-x-2">
+                        <ActionButtonGroup className="justify-end">
                           {canEditAcademicYear && (
-                            <button
+                            <EditButton
                               onClick={() => setEditingAcademicYear(academicYear)}
-                              className="text-primary-600 hover:text-primary-900 p-1.5 rounded-lg hover:bg-primary-50"
                               title="Edit academic year"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </button>
+                              className="p-1.5"
+                            />
                           )}
                           {canDeleteAcademicYear && (
-                            <button
-                              onClick={() => handleDeleteClick(academicYear)}
-                              className="text-error-600 hover:text-error-900 p-1.5 rounded-lg hover:bg-error-50"
+                            <DeleteButton
+                              onClick={() => deleteMutation.mutate(academicYear.academic_year_id)}
+                              isDeleting={deleteMutation.isPending && deleteMutation.variables === academicYear.academic_year_id}
                               title="Delete academic year"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
+                              className="p-1.5"
+                              confirmTitle="Delete Academic Year"
+                              confirmMessage={`Are you sure you want to delete "${academicYear.year_name}"? This action cannot be undone and may affect associated data.`}
+                            />
                           )}
-                        </div>
+                        </ActionButtonGroup>
                       </td>
                     )}
                   </tr>
@@ -988,22 +935,6 @@ export default function AcademicYearsSection({ campusId }) {
           />
         )}
       </Modal>
-
-      <ConfirmationDialog
-        isOpen={showDeleteConfirm}
-        onClose={handleDeleteCancel}
-        onConfirm={handleDeleteConfirm}
-        title="Delete Academic Year"
-        message={
-          academicYearToDelete
-            ? `Are you sure you want to delete "${academicYearToDelete.year_name}"? This action cannot be undone and may affect associated data.`
-            : 'Are you sure you want to delete this academic year? This action cannot be undone and may affect associated data.'
-        }
-        confirmText="Delete Academic Year"
-        cancelText="Cancel"
-        variant="danger"
-        isLoading={isDeleting}
-      />
     </div>
   )
 }

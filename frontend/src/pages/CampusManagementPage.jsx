@@ -6,7 +6,6 @@ import { toast } from 'react-hot-toast'
 import { campusService } from '../services/campusService'
 import { PERMISSIONS } from '../config/permissions'
 import { useAuth } from '../contexts/AuthContext'
-import ConfirmationDialog from '../components/ui/ConfirmationDialog'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import Modal from '../components/ui/Modal'
 import PhoneInput, { validatePhone } from '../components/ui/PhoneInput'
@@ -318,25 +317,14 @@ const CampusForm = ({ campus, onClose, onSuccess }) => {
 // Campus Card Component
 const CampusCard = ({ campus, onEdit, onDelete }) => {
   const [isDeleting, setIsDeleting] = useState(false)
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-
-  const handleDeleteClick = () => {
-    setShowDeleteConfirm(true)
-  }
 
   const handleDeleteConfirm = async () => {
     setIsDeleting(true)
-    setShowDeleteConfirm(false)
-
     try {
       await onDelete(campus.campus_id)
     } finally {
       setIsDeleting(false)
     }
-  }
-
-  const handleDeleteCancel = () => {
-    setShowDeleteConfirm(false)
   }
 
   const formatDate = (dateString) => {
@@ -348,104 +336,91 @@ const CampusCard = ({ campus, onEdit, onDelete }) => {
   }
 
   return (
-    <>
-      <div className="bg-white rounded-lg border border-secondary-200 p-6 hover:shadow-lg transition-shadow">
-        <div className="flex flex-col sm:flex-row items-start justify-between mb-4 space-y-3 sm:space-y-0">
-          <div className="flex items-start space-x-3 min-w-0 w-full">
-            <div className="p-2 bg-primary-100 rounded-lg flex-shrink-0">
-              <Building2 className="h-6 w-6 text-primary-600" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2 w-full">
-                <h3 className="text-lg font-semibold text-secondary-900 break-all sm:break-words line-clamp-2">
-                  {campus.campus_name}
-                </h3>
-                {campus.is_main_campus && (
-                  <div className="flex items-center space-x-1 flex-shrink-0">
-                    <Star className="h-4 w-4 text-yellow-500 fill-current" />
-                    <span className="text-xs font-medium text-yellow-700 bg-yellow-100 px-2 py-1 rounded-full">
-                      Main Campus
-                    </span>
-                  </div>
-                )}
-              </div>
-              <p className="text-sm text-secondary-600 mt-1 truncate">
-                Created {formatDate(campus.created_at)}
-              </p>
-            </div>
+    <div className="bg-white rounded-lg border border-secondary-200 p-6 hover:shadow-lg transition-shadow">
+      <div className="flex flex-col sm:flex-row items-start justify-between mb-4 space-y-3 sm:space-y-0">
+        <div className="flex items-start space-x-3 min-w-0 w-full">
+          <div className="p-2 bg-primary-100 rounded-lg flex-shrink-0">
+            <Building2 className="h-6 w-6 text-primary-600" />
           </div>
-
-          
-            <ActionButtonGroup className="self-end sm:self-start">
-               {PERMISSIONS.CAMPUS_UPDATE && (
-                <EditButton 
-                  onClick={() => onEdit(campus)} 
-                  title="Edit campus" 
-                />
-              )}
-              {PERMISSIONS.CAMPUS_DELETE && (
-                <DeleteButton 
-                  onClick={handleDeleteClick} 
-                  isDeleting={isDeleting} 
-                  title="Delete campus" 
-                />
-              )}
-            </ActionButtonGroup>
-        </div>
-
-        <div className="space-y-3">
-          <div className="flex items-start space-x-2">
-            <MapPin className="h-4 w-4 text-secondary-400 mt-0.5 flex-shrink-0" />
-            <p className="text-sm text-secondary-700">{campus.address}</p>
-          </div>
-
-          {campus.phone_number && (
-            <div className="flex items-center space-x-2">
-              <Phone className="h-4 w-4 text-secondary-400" />
-              <PhoneNumberDisplay value={campus.phone_number} className="text-sm" />
-            </div>
-          )}
-
-          {campus.email && (
-            <div className="flex items-center space-x-2">
-              <Mail className="h-4 w-4 text-secondary-400" />
-              <p className="text-sm text-secondary-700">{campus.email}</p>
-            </div>
-          )}
-
-          <div className="flex items-center justify-between pt-2 border-t border-secondary-100">
-            <div className="flex items-center space-x-4">
-              {campus.year_established && (
-                <div className="flex items-center space-x-1">
-                  <Calendar className="h-4 w-4 text-secondary-400" />
-                  <span className="text-sm text-secondary-600">Est. {campus.year_established}</span>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2 w-full">
+              <h3 className="text-lg font-semibold text-secondary-900 break-all sm:break-words line-clamp-2">
+                {campus.campus_name}
+              </h3>
+              {campus.is_main_campus && (
+                <div className="flex items-center space-x-1 flex-shrink-0">
+                  <Star className="h-4 w-4 text-yellow-500 fill-current" />
+                  <span className="text-xs font-medium text-yellow-700 bg-yellow-100 px-2 py-1 rounded-full">
+                    Main Campus
+                  </span>
                 </div>
               )}
+            </div>
+            <p className="text-sm text-secondary-600 mt-1 truncate">
+              Created {formatDate(campus.created_at)}
+            </p>
+          </div>
+        </div>
 
+        
+          <ActionButtonGroup className="self-end sm:self-start">
+             {PERMISSIONS.CAMPUS_UPDATE && (
+              <EditButton 
+                onClick={() => onEdit(campus)} 
+                title="Edit campus" 
+              />
+            )}
+            {PERMISSIONS.CAMPUS_DELETE && (
+              <DeleteButton 
+                onClick={handleDeleteConfirm} 
+                isDeleting={isDeleting} 
+                title="Delete campus" 
+                confirmTitle="Delete Campus"
+                confirmMessage={`Are you sure you want to delete "${campus.campus_name}"? This action cannot be undone and will permanently remove all campus data.`}
+              />
+            )}
+          </ActionButtonGroup>
+      </div>
+
+      <div className="space-y-3">
+        <div className="flex items-start space-x-2">
+          <MapPin className="h-4 w-4 text-secondary-400 mt-0.5 flex-shrink-0" />
+          <p className="text-sm text-secondary-700">{campus.address}</p>
+        </div>
+
+        {campus.phone_number && (
+          <div className="flex items-center space-x-2">
+            <Phone className="h-4 w-4 text-secondary-400" />
+            <PhoneNumberDisplay value={campus.phone_number} className="text-sm" />
+          </div>
+        )}
+
+        {campus.email && (
+          <div className="flex items-center space-x-2">
+            <Mail className="h-4 w-4 text-secondary-400" />
+            <p className="text-sm text-secondary-700">{campus.email}</p>
+          </div>
+        )}
+
+        <div className="flex items-center justify-between pt-2 border-t border-secondary-100">
+          <div className="flex items-center space-x-4">
+            {campus.year_established && (
               <div className="flex items-center space-x-1">
-                <Layers className="h-4 w-4 text-secondary-400" />
-                <span className="text-sm text-secondary-600">
-                  {campus.no_of_floors} floor{campus.no_of_floors !== 1 ? 's' : ''}
-                </span>
+                <Calendar className="h-4 w-4 text-secondary-400" />
+                <span className="text-sm text-secondary-600">Est. {campus.year_established}</span>
               </div>
+            )}
+
+            <div className="flex items-center space-x-1">
+              <Layers className="h-4 w-4 text-secondary-400" />
+              <span className="text-sm text-secondary-600">
+                {campus.no_of_floors} floor{campus.no_of_floors !== 1 ? 's' : ''}
+              </span>
             </div>
           </div>
         </div>
       </div>
-
-      {/* Delete Confirmation Dialog */}
-      <ConfirmationDialog
-        isOpen={showDeleteConfirm}
-        onClose={handleDeleteCancel}
-        onConfirm={handleDeleteConfirm}
-        title="Delete Campus"
-        message={`Are you sure you want to delete "${campus.campus_name}"? This action cannot be undone and will permanently remove all campus data.`}
-        confirmText="Delete Campus"
-        cancelText="Cancel"
-        variant="danger"
-        isLoading={isDeleting}
-      />
-    </>
+    </div>
   )
 }
 

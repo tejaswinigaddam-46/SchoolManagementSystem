@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { AlertCircle, BookOpen, Building2, Calendar } from 'lucide-react'
+import { AlertCircle, BookOpen, Building2, Calendar, Layers } from 'lucide-react'
 import AcademicYearsSection from '../components/forms/AcademicYearsSection'
 import CurriculaSection from '../components/forms/CurriculaSection'
+import ClassesSection from '../components/forms/ClassesSection'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import { useAuth } from '../contexts/AuthContext'
 import { PERMISSIONS } from '../config/permissions'
@@ -25,10 +26,17 @@ export default function AcademicManagementPage() {
       count: 'curricula'
     },
     {
+      id: 'class',
+      name: 'Class Management',
+      icon: Building2,
+      description: 'Manage class ranges',
+      count: 'class'
+    },
+    {
       id: 'academic-years',
       name: 'Academic Years',
       icon: Calendar,
-      description: 'Configure academic year schedules and settings',
+      description: 'Configure academic year schedules',
       count: 'academicYears'
     }
   ]
@@ -184,6 +192,23 @@ export default function AcademicManagementPage() {
             </div>
           )}
 
+          {activeTab === 'class' && (
+            <div>
+              <div className="mb-6">
+                <div className="flex items-center space-x-2 mb-2">
+                  <Layers className="h-6 w-6 text-blue-600" />
+                  <h2 className="text-xl font-semibold text-secondary-900">
+                    Class Management
+                  </h2>
+                </div>
+                <p className="text-secondary-600">
+                  Manage the class levels and names available for your campus.
+                </p>
+              </div>
+              <ClassesSection campusId={campusId} />
+            </div>
+          )}
+
           {activeTab === 'academic-years' && (
             <div>
               <div className="mb-6">
@@ -206,17 +231,27 @@ export default function AcademicManagementPage() {
       {/* Help Section */}
       <div className="bg-secondary-50 rounded-lg border border-secondary-200 p-6">
         <h3 className="text-lg font-semibold text-secondary-900 mb-3">Quick Guide</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div>
             <h4 className="font-medium text-secondary-800 mb-2 flex items-center">
               <BookOpen className="h-4 w-4 mr-2 text-blue-600" />
               Curricula Management
             </h4>
             <ul className="text-sm text-secondary-600 space-y-1">
-              <li>• Create curriculum types (CBSE, ICSE, State Board, etc.)</li>
-              <li>• Each curriculum needs a unique code and descriptive name</li>
-              <li>• Curricula are required before creating academic years</li>
-              <li>• You can edit or delete curricula if not in use</li>
+              <li>• Create curriculum types (CBSE, State Board..)</li>
+              <li>• Each curriculum needs a unique code and name</li>
+              <li>• Curricula required for creating academic years</li>
+            </ul>
+          </div>
+          <div>
+            <h4 className="font-medium text-secondary-800 mb-2 flex items-center">
+              <Layers className="h-4 w-4 mr-2 text-primary-600" />
+              Class Management
+            </h4>
+            <ul className="text-sm text-secondary-600 space-y-1">
+              <li>• Create and manage class levels (1-12)</li>
+              <li>• Each class needs a unique name.</li>
+              <li>• Classes required for creating academic years</li>
             </ul>
           </div>
           <div>
@@ -225,8 +260,7 @@ export default function AcademicManagementPage() {
               Academic Years
             </h4>
             <ul className="text-sm text-secondary-600 space-y-1">
-              <li>• Configure academic year schedules and settings</li>
-              <li>• Set year types: Current, Previous, or Next year</li>
+              <li>• Configure academic year and schedules</li>
               <li>• Define class ranges and medium of instruction</li>
               <li>• Associate with curricula for complete setup</li>
             </ul>

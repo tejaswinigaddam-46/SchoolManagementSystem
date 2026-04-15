@@ -3,8 +3,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { 
   BookOpen,
   Plus, 
-  Edit, 
-  Trash2,
   AlertCircle,
   Search,
   Loader2,
@@ -14,11 +12,12 @@ import {
 } from 'lucide-react'
 import LoadingSpinner from '../ui/LoadingSpinner'
 import Modal from '../ui/Modal'
-import ConfirmationDialog from '../ui/ConfirmationDialog'
 import { useAuth } from '../../contexts/AuthContext'
 import { academicService } from '../../services/academicService'
 import { toast } from 'react-hot-toast'
 import { PERMISSIONS } from '../../config/permissions'
+import { EditButton, DeleteButton, ActionButtonGroup } from '../ui/ActionButtons'
+import RequiredAsterisk from '../ui/RequiredAsterisk'
 
 // Curriculum Form Component
 const CurriculumForm = ({ curriculum, campusId, onClose, onSuccess }) => {
@@ -139,7 +138,7 @@ const CurriculumForm = ({ curriculum, campusId, onClose, onSuccess }) => {
         {/* Curriculum Code */}
         <div>
           <label className="block text-sm font-medium text-secondary-700 mb-1">
-            Curriculum Code *
+            Curriculum Code <RequiredAsterisk />
           </label>
           <input
             type="text"
@@ -161,7 +160,7 @@ const CurriculumForm = ({ curriculum, campusId, onClose, onSuccess }) => {
         {/* Curriculum Name */}
         <div>
           <label className="block text-sm font-medium text-secondary-700 mb-1">
-            Curriculum Name *
+            Curriculum Name <RequiredAsterisk />
           </label>
           <input
             type="text"
@@ -213,16 +212,9 @@ const CurriculumForm = ({ curriculum, campusId, onClose, onSuccess }) => {
 // Curriculum Card Component
 const CurriculumCard = ({ curriculum, onEdit, onDelete, canManage }) => {
   const [isDeleting, setIsDeleting] = useState(false)
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-
-  const handleDeleteClick = () => {
-    setShowDeleteConfirm(true)
-  }
 
   const handleDeleteConfirm = async () => {
     setIsDeleting(true)
-    setShowDeleteConfirm(false)
-    
     try {
       await onDelete(curriculum.curriculum_id)
     } finally {
@@ -230,74 +222,49 @@ const CurriculumCard = ({ curriculum, onEdit, onDelete, canManage }) => {
     }
   }
 
-  const handleDeleteCancel = () => {
-    setShowDeleteConfirm(false)
-  }
-
   return (
-    <>
-      <div className="bg-white rounded-lg border border-secondary-200 p-4 hover:shadow-md transition-shadow">
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex items-start space-x-3">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <BookOpen className="h-5 w-5 text-blue-600" />
-            </div>
-            <div>
-              <h3 className="font-semibold text-secondary-900 mb-1">
-                {curriculum.curriculum_name}
-              </h3>
-              <div className="flex items-center space-x-1">
-                <Code className="h-4 w-4 text-secondary-400" />
-                <span className="text-sm text-secondary-600 font-mono">
-                  {curriculum.curriculum_code}
-                </span>
-              </div>
+    <div className="bg-white rounded-lg border border-secondary-200 p-4 hover:shadow-md transition-shadow">
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-start space-x-3">
+          <div className="p-2 bg-blue-100 rounded-lg">
+            <BookOpen className="h-5 w-5 text-blue-600" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-secondary-900 mb-1">
+              {curriculum.curriculum_name}
+            </h3>
+            <div className="flex items-center space-x-1">
+              <Code className="h-4 w-4 text-secondary-400" />
+              <span className="text-sm text-secondary-600 font-mono">
+                {curriculum.curriculum_code}
+              </span>
             </div>
           </div>
-          
-          {canManage && (
-            <div className="flex items-center space-x-1">
-              <button
-                onClick={() => onEdit(curriculum)}
-                className="p-1.5 text-secondary-500 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
-                title="Edit curriculum"
-              >
-                <Edit className="h-4 w-4" />
-              </button>
-              <button
-                onClick={handleDeleteClick}
-                disabled={isDeleting}
-                className="p-1.5 text-secondary-500 hover:text-error-600 hover:bg-error-50 rounded-lg transition-colors"
-                title="Delete curriculum"
-              >
-                {isDeleting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Trash2 className="h-4 w-4" />
-                )}
-              </button>
-            </div>
-          )}
         </div>
-
-        <div className="text-xs text-secondary-500">
-          ID: {curriculum.curriculum_id}
-        </div>
+        
+        {canManage && (
+          <ActionButtonGroup className="space-x-1">
+            <EditButton
+              onClick={() => onEdit(curriculum)}
+              title="Edit curriculum"
+              className="p-1.5"
+            />
+            <DeleteButton
+              onClick={handleDeleteConfirm}
+              isDeleting={isDeleting}
+              title="Delete curriculum"
+              className="p-1.5"
+              confirmTitle="Delete Curriculum"
+              confirmMessage={`Are you sure you want to delete "${curriculum.curriculum_name}"? This action cannot be undone and may affect associated academic years.`}
+            />
+          </ActionButtonGroup>
+        )}
       </div>
 
-      {/* Delete Confirmation Dialog */}
-      <ConfirmationDialog
-        isOpen={showDeleteConfirm}
-        onClose={handleDeleteCancel}
-        onConfirm={handleDeleteConfirm}
-        title="Delete Curriculum"
-        message={`Are you sure you want to delete "${curriculum.curriculum_name}"? This action cannot be undone and may affect associated academic years.`}
-        confirmText="Delete Curriculum"
-        cancelText="Cancel"
-        variant="danger"
-        isLoading={isDeleting}
-      />
-    </>
+      <div className="text-xs text-secondary-500">
+        ID: {curriculum.curriculum_id}
+      </div>
+    </div>
   )
 }
 
@@ -475,22 +442,21 @@ export default function CurriculaSection({ campusId }) {
                     </td>
                     {canManageCurricula && (
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex items-center justify-end space-x-2">
-                          <button
+                        <ActionButtonGroup className="justify-end">
+                          <EditButton
                             onClick={() => setEditingCurriculum(curriculum)}
-                            className="text-primary-600 hover:text-primary-900 p-1.5 rounded-lg hover:bg-primary-50"
                             title="Edit curriculum"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </button>
-                          <button
+                            className="p-1.5"
+                          />
+                          <DeleteButton
                             onClick={() => deleteMutation.mutate(curriculum.curriculum_id)}
-                            className="text-error-600 hover:text-error-900 p-1.5 rounded-lg hover:bg-error-50"
+                            isDeleting={deleteMutation.isPending && deleteMutation.variables === curriculum.curriculum_id}
                             title="Delete curriculum"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
+                            className="p-1.5"
+                            confirmTitle="Delete Curriculum"
+                            confirmMessage={`Are you sure you want to delete "${curriculum.curriculum_name}"? This action cannot be undone and may affect associated academic years.`}
+                          />
+                        </ActionButtonGroup>
                       </td>
                     )}
                   </tr>

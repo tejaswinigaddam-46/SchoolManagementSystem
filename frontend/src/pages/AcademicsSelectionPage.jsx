@@ -13,7 +13,7 @@ export default function AcademicsSelectionPage() {
     {
       id: 'academic-setup',
       title: 'Academic Setup',
-      description: 'Manage academic years, curricula, and academic structure',
+      description: 'Manage academic years, classes, and curricula',
       icon: BookOpen,
       path: '/academics/setup',
       color: 'from-blue-500 to-blue-600'

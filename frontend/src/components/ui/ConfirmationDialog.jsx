@@ -55,13 +55,13 @@ export default function ConfirmationDialog({
           </div>
           
           {/* Content */}
-          <div className="flex-1 min-w-0">
-            <h3 className="text-lg font-semibold text-secondary-900 mb-2">
+          <div className="flex-1 min-w-0 text-center">
+            <h3 className="text-lg font-semibold text-secondary-900 mb-2 ">
               {title}
             </h3>
-            <p className="text-sm text-secondary-600 leading-relaxed">
+            <div className="text-sm text-secondary-600 break-words whitespace-pre-wrap">
               {message}
-            </p>
+            </div>
           </div>
           
           {/* Close button */}
