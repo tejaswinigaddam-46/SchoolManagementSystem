@@ -1,25 +1,33 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
+import { 
+  Plus, 
+  Search, 
+  Layers, 
+  X,
+  BookOpen
+} from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import Card from '../components/ui/Card';
-import ConfirmationDialog from '../components/ui/ConfirmationDialog';
+import Modal from '../components/ui/Modal';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { PERMISSIONS } from '../config/permissions';
 import subjectService from '../services/subjectService';
 import { academicService } from '../services/academicService';
+import { EditButton, DeleteButton, ActionButtonGroup } from '../components/ui/ActionButtons';
+import RequiredAsterisk from '../components/ui/RequiredAsterisk';
 
 // InputField component for consistent form styling
-const InputField = ({ label, name, type = 'text', required = false, options = null, className = '', formData, handleInputChange, disabled = false }) => (
+const InputField = ({ label, name, type = 'text', required = false, options = null, className = '', formData, handleInputChange, disabled = false, placeholder = '' }) => (
   <div className={`${className}`}>
-    <label className="block text-xs font-medium text-gray-700 mb-1">
-      {label} {required && <span className="text-red-500">*</span>}
+    <label className="form-label">
+      {label} {required && <RequiredAsterisk />}
     </label>
     {type === 'select' ? (
       <select
         name={name}
         value={formData[name]}
         onChange={handleInputChange}
-        className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 h-8"
+        className="input"
         required={required}
         disabled={disabled}
       >
@@ -36,9 +44,10 @@ const InputField = ({ label, name, type = 'text', required = false, options = nu
         name={name}
         value={formData[name]}
         onChange={handleInputChange}
-        className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 h-8"
+        className="input"
         required={required}
         disabled={disabled}
+        placeholder={placeholder || `Enter ${label}`}
       />
     )}
   </div>
@@ -54,7 +63,6 @@ const SubjectManagementPage = () => {
   const [editingSubject, setEditingSubject] = useState(null);
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState({ show: false, subject: null });
   const [searchQuery, setSearchQuery] = useState('');
   const [formData, setFormData] = useState({
     subject_name: '',
@@ -257,34 +265,6 @@ const SubjectManagementPage = () => {
     setShowEditForm(true);
   };
 
-  // Handle delete subject
-  const handleDeleteSubject = (subject) => {
-    setDeleteConfirm({ show: true, subject });
-  };
-
-  // Confirm delete subject
-  const confirmDeleteSubject = async () => {
-    if (!campusId) {
-      toast.error('Campus information not available');
-      return;
-    }
-
-    try {
-      setDeleting(true);
-      const response = await subjectService.deleteSubject(campusId, deleteConfirm.subject.subject_id);
-      if (response.success) {
-        toast.success('Subject deleted successfully!');
-        fetchSubjects();
-        setDeleteConfirm({ show: false, subject: null });
-      }
-    } catch (error) {
-      console.error('Error deleting subject:', error);
-      toast.error(error.message || 'Failed to delete subject');
-    } finally {
-      setDeleting(false);
-    }
-  };
-
   const handleAddSubject = () => {
     resetFormData();
     // Refresh curricula when opening the form
@@ -311,218 +291,249 @@ const SubjectManagementPage = () => {
     );
   }
 
-  if (showAddForm || showEditForm) {
-    return (
-      <div className="p-6">
-        <div className="max-w-2xl mx-auto">
-          <Card>
-            <div className="p-6">
-              <h2 className="text-xl font-semibold mb-4">
-                {showEditForm ? 'Edit Subject' : 'Add New Subject'}
-              </h2>
-              <div className="mb-4 text-sm text-gray-600">
-                Campus: <span className="font-medium">{campusName}</span>
-              </div>
-              
-              <form onSubmit={handleSubmit}>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <InputField 
-                    label="Subject Name" 
-                    name="subject_name" 
-                    required 
-                    formData={formData} 
-                    handleInputChange={handleInputChange}
-                  />
-                  
-                  <InputField 
-                    label="Subject Code" 
-                    name="subject_code" 
-                    formData={formData} 
-                    handleInputChange={handleInputChange}
-                  />
-
-                  <InputField 
-                    label="Category" 
-                    name="category" 
-                    type="select" 
-                    options={subjectCategories}
-                    required 
-                    formData={formData} 
-                    handleInputChange={handleInputChange}
-                  />
-
-                  <InputField 
-                    label="Curriculum" 
-                    name="curriculum_id" 
-                    type="select" 
-                    options={curricula.map(c => ({ 
-                      value: c.curriculum_id, 
-                      label: c.curriculum_code
-                    }))}
-                    required 
-                    formData={formData} 
-                    handleInputChange={handleInputChange}
-                  />
-                </div>
-
-                {/* Form Actions */}
-                <div className="flex justify-end space-x-4 mt-6 pt-4 border-t">
-                  <button
-                    type="button"
-                    onClick={handleCancel}
-                    className="px-6 py-2 text-gray-600 border border-gray-300 rounded hover:bg-gray-50"
-                    disabled={loading}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
-                    disabled={loading}
-                  >
-                    {loading && <LoadingSpinner className="w-4 h-4" />}
-                    {showEditForm ? 'Update Subject' : 'Add Subject'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </Card>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
+    <div className="p-6 space-y-6">
+      {/* Add/Edit Subject Modal */}
+      <Modal
+         isOpen={showAddForm || showEditForm}
+         onClose={handleCancel}
+         title={showEditForm ? 'Edit Subject' : 'Add New Subject'}
+         showCloseButton={false}
+       >
+        <form onSubmit={handleSubmit} className="p-6">
+          <div className="mb-6">
+            <p className="text-sm text-secondary-500">
+              Campus: <span className="font-medium text-secondary-900">{campusName}</span>
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <InputField 
+              label="Subject Name" 
+              name="subject_name" 
+              required 
+              formData={formData} 
+              handleInputChange={handleInputChange}
+              placeholder="e.g. English, Mathematics"
+            />
+            
+            <InputField 
+               label="Subject Code" 
+               name="subject_code" 
+               required 
+               formData={formData} 
+               handleInputChange={handleInputChange}
+               placeholder="e.g. ENG101, MAT202"
+             />
+
+            <InputField 
+              label="Category" 
+              name="category" 
+              type="select" 
+              options={subjectCategories}
+              required 
+              formData={formData} 
+              handleInputChange={handleInputChange}
+            />
+
+            <InputField 
+              label="Curriculum" 
+              name="curriculum_id" 
+              type="select" 
+              options={curricula.map(c => ({ 
+                value: c.curriculum_id, 
+                label: c.curriculum_code
+              }))}
+              required 
+              formData={formData} 
+              handleInputChange={handleInputChange}
+            />
+          </div>
+
+          {/* Form Actions */}
+          <div className="flex justify-end space-x-3 mt-8 pt-6 border-t border-secondary-100">
+            <button
+              type="button"
+              onClick={handleCancel}
+              className="btn-secondary"
+              disabled={loading}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="btn-primary"
+              disabled={loading}
+            >
+              {loading ? (
+                <LoadingSpinner className="w-4 h-4 mr-2" />
+              ) : (
+                showEditForm ? <BookOpen className="h-4 w-4 mr-2" /> : <Plus className="h-4 w-4 mr-2" />
+              )}
+              {showEditForm ? 'Update Subject' : 'Add Subject'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-800">Subject Management</h1>
-          <p className="text-gray-600 mt-1">Campus: {campusName}</p>
+          <h1 className="font-bold text-3xl text-secondary-900 mb-2">Subject Management</h1>
+          <p className="text-secondary-600">
+            Campus: {campusName}
+          </p>
         </div>
         {canCreateSubject && (
           <button
             onClick={handleAddSubject}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            className="btn-primary"
           >
+            <Plus className="h-4 w-4 mr-2" />
             Add Subject
           </button>
         )}
       </div>
-
+      
       {/* Search Bar */}
-      <div className="mb-6">
-        <div className="flex items-center space-x-2">
+      <div className="flex flex-col sm:flex-row gap-4 justify-between items-center">
+        <div className="relative flex-1 w-full max-w-md">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-secondary-400" />
           <input
             type="text"
             value={searchQuery}
             onChange={handleSearchChange}
-            placeholder="Search by name, code, or curriculum"
-            className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+            placeholder="Search by name, code, or curriculum..."
+            className="input pl-10"
           />
-          <button
-            onClick={clearSearch}
-            className="px-4 py-2 bg-gray-200 text-gray-600 rounded hover:bg-gray-300"
-          >
-            Clear
-          </button>
+          {searchQuery && (
+            <button
+              onClick={clearSearch}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 text-secondary-400 hover:text-secondary-600"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      </div>
+      {/* Stats Card */}
+      <div className="bg-blue-50 rounded-xl border border-blue-200 p-5 shadow-sm">
+        <div className="flex items-center space-x-4">
+          <div className="p-3 bg-blue-100 rounded-xl">
+            <Layers className="h-6 w-6 text-blue-600" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-blue-600">Total Subjects</p>
+            <p className="text-2xl font-bold text-blue-900">{subjects.length}</p>
+          </div>
         </div>
       </div>
 
+      
+
       {/* Subjects List */}
-      <Card>
-        <div className="p-6">
-          <h2 className="text-xl font-semibold mb-4">Subjects List</h2>
+      <div className="bg-white rounded-xl border border-secondary-200 overflow-hidden shadow-soft">
+        <div className="p-6 border-b border-secondary-200 bg-secondary-50/50 flex justify-between items-center">
+          <h2 className="text-lg font-bold text-secondary-900">Subjects List</h2>
+          <span className="px-3 py-1 bg-secondary-200 text-secondary-700 text-xs font-bold rounded-full uppercase tracking-wider">
+            {filteredSubjects.length} {filteredSubjects.length === 1 ? 'Subject' : 'Subjects'}
+          </span>
+        </div>
+        
+        <div className="overflow-x-auto">
           {loading ? (
-            <div className="flex justify-center items-center py-8">
-              <LoadingSpinner className="w-6 h-6" />
-              <p className="ml-2 text-gray-500">Loading subjects...</p>
+            <div className="flex flex-col justify-center items-center py-16">
+              <LoadingSpinner className="w-10 h-10 text-primary-600 mb-4" />
+              <p className="text-secondary-500 font-medium">Loading subjects...</p>
             </div>
           ) : filteredSubjects.length === 0 ? (
-            <p className="text-gray-500 text-center py-8">
-              No subjects found.
-            </p>
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="p-4 bg-secondary-100 rounded-full mb-4">
+                <BookOpen className="h-10 w-10 text-secondary-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-secondary-900">No subjects found</h3>
+              <p className="text-secondary-500 max-w-xs mx-auto">
+                {searchQuery ? `No results for "${searchQuery}". Try a different search term.` : 'Get started by adding your first subject.'}
+              </p>
+              {!searchQuery && canCreateSubject && (
+                <button onClick={handleAddSubject} className="btn-primary mt-6">
+                  <Plus className="h-4 w-4 mr-2" /> Add Your First Subject
+                </button>
+              )}
+            </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full table-auto">
-                <thead>
-                  <tr className="bg-gray-50">
-                    <th className="px-4 py-2 text-left">Subject Name</th>
-                    <th className="px-4 py-2 text-left">Subject Code</th>
-                    <th className="px-4 py-2 text-left">Category</th>
-                    <th className="px-4 py-2 text-left">Curriculum</th>
+            <table className="table">
+              <thead className="table-header">
+                <tr>
+                  <th>Subject Name</th>
+                  <th>Subject Code</th>
+                  <th>Category</th>
+                  <th>Curriculum</th>
+                  {(canEditSubject || canDeleteSubject) && (
+                    <th className="w-24">Actions</th>
+                  )}
+                </tr>
+              </thead>
+              <tbody className="table-body">
+                {filteredSubjects.map((subject) => (
+                  <tr key={subject.subject_id} className="hover:bg-secondary-50 transition-colors">
+                    <td className="font-semibold text-secondary-900">{subject.subject_name}</td>
+                    <td>
+                      <code className="px-2 py-1 bg-secondary-100 rounded text-xs text-secondary-700 font-mono">
+                        {subject.subject_code || 'N/A'}
+                      </code>
+                    </td>
+                    <td>
+                      <span className={`badge ${
+                        subject.category === 'Academic' 
+                          ? 'bg-blue-100 text-blue-800' 
+                          : subject.category === 'Co-curricular'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-orange-100 text-orange-800'
+                      }`}>
+                        {subject.category}
+                      </span>
+                    </td>
+                    <td>
+                      <span className="badge-secondary">{getCurriculumName(subject.curriculum_id)}</span>
+                    </td>
                     {(canEditSubject || canDeleteSubject) && (
-                      <th className="px-4 py-2 text-left">Actions</th>
+                      <td>
+                        <ActionButtonGroup>
+                          {canEditSubject && (
+                            <EditButton 
+                              onClick={() => handleEditSubject(subject)}
+                              title="Edit subject"
+                            />
+                          )}
+                          {canDeleteSubject && (
+                            <DeleteButton 
+                              onClick={() => {
+                                setDeleting(true);
+                                subjectService.deleteSubject(campusId, subject.subject_id)
+                                  .then(() => {
+                                    toast.success('Subject deleted successfully!');
+                                    fetchSubjects();
+                                  })
+                                  .catch(err => {
+                                    toast.error(err.message || 'Failed to delete subject');
+                                  })
+                                  .finally(() => setDeleting(false));
+                              }}
+                              isDeleting={deleting}
+                              confirmMessage={`Are you sure you want to delete "${subject.subject_name}"? This action cannot be undone.`}
+                              title="Delete subject"
+                            />
+                          )}
+                        </ActionButtonGroup>
+                      </td>
                     )}
                   </tr>
-                </thead>
-                <tbody>
-                  {filteredSubjects.map((subject) => (
-                    <tr key={subject.subject_id} className="border-b hover:bg-gray-50">
-                      <td className="px-4 py-2 font-medium">{subject.subject_name}</td>
-                      <td className="px-4 py-2">{subject.subject_code || '-'}</td>
-                      <td className="px-4 py-2">
-                        <span className={`px-2 py-1 text-xs rounded-full ${
-                          subject.category === 'Academic' 
-                            ? 'bg-blue-100 text-blue-800' 
-                            : subject.category === 'Co-curricular'
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-orange-100 text-orange-800'
-                        }`}>
-                          {subject.category}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2">{getCurriculumName(subject.curriculum_id)}</td>
-                      {(canEditSubject || canDeleteSubject) && (
-                        <td className="px-4 py-2">
-                          <div className="flex space-x-2">
-                            {canEditSubject && (
-                              <button 
-                                onClick={() => handleEditSubject(subject)}
-                                className="inline-flex items-center px-3 py-1 border border-transparent text-xs leading-4 font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:border-blue-300 focus:shadow-outline-blue active:bg-blue-200 transition ease-in-out duration-150"
-                                title="Edit subject"
-                              >
-                                <svg className="-ml-0.5 mr-1 h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
-                                  <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                                </svg>
-                                Edit
-                              </button>
-                            )}
-                            {canDeleteSubject && (
-                              <button 
-                                onClick={() => handleDeleteSubject(subject)}
-                                className="inline-flex items-center px-3 py-1 border border-transparent text-xs leading-4 font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:border-red-300 focus:shadow-outline-red active:bg-red-200 transition ease-in-out duration-150"
-                                title="Delete subject"
-                              >
-                                <svg className="-ml-0.5 mr-1 h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
-                                  <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                                </svg>
-                                Delete
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </tbody>
+            </table>
           )}
         </div>
-      </Card>
-
-      {/* Delete Confirmation Dialog */}
-      <ConfirmationDialog
-        isOpen={deleteConfirm.show}
-        onClose={() => setDeleteConfirm({ show: false, subject: null })}
-        onConfirm={confirmDeleteSubject}
-        title="Delete Subject"
-        message={`Are you sure you want to delete "${deleteConfirm.subject?.subject_name}"? This action cannot be undone.`}
-        confirmText="Delete"
-        cancelText="Cancel"
-        variant="danger"
-        isLoading={deleting}
-      />
+      </div>
     </div>
   );
 };
