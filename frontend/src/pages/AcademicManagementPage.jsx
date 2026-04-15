@@ -138,8 +138,8 @@ export default function AcademicManagementPage() {
       {/* Main Content Card */}
       <div className="bg-white rounded-xl border border-secondary-200 shadow-sm overflow-hidden">
         {/* Tab Navigation */}
-        <div className="p-4 bg-secondary-50/30">
-          <div className="flex w-full gap-4">
+        <div className="p-4 bg-secondary-50/30 overflow-x-auto no-scrollbar">
+          <div className="flex flex-nowrap min-w-max md:min-w-0 md:w-full gap-4">
             {tabs.map((tab) => {
               const Icon = tab.icon
               const isActive = activeTab === tab.id

@@ -405,7 +405,7 @@ export default function CurriculaSection({ campusId }) {
             )}
           </div>
         ) : (
-          <div className="bg-white rounded-lg border border-secondary-200 overflow-hidden">
+          <div className="bg-white rounded-lg border border-secondary-200 overflow-x-auto">
             <table className="min-w-full divide-y divide-secondary-200">
               <thead className="bg-secondary-50">
                 <tr>

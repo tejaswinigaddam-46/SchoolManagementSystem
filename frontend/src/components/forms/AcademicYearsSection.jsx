@@ -24,23 +24,54 @@ import RequiredAsterisk from '../ui/RequiredAsterisk'
 // Academic Year Form Component
 const AcademicYearForm = ({ academicYear, campusId, onClose, onSuccess }) => {
   const queryClient = useQueryClient()
-  
+
+  // Parse year_name to extract start and end years
+  const parseYearName = (yearName) => {
+    if (!yearName) return { startYear: '', endYear: '' }
+    const parts = yearName.split('-')
+    return {
+      startYear: parts[0] || '',
+      endYear: parts[1] || ''
+    }
+  }
+
+  const initialYears = parseYearName(academicYear?.year_name)
+
   const [formData, setFormData] = useState({
-    year_name: academicYear?.year_name || '',
+    startYear: initialYears.startYear,
+    endYear: initialYears.endYear,
     year_type: academicYear?.year_type || 'Current year',
     medium: academicYear?.medium || '',
     start_date: academicYear?.start_date ? academicYear.start_date.split('T')[0] : '',
     end_date: academicYear?.end_date ? academicYear.end_date.split('T')[0] : '',
     fromclass: academicYear?.fromclass || '',
     toclass: academicYear?.toclass || '',
-    start_time_of_day: academicYear?.start_time_of_day || '',
-    end_time_of_day: academicYear?.end_time_of_day || '',
+    startHour: academicYear?.start_time_of_day ? academicYear.start_time_of_day.split(':')[0] : '09',
+    startMinute: academicYear?.start_time_of_day ? academicYear.start_time_of_day.split(':')[1]?.split(' ')[0] : '00',
+    startAmPm: academicYear?.start_time_of_day ? academicYear.start_time_of_day.split(' ')[1] || 'AM' : 'AM',
+    endHour: academicYear?.end_time_of_day ? academicYear.end_time_of_day.split(':')[0] : '15',
+    endMinute: academicYear?.end_time_of_day ? academicYear.end_time_of_day.split(':')[1]?.split(' ')[0] : '00',
+    endAmPm: academicYear?.end_time_of_day ? academicYear.end_time_of_day.split(' ')[1] || 'PM' : 'PM',
     shift_type: academicYear?.shift_type || '',
     curriculum_id: academicYear?.curriculum_id || ''
   })
-  
+
   const [errors, setErrors] = useState({})
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // Medium suggestions
+  const mediumSuggestions = ['English', 'Telugu', 'Hindi', 'Urdu', 'Tamil', 'Kannada', 'Malayalam', 'Marathi']
+  const [showMediumSuggestions, setShowMediumSuggestions] = useState(false)
+  const filteredMediumSuggestions = mediumSuggestions.filter(m =>
+    m.toLowerCase().includes(formData.medium.toLowerCase())
+  )
+
+  // Shift type options
+  const shiftTypes = ['Morning', 'Afternoon', 'Evening', 'Night']
+
+  // Hours and minutes for time selectors
+  const hours = Array.from({ length: 12 }, (_, i) => (i + 1).toString().padStart(2, '0'))
+  const minutes = ['00', '15', '30', '45']
 
   // Fetch curricula for dropdown
   const { data: curriculaResponse } = useQuery({
@@ -73,31 +104,40 @@ const AcademicYearForm = ({ academicYear, campusId, onClose, onSuccess }) => {
   const classOptions =
     classesData.map((cls) => cls.className || cls.class_name).filter(Boolean) || []
 
+  // Format time from components to display format
+  const formatTimeDisplay = (hour, minute, ampm) => {
+    return `${hour}:${minute} ${ampm}`
+  }
+
+  // Validate form
   const validateForm = () => {
     const newErrors = {}
-    
-    if (!formData.year_name.trim()) {
-      newErrors.year_name = 'Year name is required'
-    } else if (!/^\d{4}-\d{4}$/.test(formData.year_name)) {
-      newErrors.year_name = 'Year name must be in format YYYY-YYYY (e.g., 2025-2026)'
+
+    const yearName = `${formData.startYear}-${formData.endYear}`.trim()
+    if (!formData.startYear.trim() || !formData.endYear.trim()) {
+      newErrors.startYear = 'Start and end year are required'
+    } else if (!/^\d{4}$/.test(formData.startYear) || !/^\d{4}$/.test(formData.endYear)) {
+      newErrors.startYear = 'Year must be 4 digits (e.g., 2025)'
+    } else if (parseInt(formData.endYear) <= parseInt(formData.startYear)) {
+      newErrors.endYear = 'End year must be greater than start year'
     }
-    
+
     if (!formData.year_type) {
       newErrors.year_type = 'Year type is required'
     }
-    
+
     if (!formData.medium.trim()) {
       newErrors.medium = 'Medium is required'
     }
-    
+
     if (!formData.fromclass.trim()) {
       newErrors.fromclass = 'From class is required'
     }
-    
+
     if (!formData.toclass.trim()) {
       newErrors.toclass = 'To class is required'
     }
-    
+
     if (!formData.curriculum_id) {
       newErrors.curriculum_id = 'Curriculum is required'
     }
@@ -110,25 +150,32 @@ const AcademicYearForm = ({ academicYear, campusId, onClose, onSuccess }) => {
         newErrors.end_date = 'End date must be after start date'
       }
     }
-    
+
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    
+
     if (!validateForm()) {
       toast.error('Please fix the errors in the form')
       return
     }
-    
+
     setIsSubmitting(true)
-    
+
+    // Combine year name
+    const yearName = `${formData.startYear}-${formData.endYear}`.trim()
+
+    // Format time
+    const startTime = formatTimeDisplay(formData.startHour, formData.startMinute, formData.startAmPm)
+    const endTime = formatTimeDisplay(formData.endHour, formData.endMinute, formData.endAmPm)
+
     try {
       // Prepare form data - only include non-empty optional fields
       const submitData = {
-        year_name: formData.year_name,
+        year_name: yearName,
         year_type: formData.year_type,
         medium: formData.medium,
         fromclass: formData.fromclass,
@@ -139,24 +186,24 @@ const AcademicYearForm = ({ academicYear, campusId, onClose, onSuccess }) => {
       // Add optional fields only if they have values
       if (formData.start_date) submitData.start_date = formData.start_date
       if (formData.end_date) submitData.end_date = formData.end_date
-      if (formData.start_time_of_day) submitData.start_time_of_day = formData.start_time_of_day
-      if (formData.end_time_of_day) submitData.end_time_of_day = formData.end_time_of_day
+      if (formData.startHour && formData.startMinute) submitData.start_time_of_day = startTime
+      if (formData.endHour && formData.endMinute) submitData.end_time_of_day = endTime
       if (formData.shift_type) submitData.shift_type = formData.shift_type
-      
+
       if (academicYear) {
         // Update existing academic year
         const response = await academicService.updateAcademicYear(
-          campusId, 
-          academicYear.academic_year_id, 
+          campusId,
+          academicYear.academic_year_id,
           submitData
         )
         toast.success('Academic year updated successfully')
-        
+
         // Update the academic year in React Query cache
         if (response?.data?.academicYear) {
           queryClient.setQueryData(['academicYears', campusId], (oldData) => {
             if (oldData?.data) {
-              const updatedAcademicYears = oldData.data.map(ay => 
+              const updatedAcademicYears = oldData.data.map(ay =>
                 ay.academic_year_id === academicYear.academic_year_id ? response.data.academicYear : ay
               )
               return {
@@ -171,7 +218,7 @@ const AcademicYearForm = ({ academicYear, campusId, onClose, onSuccess }) => {
         // Create new academic year
         const response = await academicService.createAcademicYear(campusId, submitData)
         toast.success('Academic year created successfully')
-        
+
         // Add the created academic year to React Query cache
         if (response?.data?.academicYear) {
           queryClient.setQueryData(['academicYears', campusId], (oldData) => {
@@ -188,7 +235,7 @@ const AcademicYearForm = ({ academicYear, campusId, onClose, onSuccess }) => {
           })
         }
       }
-      
+
       onSuccess()
     } catch (error) {
       console.error('Form submission error:', error)
@@ -219,23 +266,43 @@ const AcademicYearForm = ({ academicYear, campusId, onClose, onSuccess }) => {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Year Name and Type */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Start Year - End Year */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-secondary-700 mb-1">
-              Year Name <RequiredAsterisk />
+              Start Year <RequiredAsterisk />
             </label>
             <input
               type="text"
-              value={formData.year_name}
-              onChange={(e) => handleChange('year_name', e.target.value)}
+              value={formData.startYear}
+              onChange={(e) => handleChange('startYear', e.target.value.replace(/\D/g, '').slice(0, 4))}
               className={`w-full px-3 py-2 text-sm border rounded-lg ${
-                errors.year_name ? 'border-error-300' : 'border-secondary-300'
+                errors.startYear ? 'border-error-300' : 'border-secondary-300'
               } focus:ring-2 focus:ring-primary-500 focus:border-primary-500`}
-              placeholder="2025-2026"
+              placeholder="2025"
+              maxLength={4}
             />
-            {errors.year_name && (
-              <p className="text-xs text-error-600 mt-1">{errors.year_name}</p>
+            {errors.startYear && (
+              <p className="text-xs text-error-600 mt-1">{errors.startYear}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-secondary-700 mb-1">
+              End Year <RequiredAsterisk />
+            </label>
+            <input
+              type="text"
+              value={formData.endYear}
+              onChange={(e) => handleChange('endYear', e.target.value.replace(/\D/g, '').slice(0, 4))}
+              className={`w-full px-3 py-2 text-sm border rounded-lg ${
+                errors.endYear ? 'border-error-300' : 'border-secondary-300'
+              } focus:ring-2 focus:ring-primary-500 focus:border-primary-500`}
+              placeholder="2026"
+              maxLength={4}
+            />
+            {errors.endYear && (
+              <p className="text-xs text-error-600 mt-1">{errors.endYear}</p>
             )}
           </div>
 
@@ -260,21 +327,42 @@ const AcademicYearForm = ({ academicYear, campusId, onClose, onSuccess }) => {
           </div>
         </div>
 
-        {/* Medium and Classes */}
+        {/* Medium with autocomplete */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
+          <div className="relative">
             <label className="block text-sm font-medium text-secondary-700 mb-1">
               Medium <RequiredAsterisk />
             </label>
             <input
               type="text"
               value={formData.medium}
-              onChange={(e) => handleChange('medium', e.target.value)}
+              onChange={(e) => {
+                handleChange('medium', e.target.value)
+                setShowMediumSuggestions(true)
+              }}
+              onFocus={() => setShowMediumSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowMediumSuggestions(false), 200)}
               className={`w-full px-3 py-2 text-sm border rounded-lg ${
                 errors.medium ? 'border-error-300' : 'border-secondary-300'
               } focus:ring-2 focus:ring-primary-500 focus:border-primary-500`}
-              placeholder="English, Hindi, etc."
+              placeholder="Select or type medium"
             />
+            {showMediumSuggestions && filteredMediumSuggestions.length > 0 && (
+              <div className="absolute z-10 w-full mt-1 bg-white border border-secondary-200 rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                {filteredMediumSuggestions.map((suggestion) => (
+                  <div
+                    key={suggestion}
+                    onClick={() => {
+                      handleChange('medium', suggestion)
+                      setShowMediumSuggestions(false)
+                    }}
+                    className="px-3 py-2 text-sm cursor-pointer hover:bg-primary-50 text-secondary-700"
+                  >
+                    {suggestion}
+                  </div>
+                ))}
+              </div>
+            )}
             {errors.medium && (
               <p className="text-xs text-error-600 mt-1">{errors.medium}</p>
             )}
@@ -388,52 +476,96 @@ const AcademicYearForm = ({ academicYear, campusId, onClose, onSuccess }) => {
           </div>
         </div>
 
-        {/* Time and Shift */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Start Time with Hour:Min AM/PM */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-secondary-700 mb-1">
               Start Time
             </label>
-            <input
-              type="text"
-              value={formData.start_time_of_day}
-              onChange={(e) => handleChange('start_time_of_day', e.target.value)}
-              className={`w-full px-3 py-2 text-sm border rounded-lg ${
-                errors.start_time_of_day ? 'border-error-300' : 'border-secondary-300'
-              } focus:ring-2 focus:ring-primary-500 focus:border-primary-500`}
-              placeholder="9:00 AM"
-            />
+            <div className="flex items-center space-x-2">
+              <select
+                value={formData.startHour}
+                onChange={(e) => handleChange('startHour', e.target.value)}
+                className="flex-1 px-3 py-2 text-sm border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              >
+                {hours.map(h => (
+                  <option key={h} value={h}>{h}</option>
+                ))}
+              </select>
+              <span className="text-secondary-500">:</span>
+              <select
+                value={formData.startMinute}
+                onChange={(e) => handleChange('startMinute', e.target.value)}
+                className="flex-1 px-3 py-2 text-sm border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              >
+                {minutes.map(m => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+              <select
+                value={formData.startAmPm}
+                onChange={(e) => handleChange('startAmPm', e.target.value)}
+                className="flex-1 px-3 py-2 text-sm border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              >
+                <option value="AM">AM</option>
+                <option value="PM">PM</option>
+              </select>
+            </div>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-secondary-700 mb-1">
               End Time
             </label>
-            <input
-              type="text"
-              value={formData.end_time_of_day}
-              onChange={(e) => handleChange('end_time_of_day', e.target.value)}
-              className={`w-full px-3 py-2 text-sm border rounded-lg ${
-                errors.end_time_of_day ? 'border-error-300' : 'border-secondary-300'
-              } focus:ring-2 focus:ring-primary-500 focus:border-primary-500`}
-              placeholder="3:00 PM"
-            />
+            <div className="flex items-center space-x-2">
+              <select
+                value={formData.endHour}
+                onChange={(e) => handleChange('endHour', e.target.value)}
+                className="flex-1 px-3 py-2 text-sm border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              >
+                {hours.map(h => (
+                  <option key={h} value={h}>{h}</option>
+                ))}
+              </select>
+              <span className="text-secondary-500">:</span>
+              <select
+                value={formData.endMinute}
+                onChange={(e) => handleChange('endMinute', e.target.value)}
+                className="flex-1 px-3 py-2 text-sm border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              >
+                {minutes.map(m => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+              <select
+                value={formData.endAmPm}
+                onChange={(e) => handleChange('endAmPm', e.target.value)}
+                className="flex-1 px-3 py-2 text-sm border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              >
+                <option value="AM">AM</option>
+                <option value="PM">PM</option>
+              </select>
+            </div>
           </div>
+        </div>
 
-          <div>
-            <label className="block text-sm font-medium text-secondary-700 mb-1">
-              Shift Type
-            </label>
-            <input
-              type="text"
-              value={formData.shift_type}
-              onChange={(e) => handleChange('shift_type', e.target.value)}
-              className={`w-full px-3 py-2 text-sm border rounded-lg ${
-                errors.shift_type ? 'border-error-300' : 'border-secondary-300'
-              } focus:ring-2 focus:ring-primary-500 focus:border-primary-500`}
-              placeholder="Morning, Afternoon"
-            />
-          </div>
+        {/* Shift Type */}
+        <div>
+          <label className="block text-sm font-medium text-secondary-700 mb-1">
+            Shift Type
+          </label>
+          <select
+            value={formData.shift_type}
+            onChange={(e) => handleChange('shift_type', e.target.value)}
+            className={`w-full px-3 py-2 text-sm border rounded-lg ${
+              errors.shift_type ? 'border-error-300' : 'border-secondary-300'
+            } focus:ring-2 focus:ring-primary-500 focus:border-primary-500`}
+          >
+            <option value="">Select shift type...</option>
+            {shiftTypes.map(type => (
+              <option key={type} value={type}>{type}</option>
+            ))}
+          </select>
         </div>
 
         {/* Form Actions */}
