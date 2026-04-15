@@ -1,5 +1,5 @@
-import { AlertCircle, Building2, Calendar, Edit, Filter, Layers, Loader2, Mail, MapPin,
-    Phone, Plus, Save, Search, Star, Trash2 } from 'lucide-react'
+import { AlertCircle, Building2, Calendar, Filter, Layers, Loader2, Mail, MapPin,
+    Phone, Plus, Save, Search, Star } from 'lucide-react'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'react-hot-toast'
@@ -12,6 +12,7 @@ import Modal from '../components/ui/Modal'
 import PhoneInput, { validatePhone } from '../components/ui/PhoneInput'
 import PhoneNumberDisplay from '../components/ui/PhoneNumberDisplay'
 import RequiredAsterisk from '../components/ui/RequiredAsterisk'
+import { EditButton, DeleteButton, ActionButtonGroup } from '../components/ui/ActionButtons'
 
 // Campus Form Component 
 const CampusForm = ({ campus, onClose, onSuccess }) => {
@@ -375,27 +376,21 @@ const CampusCard = ({ campus, onEdit, onDelete }) => {
           </div>
 
           
-            <div className="flex items-center space-x-2 self-end sm:self-start">
-               {PERMISSIONS.CAMPUS_UPDATE && (<button
-                onClick={() => onEdit(campus)}
-                className="p-2 text-secondary-500 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
-                title="Edit campus"
-              >
-                <Edit className="h-4 w-4" />
-              </button>)}
-              {PERMISSIONS.CAMPUS_DELETE && (<button
-                onClick={handleDeleteClick}
-                disabled={isDeleting}
-                className="p-2 text-secondary-500 hover:text-error-600 hover:bg-error-50 rounded-lg transition-colors"
-                title="Delete campus"
-              >
-                {isDeleting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Trash2 className="h-4 w-4" />
-                )}
-              </button>)}
-            </div>
+            <ActionButtonGroup className="self-end sm:self-start">
+               {PERMISSIONS.CAMPUS_UPDATE && (
+                <EditButton 
+                  onClick={() => onEdit(campus)} 
+                  title="Edit campus" 
+                />
+              )}
+              {PERMISSIONS.CAMPUS_DELETE && (
+                <DeleteButton 
+                  onClick={handleDeleteClick} 
+                  isDeleting={isDeleting} 
+                  title="Delete campus" 
+                />
+              )}
+            </ActionButtonGroup>
         </div>
 
         <div className="space-y-3">

@@ -521,8 +521,8 @@ const AcademicYearCard = ({ academicYear, onEdit, onDelete, isAdmin }) => {
       <div className="bg-white rounded-lg border border-secondary-200 p-6 hover:shadow-md transition-shadow">
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-start space-x-3">
-            <div className="p-2 bg-orange-100 rounded-lg">
-              <Calendar className="h-6 w-6 text-orange-600" />
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <Calendar className="h-6 w-6 text-blue-600" />
             </div>
             <div>
               <h3 className="text-lg font-semibold text-secondary-900 mb-1">
@@ -739,14 +739,14 @@ export default function AcademicYearsSection({ campusId }) {
 
       {/* Academic Years Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-orange-50 rounded-lg border border-orange-200 p-4">
+        <div className="bg-blue-50 rounded-lg border border-blue-200 p-4">
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-orange-100 rounded-lg">
-              <Calendar className="h-5 w-5 text-orange-600" />
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <Calendar className="h-5 w-5 text-blue-600" />
             </div>
             <div>
-              <p className="text-sm font-medium text-orange-600">Total Academic Years</p>
-              <p className="text-lg font-bold text-orange-900">{totalYears}</p>
+              <p className="text-sm font-medium text-blue-600">Total Academic Years</p>
+              <p className="text-lg font-bold text-blue-900">{totalYears}</p>
             </div>
           </div>
         </div>
@@ -836,8 +836,8 @@ export default function AcademicYearsSection({ campusId }) {
                   <tr key={academicYear.academic_year_id} className="hover:bg-secondary-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                        <div className="p-2 bg-orange-100 rounded-lg mr-3">
-                          <Calendar className="h-4 w-4 text-orange-600" />
+                        <div className="p-2 bg-blue-100 rounded-lg mr-3">
+                          <Calendar className="h-4 w-4 text-blue-600" />
                         </div>
                         <div>
                           <div className="text-sm font-medium text-secondary-900">

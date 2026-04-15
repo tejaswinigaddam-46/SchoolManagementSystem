@@ -448,9 +448,6 @@ export default function CurriculaSection({ campusId }) {
                   <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
                     Curriculum Name
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                    Curriculum ID
-                  </th>
                   {canManageCurricula && (
                     <th className="px-6 py-3 text-right text-xs font-medium text-secondary-500 uppercase tracking-wider">
                       Actions
@@ -474,11 +471,6 @@ export default function CurriculaSection({ campusId }) {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-secondary-900">
                         {curriculum.curriculum_name}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-secondary-500">
-                        ID: {curriculum.curriculum_id}
                       </div>
                     </td>
                     {canManageCurricula && (

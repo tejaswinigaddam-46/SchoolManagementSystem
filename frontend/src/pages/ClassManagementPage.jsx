@@ -226,6 +226,7 @@ const ClassManagement = () => {
                     name="className" 
                     required 
                     className="" 
+                    placeholder="First Standard"
                     formData={formData} 
                     handleInputChange={handleInputChange} 
                   />
@@ -253,7 +254,7 @@ const ClassManagement = () => {
                   </button>
                   <button
                     type="submit"
-                    className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+                    className="px-6 py-2 btn-primary rounded hover:bg-primary-700 disabled:opacity-50 flex items-center gap-2"
                     disabled={loading}
                   >
                     {loading && <LoadingSpinner className="w-4 h-4" />}
@@ -278,7 +279,7 @@ const ClassManagement = () => {
         {canCreateClass && (
           <button
             onClick={handleAddClass}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            className="bg-blue-600 btn-primary px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors"
           >
             Add Class
           </button>
@@ -354,7 +355,7 @@ const ClassManagement = () => {
                 <div className="mt-6">
                   <button
                     onClick={handleAddClass}
-                    className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                    className="btn-primary inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md hover:bg-primary-700"
                   >
                     <svg className="-ml-1 mr-2 h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
@@ -369,7 +370,6 @@ const ClassManagement = () => {
               <table className="min-w-full table-auto">
                 <thead>
                   <tr className="bg-gray-50">
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Class ID</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Class Name</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Class Level</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -386,7 +386,6 @@ const ClassManagement = () => {
                         handleRowClick(classItem);
                       }}
                     >
-                      <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{classItem.classId}</td>
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{classItem.className}</td>
                       <td className="px-4 py-2 whitespace-nowrap">
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
