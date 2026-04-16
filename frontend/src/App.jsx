@@ -135,7 +135,6 @@ function App() {
 
             {/* Protected routes - wrap individual routes with ProtectedRoute */}
             <Route
-              path="/"
               element={
                 <ProtectedRoute>
                   {' '}
@@ -144,7 +143,6 @@ function App() {
               }
             >
               {/* Child routes that will render inside Layout's <Outlet /> */}
-              <Route index element={<Home />} />
               <Route path="home" element={<Home />} />
               <Route path="profile" element={<ProfilePage />} />
               <Route path="dashboard" element={<Dashboard />} />
@@ -480,10 +478,7 @@ function App() {
               <Route path="fees/my-fees" element={<StudentFeePage />} />
             </Route>
 
-            {/* Legacy routes - redirect to /app for backwards compatibility */}
-            <Route path="/home" element={<Navigate to="/app/home" replace />} />
-
-            {/* 404 handler for unmatched routes */}
+            {/* Catch-all handler for unmatched routes */}
             <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
         </div>
