@@ -1,14 +1,16 @@
+import React, { forwardRef } from 'react';
+
 /**
  * Professional Card Component
  * Reusable card with consistent styling and variants
  */
-export default function Card({ 
+const Card = forwardRef(({ 
   children, 
   className = '', 
   variant = 'default',
   hover = false,
   onClick = null
-}) {
+}, ref) => {
   const baseClasses = 'bg-white rounded-2xl shadow-soft border border-secondary-100'
   
   const variantClasses = {
@@ -23,13 +25,16 @@ export default function Card({
 
   return (
     <div 
+      ref={ref}
       className={`${baseClasses} ${variantClasses[variant]} ${hoverClasses} ${clickableClasses} ${className}`}
       onClick={onClick}
     >
       {children}
     </div>
   )
-}
+});
+
+export default Card;
 
 /* UNUSED CODE - Card component sub-components not being used anywhere in the codebase
 /**

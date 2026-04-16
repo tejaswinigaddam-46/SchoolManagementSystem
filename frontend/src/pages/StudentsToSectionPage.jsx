@@ -1,5 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { toast } from 'react-hot-toast';
+import { 
+  AlertCircle, 
+  User, 
+  BookOpen, 
+  Calendar, 
+  Save, 
+  Loader2
+} from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import Card from '../components/ui/Card';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
@@ -10,12 +18,14 @@ import sectionService from '../services/sectionService';
 import classService from '../services/classService';
 import studentService from '../services/studentService';
 import { PERMISSIONS } from '../config/permissions';
+import RequiredAsterisk from '../components/ui/RequiredAsterisk.jsx';
+import Modal from '../components/ui/Modal';
 
 // InputField component for form fields
 const InputField = ({ label, name, type = 'text', required = false, options = null, className = '', formData, handleInputChange, placeholder = '' }) => (
   <div className={`${className}`}>
-    <label className="block text-xs font-medium text-gray-700 mb-1">
-      {label} {required && <span className="text-red-500">*</span>}
+    <label className="block text-sm font-medium text-gray-700 mb-1">
+      {label} {required && <RequiredAsterisk />}
     </label>
     {type === 'select' ? (
       <select
@@ -57,7 +67,8 @@ const StudentsToSection = () => {
   const [showAssignForm, setShowAssignForm] = useState(false);
   const [showEditSectionModal, setShowEditSectionModal] = useState(false);
   const [editingStudent, setEditingStudent] = useState(null);
-  const assignmentFormRef = useRef(null); // Add ref for auto-scroll
+  const assignmentFormRef = useRef(null);
+  const studentsListRef = useRef(null); // Add ref for students list auto-scroll
   const [filterOptions, setFilterOptions] = useState({
     academic_years: [],
     classes: []
@@ -76,6 +87,7 @@ const StudentsToSection = () => {
     academicYearData: {
       year_name: '',
       curriculum_id: '',
+      curriculum_code: '',
       medium: '',
       academic_year_id: null
     },
@@ -235,6 +247,8 @@ const StudentsToSection = () => {
     // Clear students when academic year changes
     setStudents([]);
     setSelectedStudents(new Set());
+    setHasSearched(false);
+    setShowAssignForm(false);
   };
 
   // Handle academic year validation change
@@ -244,6 +258,8 @@ const StudentsToSection = () => {
     // Clear students when validation changes
     setStudents([]);
     setSelectedStudents(new Set());
+    setHasSearched(false);
+    setShowAssignForm(false);
   };
 
   // Handle input changes
@@ -257,6 +273,8 @@ const StudentsToSection = () => {
     // Clear students when filters change
     setStudents([]);
     setSelectedStudents(new Set());
+    setHasSearched(false);
+    setShowAssignForm(false);
   };
 
   // Handle assignment input changes
@@ -403,15 +421,15 @@ const StudentsToSection = () => {
         section_id: student.section_id || ''
       });
 
-      // Fetch available sections for this student's class
-      await fetchEditSectionsForClass(student.class_id || formData.class_id);
+      // Fetch available sections for the student's current class
+      const classId = student.class_id || formData.class_id;
+      await fetchEditSectionsForClass(classId);
       
       setShowEditSectionModal(true);
-      toast.success('Edit form loaded. Please select new section.');
       
     } catch (error) {
       console.error('Error opening edit section modal:', error);
-      toast.error('Failed to load edit form');
+      toast.error('Failed to load sections for the form');
     }
   };
 
@@ -563,68 +581,39 @@ const StudentsToSection = () => {
     fetchFilterOptions();
   }, []);
 
-  // Handle auto-scroll when assignment form is shown
+  // Handle auto-scroll when students are searched (Smart UX)
+  useEffect(() => {
+    if (hasSearched && !loading && studentsListRef.current) {
+      const rect = studentsListRef.current.getBoundingClientRect();
+      // Scroll if the results are not fully visible or below half of the viewport
+      if (rect.top > window.innerHeight / 2 || rect.top < 0) {
+        studentsListRef.current.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'start'
+        });
+      }
+    }
+  }, [hasSearched, loading]);
+
+  // Handle auto-scroll when assignment form is shown (Smart UX)
   useEffect(() => {
     if (showAssignForm) {
-      console.log('🔍 Assignment form shown, attempting scroll...');
-      console.log('📍 Ref current:', assignmentFormRef.current);
-      
-      const scrollToForm = () => {
-        const element = assignmentFormRef.current || document.getElementById('assignment-form');
-        console.log('🎯 Scroll attempt - Element:', element);
-        
-        if (element) {
-          console.log('✅ Element found, scrolling...');
-          element.scrollIntoView({ 
-            behavior: 'smooth', 
-            block: 'center',
-            inline: 'nearest'
-          });
-          return true;
-        } else {
-          console.log('❌ Element not found');
-          return false;
+      // Small timeout to ensure the element is rendered and ref is updated
+      const timeoutId = setTimeout(() => {
+        if (assignmentFormRef.current) {
+          const rect = assignmentFormRef.current.getBoundingClientRect();
+          // Scroll if the form is not fully visible or below half of the viewport
+          if (rect.top > window.innerHeight / 2 || rect.top < 0) {
+            assignmentFormRef.current.scrollIntoView({ 
+              behavior: 'smooth', 
+              block: 'center'
+            });
+          }
         }
-      };
+      }, 100);
+      return () => clearTimeout(timeoutId);
     }
   }, [showAssignForm]);
-
-  // Instructions for the page
-  const instructions = (
-    <div className="mb-6">
-      <Card>
-        <div className="p-4 bg-blue-50 border-l-4 border-blue-400">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-blue-800">Instructions</h3>
-              <div className="mt-2 text-sm text-blue-700">
-                <ul className="list-disc list-inside space-y-1">
-                  <li><strong>Step 1:</strong> Select Academic Year, Curriculum, Medium, and Class</li>
-                  <li><strong>Step 2:</strong> Choose whether to view Assigned or Unassigned students</li>
-                  <li><strong>Step 3:</strong> Click "Search Students" to load the student list</li>
-                  <li><strong>For Unassigned Students:</strong></li>
-                  <ul className="list-disc list-inside ml-4 space-y-1">
-                    <li>Select individual students or all students</li>
-                    <li>Click "Assign Selected Students" and choose a section</li>
-                  </ul>
-                  <li><strong>For Assigned Students:</strong></li>
-                  <ul className="list-disc list-inside ml-4 space-y-1">
-                    <li>Click "Edit Section" to change a student's section assignment</li>
-                    <li>Click "Deassign" to remove a student from their current section</li>
-                  </ul>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </div>
-      </Card>
-    </div>
-  );
 
   if (!canViewStudentsToSection) {
     return (
@@ -648,24 +637,10 @@ const StudentsToSection = () => {
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Students to Section Assignment</h1>
-          <p className="mt-1 text-sm text-gray-600">
-            Assign students to sections based on academic year and class
+          <h1 className="font-bold text-3xl text-secondary-900 mb-2">Building Management</h1>
+          <p className="text-secondary-600">
+            Campus: {getCampusName()}
           </p>
-        </div>
-
-        {/* Instructions */}
-        {instructions}
-
-        {/* Campus Info */}
-        <div className="mb-6">
-          <Card>
-            <div className="p-4 bg-gray-50">
-              <p className="text-sm text-gray-700">
-                <strong>Campus:</strong> {getCampusName()}
-              </p>
-            </div>
-          </Card>
         </div>
 
         {/* Filter Form */}
@@ -720,7 +695,7 @@ const StudentsToSection = () => {
                   disabled={!academicYearValidation.isValid || !formData.class_id || !formData.assignment_status}
                   className={`px-6 py-2 rounded-md font-medium transition-colors ${
                     academicYearValidation.isValid && formData.class_id && formData.assignment_status
-                      ? 'bg-blue-600 text-white hover:bg-blue-700'
+                      ? 'bg-primary-600 text-white hover:bg-primary-700'
                       : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                   }`}
                 >
@@ -741,32 +716,21 @@ const StudentsToSection = () => {
 
         {/* Students List */}
         {(hasSearched || loading) && (
-          <Card className="mt-6">
+          <Card ref={studentsListRef} className="mt-6">
             <div className="p-6">
-              <div className="flex justify-between items-center mb-4">
+              <div className="mb-4">
                 <h2 className="text-lg font-semibold">
                   {formData.assignment_status === 'assigned' ? 'Assigned' : 'Unassigned'} Students
                   {students.length > 0 && ` (${students.length})`}
                 </h2>
                 
-                {/* Selection Controls for Unassigned Students */}
-                {formData.assignment_status === 'unassigned' && students.length > 0 && canAssignStudents && (
-                  <div className="flex items-center space-x-4">
-                    <label className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={selectedStudents.size === students.length && students.length > 0}
-                        onChange={(e) => handleSelectAllStudents(e.target.checked)}
-                        className="mr-2"
-                      />
-                      <span className="text-sm">Select All</span>
-                    </label>
-                    
-                    {selectedStudents.size > 0 && (
-                      <div className="text-sm text-blue-600">
-                        {selectedStudents.size} selected
-                      </div>
-                    )}
+                {/* Selection Count Badge - Moved below header */}
+                {formData.assignment_status === 'unassigned' && students.length > 0 && canAssignStudents && selectedStudents.size > 0 && (
+                  <div className="mt-2 flex items-center">
+                    <div className="text-sm font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-100 flex items-center gap-2 shadow-sm">
+                      <span className="flex bg-blue-600 animate-pulse"></span>
+                      {selectedStudents.size} student/s selected for assignment
+                    </div>
                   </div>
                 )}
               </div>
@@ -797,8 +761,16 @@ const StudentsToSection = () => {
                     <thead>
                       <tr className="bg-gray-50">
                         {formData.assignment_status === 'unassigned' && canAssignStudents && (
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Select
+                          <th className="px-4 py-3 text-left">
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={selectedStudents.size === students.length && students.length > 0}
+                                onChange={(e) => handleSelectAllStudents(e.target.checked)}
+                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer h-4 w-4"
+                              />
+                              <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Select All</span>
+                            </div>
                           </th>
                         )}
                         <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -843,7 +815,7 @@ const StudentsToSection = () => {
                                   type="checkbox"
                                   checked={isSelected}
                                   onChange={(e) => handleStudentSelection(studentId, e.target.checked)}
-                                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer h-4 w-4"
                                 />
                               </td>
                             )}
@@ -904,7 +876,7 @@ const StudentsToSection = () => {
                     disabled={selectedStudents.size === 0}
                     className={`px-6 py-2 rounded-md font-medium transition-colors ${
                       selectedStudents.size > 0
-                        ? 'bg-green-600 text-white hover:bg-green-700'
+                        ? 'bg-primary-600 text-white hover:bg-primary-700'
                         : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                     }`}
                   >
@@ -937,7 +909,7 @@ const StudentsToSection = () => {
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                 <InputField 
-                  label="Select Section" 
+                  label="Section" 
                   name="section_id" 
                   type="select"
                   options={availableSections}
@@ -960,7 +932,7 @@ const StudentsToSection = () => {
                   disabled={!assignmentData.section_id || assignmentLoading}
                   className={`px-6 py-2 text-white rounded transition-colors flex items-center gap-2 ${
                     assignmentData.section_id && !assignmentLoading
-                      ? 'bg-green-600 hover:bg-green-700' 
+                      ? 'bg-primary-600 hover:bg-primary-700' 
                       : 'bg-gray-400 cursor-not-allowed'
                   }`}
                 >
@@ -973,103 +945,120 @@ const StudentsToSection = () => {
         )}
 
         {/* Edit Section Modal */}
-        {showEditSectionModal && editingStudent && (
-          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
-            <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full mx-auto">
-              <div className="p-6">
-                <div className="flex items-center mb-4">
-                  <div className="flex-shrink-0">
-                    <svg className="h-6 w-6 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
+        <Modal
+          isOpen={showEditSectionModal && !!editingStudent}
+          onClose={handleCancelEditSection}
+          size="md"
+          showCloseButton={false}
+          closeOnBackdrop={false}
+        >
+          {editingStudent && (
+            <div className="p-4">
+              <div className="mb-6">
+                <h2 className="text-xl font-bold text-secondary-900 mb-1">
+                  Edit Section Assignment
+                </h2>
+                <p className="text-sm text-secondary-600">
+                  Update section for {editingStudent.first_name} {editingStudent.last_name}
+                </p>
+              </div>
+
+              <form onSubmit={(e) => { e.preventDefault(); handleEditSectionSubmit(); }} className="space-y-4">
+                {/* Display Only Fields */}
+                <div className="bg-secondary-50 p-4 rounded-xl border border-secondary-100 space-y-3">
+                  <div className="flex items-center text-sm">
+                    <User className="h-4 w-4 text-secondary-400 mr-3 flex-shrink-0" />
+                    <span className="text-secondary-500 w-32">Student:</span>
+                    <span className="font-medium text-secondary-900">
+                      {editingStudent.first_name} {editingStudent.middle_name || ''} {editingStudent.last_name}
+                    </span>
                   </div>
-                  <h2 className="ml-3 text-lg font-semibold text-gray-900">
-                    Edit Section Assignment
-                  </h2>
-                  <button
-                    onClick={handleCancelEditSection}
-                    className="ml-auto text-gray-400 hover:text-gray-600"
-                    disabled={editSectionLoading}
+                  <div className="flex items-center text-sm">
+                    <AlertCircle className="h-4 w-4 text-secondary-400 mr-3 flex-shrink-0" />
+                    <span className="text-secondary-500 w-32">Admission No:</span>
+                    <span className="font-medium text-secondary-900">{editingStudent.admission_number}</span>
+                  </div>
+                  <div className="flex items-center text-sm">
+                    <Calendar className="h-4 w-4 text-secondary-400 mr-3 flex-shrink-0" />
+                    <span className="text-secondary-500 w-32">Academic Year:</span>
+                    <span className="font-medium text-secondary-900">
+                      {formData.academicYearData.year_name} - {formData.academicYearData.curriculum_code} - {formData.academicYearData.medium}
+                    </span>
+                  </div>
+                  <div className="flex items-center text-sm">
+                    <BookOpen className="h-4 w-4 text-secondary-400 mr-3 flex-shrink-0" />
+                    <span className="text-secondary-500 w-32">Class:</span>
+                    <span className="font-medium text-secondary-900">
+                      {editingStudent.class_name || getClassName(editingStudent.class_id)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Editable Field: Section */}
+                <div>
+                  <label className="block text-sm font-medium text-secondary-700 mb-1">
+                    New Section <RequiredAsterisk />
+                  </label>
+                  <select
+                    value={editSectionData.section_id}
+                    onChange={(e) => setEditSectionData(prev => ({ ...prev, section_id: e.target.value }))}
+                    className="w-full px-3 py-2 text-sm border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    required
                   >
-                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-                
-                <div className="mb-4 p-3 bg-gray-50 rounded-md">
-                  <p className="text-sm text-gray-700">
-                    <strong>Student:</strong> {editingStudent.first_name} {editingStudent.middle_name || ''} {editingStudent.last_name}
-                  </p>
-                  <p className="text-sm text-gray-700">
-                    <strong>Admission Number:</strong> {editingStudent.admission_number}
-                  </p>
-                  <p className="text-sm text-gray-700">
-                    <strong>Current Section:</strong> {editingStudent.section_name || 'N/A'}
-                  </p>
+                    <option value="">Select a section</option>
+                    {editSectionsForClass.map(section => (
+                      <option key={section.id} value={section.id}>
+                        {section.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
-                <div className="space-y-4 mb-6">
-                  <InputField 
-                    label="Academic Year" 
-                    name="academic_year_id" 
-                    type="select"
-                    options={[{
-                      id: academicYearValidation.academicYearId,
-                      name: `${formData.academicYearData.year_name} - ${formData.academicYearData.curriculum_name || formData.academicYearData.curriculum_id} - ${formData.academicYearData.medium}`
-                    }]}
-                    required 
-                    formData={editSectionData} 
-                    handleInputChange={handleEditSectionInputChange}
-                    className="opacity-75 cursor-not-allowed"
-                  />
-                  
-                  <InputField 
-                    label="Class" 
-                    name="class_id" 
-                    type="select"
-                    options={classes}
-                    required 
-                    formData={editSectionData} 
-                    handleInputChange={handleEditSectionInputChange} 
-                  />
-                  
-                  <InputField 
-                    label="New Section" 
-                    name="section_id" 
-                    type="select"
-                    options={editSectionsForClass}
-                    required 
-                    formData={editSectionData} 
-                    handleInputChange={handleEditSectionInputChange} 
-                  />
+                {/* Note about changing class/academic year */}
+                <div className="bg-amber-50 border-l-4 border-amber-400 p-3 rounded-r-lg">
+                  <div className="flex">
+                    <AlertCircle className="h-5 w-5 text-amber-400 flex-shrink-0" />
+                    <div className="ml-3">
+                      <p className="text-xs text-amber-800">
+                        <strong>Note:</strong> To change the class or academic year, please 
+                        <span className="font-bold"> deassign </span> the student first, then assign them to the desired class/year.
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="flex justify-end space-x-4">
+                {/* Form Actions */}
+                <div className="flex justify-end space-x-3 pt-4 border-t border-secondary-200">
                   <button
+                    type="button"
                     onClick={handleCancelEditSection}
-                    className="px-4 py-2 text-gray-600 border border-gray-300 rounded hover:bg-gray-50"
+                    className="px-4 py-2 text-sm font-medium text-secondary-700 bg-white border border-secondary-300 rounded-lg hover:bg-secondary-50 transition-colors"
                     disabled={editSectionLoading}
                   >
                     Cancel
                   </button>
                   <button
-                    onClick={handleEditSectionSubmit}
+                    type="submit"
+                    className="flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     disabled={!editSectionData.section_id || editSectionLoading}
-                    className={`px-4 py-2 text-white rounded transition-colors flex items-center gap-2 ${
-                      editSectionData.section_id && !editSectionLoading
-                        ? 'bg-orange-600 hover:bg-orange-700' 
-                        : 'bg-gray-400 cursor-not-allowed'
-                    }`}
                   >
-                    {editSectionLoading && <LoadingSpinner className="w-4 h-4" />}
-                    Update Section
+                    {editSectionLoading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Updating...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4 mr-2" />
+                        Update Section
+                      </>
+                    )}
                   </button>
                 </div>
-              </div>
+              </form>
             </div>
-          </div>
-        )}
+          )}
+        </Modal>
 
         {/* Deassign Confirmation Dialog */}
         <ConfirmationDialog

@@ -25,6 +25,8 @@ const AcademicYearSelector = ({
     year_name: value?.year_name || '',
     year_type: value?.year_type || '',
     curriculum_id: value?.curriculum_id || '',
+    curriculum_name: value?.curriculum_name || '',
+    curriculum_code: value?.curriculum_code || '',
     medium: value?.medium || '',
     academic_year_id: value?.academic_year_id || null
   });
@@ -106,6 +108,8 @@ const AcademicYearSelector = ({
                year_name: ay.year_name || '',
                year_type: ay.year_type || '',
                curriculum_id: ay.curriculum_id || '',
+               curriculum_name: ay.curriculum_name || '',
+               curriculum_code: ay.curriculum_code || '',
                medium: ay.medium || '',
                academic_year_id: ay.academic_year_id
              };
@@ -148,6 +152,8 @@ const AcademicYearSelector = ({
           year_name: ay.year_name || '',
           year_type: ay.year_type || '',
           curriculum_id: ay.curriculum_id || '',
+          curriculum_name: ay.curriculum_name || '',
+          curriculum_code: ay.curriculum_code || '',
           medium: ay.medium || '',
           academic_year_id: ay.academic_year_id || defId
         };
@@ -201,10 +207,12 @@ const AcademicYearSelector = ({
             academicYearId
           });
 
-          // Update form data with academic year ID
+          // Update form data with academic year ID and details from response
           const updatedData = {
             ...formData,
-            academic_year_id: academicYearId
+            academic_year_id: academicYearId,
+            curriculum_name: response.data.curriculum_name || formData.curriculum_name,
+            curriculum_code: response.data.curriculum_code || formData.curriculum_code
           };
           
           setFormData(updatedData);
@@ -309,12 +317,21 @@ const AcademicYearSelector = ({
   const handleFieldChange = (fieldName) => (event, additionalData = null) => {
     const newValue = event.target.value;
     
-    const updatedData = {
+    let updatedData = {
       ...formData,
       [fieldName]: newValue,
       // Reset academic year ID when any field changes
       academic_year_id: null
     };
+
+    // If we changed curriculum, capture the name and code too
+    if (fieldName === 'curriculum_id' && additionalData) {
+      updatedData = {
+        ...updatedData,
+        curriculum_name: additionalData.curriculum_name || '',
+        curriculum_code: additionalData.curriculum_code || ''
+      };
+    }
 
     setFormData(updatedData);
 
