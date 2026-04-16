@@ -4,7 +4,7 @@ import { studentService } from '../../services/studentService';
 import Card from '../ui/Card';
 import LoadingSpinner from '../ui/LoadingSpinner';
 
-const StudentBulkUpdate = ({ onUpdateSuccess, campusId }) => {
+const StudentBulkUpdate = ({ onUpdateSuccess, onCancel, campusId }) => {
   const [file, setFile] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState(null);
@@ -75,9 +75,9 @@ const StudentBulkUpdate = ({ onUpdateSuccess, campusId }) => {
     <Card className="w-full max-w-3xl mx-auto p-6">
       <h2 className="text-xl font-bold mb-4 text-gray-800">Bulk Student Update</h2>
       
-      <div className="mb-6 bg-yellow-50 p-4 rounded-md border border-yellow-200">
-        <h3 className="font-semibold text-yellow-800 mb-2">Instructions:</h3>
-        <ol className="list-decimal list-inside text-sm text-yellow-700 space-y-1">
+      <div className="mb-6 bg-blue-50 p-4 rounded-md border border-blue-200">
+        <h3 className="font-semibold text-blue-800 mb-2">Instructions:</h3>
+        <ol className="list-decimal list-inside text-sm text-blue-700 space-y-1">
           <li><strong>Export</strong> the students you want to edit from the student list.</li>
           <li><strong>Edit</strong> the downloaded Excel file. <span className="font-bold">Do not modify the Username column or locked fields.</span></li>
           <li><strong>Upload</strong> the edited file here to apply changes.</li>
@@ -85,27 +85,17 @@ const StudentBulkUpdate = ({ onUpdateSuccess, campusId }) => {
       </div>
 
       <form onSubmit={handleUpload} className="space-y-4">
-        <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:bg-gray-50 transition-colors">
-          <input
-            id="file-upload-update"
-            type="file"
-            accept=".xlsx,.xls,.csv"
-            onChange={handleFileChange}
-            className="hidden"
-          />
-          <label htmlFor="file-upload-update" className="cursor-pointer">
-            <div className="flex flex-col items-center">
-              <svg className="w-12 h-12 text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-              </svg>
-              <span className="text-lg font-medium text-gray-700">
-                {file ? file.name : 'Click to upload edited Excel file'}
-              </span>
-              <span className="text-sm text-gray-500 mt-1">
-                Supported formats: .xlsx, .xls
-              </span>
-            </div>
-          </label>
+        <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 bg-gray-50 hover:bg-gray-100 transition-colors">
+          <div className="flex flex-col items-center">
+            <input
+              id="file-upload-update"
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              onChange={handleFileChange}
+              className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100 cursor-pointer"
+            />
+            <p className="mt-2 text-xs text-gray-500">Supported formats: .xlsx, .xls</p>
+          </div>
         </div>
 
         {error && (
@@ -114,19 +104,28 @@ const StudentBulkUpdate = ({ onUpdateSuccess, campusId }) => {
           </div>
         )}
 
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-3">
+          {onCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors"
+            >
+              Cancel
+            </button>
+          )}
           <button
             type="submit"
             disabled={!file || isLoading}
-            className={`px-6 py-2 rounded-md text-white font-medium transition-colors ${
+            className={`px-6 py-2 rounded-md text-white font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 ${
               !file || isLoading
                 ? 'bg-gray-400 cursor-not-allowed'
-                : 'bg-blue-600 hover:bg-blue-700'
+                : 'bg-primary-600 hover:bg-primary-700'
             }`}
           >
             {isLoading ? (
               <div className="flex items-center">
-                <LoadingSpinner className="w-4 h-4 mr-2" />
+                <LoadingSpinner size="sm" color="white" className="mr-2" />
                 Updating...
               </div>
             ) : (

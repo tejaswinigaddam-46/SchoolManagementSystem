@@ -3,8 +3,9 @@ import { toast } from 'react-hot-toast';
 import { studentService } from '../../services/studentService';
 import Card from '../ui/Card';
 import LoadingSpinner from '../ui/LoadingSpinner';
+import RequiredAsterisk from '../ui/RequiredAsterisk';
 
-const StudentBulkImport = ({ onImportSuccess, campusId }) => {
+const StudentBulkImport = ({ onImportSuccess, onCancel, campusId }) => {
   const [file, setFile] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState(null);
@@ -89,32 +90,34 @@ const StudentBulkImport = ({ onImportSuccess, campusId }) => {
         <h3 className="font-semibold text-blue-800 mb-2">Instructions:</h3>
         <ol className="list-decimal list-inside text-sm text-blue-700 space-y-1">
           <li>Download the Excel template using the button below.</li>
-          <li>Fill in the student details in the template. Required fields are marked with *.</li>
+          <li>Fill in the student details in the template. Required fields are marked with <RequiredAsterisk></RequiredAsterisk></li>
           <li>Do not change the column headers.</li>
           <li>Save the file and upload it here.</li>
         </ol>
       </div>
 
-      <div className="flex flex-col md:flex-row gap-4 mb-6">
+      <div className="flex justify-end mb-6">
         <button
           onClick={handleDownloadTemplate}
           disabled={isLoading}
-          className="flex items-center justify-center px-4 py-2 bg-white border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          className="flex items-center justify-center px-4 py-2 bg-primary-600 text-white rounded-md shadow-sm text-sm font-medium hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors"
         >
-          {isLoading ? <LoadingSpinner size="sm" /> : '📥 Download Template'}
+          {isLoading ? <LoadingSpinner size="sm" color="white" /> : 'Download Template'}
         </button>
       </div>
 
       <form onSubmit={handleUpload} className="space-y-4">
-        <div className="border-2 border-dashed border-gray-300 rounded-md p-6 flex flex-col items-center justify-center bg-gray-50 hover:bg-gray-100 transition-colors">
-          <input
-            id="file-upload"
-            type="file"
-            accept=".xlsx,.xls,.csv"
-            onChange={handleFileChange}
-            className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
-          />
-          <p className="mt-2 text-xs text-gray-500">Supported formats: .xlsx, .xls, .csv</p>
+        <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 bg-gray-50 hover:bg-gray-100 transition-colors">
+          <div className="flex flex-col items-center">
+            <input
+              id="file-upload"
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              onChange={handleFileChange}
+              className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100 cursor-pointer"
+            />
+            <p className="mt-2 text-xs text-gray-500">Supported formats: .xlsx, .xls, .csv</p>
+          </div>
         </div>
 
         {error && (
@@ -123,14 +126,23 @@ const StudentBulkImport = ({ onImportSuccess, campusId }) => {
           </div>
         )}
 
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-3">
+          {onCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors"
+            >
+              Cancel
+            </button>
+          )}
           <button
             type="submit"
             disabled={!file || isLoading}
-            className={`px-4 py-2 rounded-md text-white font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+            className={`px-4 py-2 rounded-md text-white font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors ${
               !file || isLoading
                 ? 'bg-gray-400 cursor-not-allowed'
-                : 'bg-blue-600 hover:bg-blue-700'
+                : 'bg-primary-600 hover:bg-primary-700'
             }`}
           >
             {isLoading ? (
@@ -138,7 +150,7 @@ const StudentBulkImport = ({ onImportSuccess, campusId }) => {
                 <LoadingSpinner size="sm" color="white" /> Processing...
               </span>
             ) : (
-              'Upload and Import'
+              'Import from file'
             )}
           </button>
         </div>

@@ -450,7 +450,7 @@ export default function TeacherToSectionPage() {
                       <div className="mt-6 border-t pt-4">
                         <h3 className="text-md font-semibold mb-2">Primary Teacher</h3>
                         <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 items-center border border-gray-200 rounded-lg p-3 ${primaryTeacherId ? 'bg-green-50' : 'bg-blue-50'}`}>
-                          <div className="text-sm text-gray-700">Select the primary teacher for this section</div>
+                          <div className="text-sm font-medium">Select the primary teacher for this section</div>
                           <div>
                             <select
                               value={primaryTeacherId}
