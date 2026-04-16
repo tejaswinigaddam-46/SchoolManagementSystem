@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import Card from '../ui/Card';
 import LoadingSpinner from '../ui/LoadingSpinner';
 import AcademicYearSelector from '../forms/AcademicYearSelector.jsx';
+import { Plus } from 'lucide-react';
 
 const OneAcademicYearPage = ({ 
   title = "Management",
@@ -14,6 +15,7 @@ const OneAcademicYearPage = ({
   onFiltersChange,
   showClassFilter = true,
   showSearchFilter = true,
+  searchPlaceholder = "",
   customFilters = null,
   instructions = null,
   addButtonText = "Add Item",
@@ -81,34 +83,6 @@ const OneAcademicYearPage = ({
     }
   };
 
-  // Default instructions if none provided
-  const defaultInstructions = (
-    <div className="mb-6">
-      <Card>
-        <div className="p-4 bg-blue-50 border-l-4 border-blue-400">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-blue-800">Instructions</h3>
-              <div className="mt-2 text-sm text-blue-700">
-                <ul className="list-disc list-inside space-y-1">
-                  <li><strong>Academic Year:</strong> Select an academic year to filter items by year, curriculum, and medium</li>
-                  <li><strong>Class Filter:</strong> Further filter items by specific class</li>
-                  <li><strong>Search:</strong> Use the search field to find specific items by name or other attributes</li>
-                  <li><strong>Permissions:</strong> Users with update permissions can create, edit, or delete items. All users can view items</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </div>
-      </Card>
-    </div>
-  );
-
   return (
     <div className="p-6">
       {/* Header */}
@@ -122,16 +96,14 @@ const OneAcademicYearPage = ({
           {canAdd && onAddClick && (
             <button
               onClick={onAddClick}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              className="btn-primary whitespace-nowrap"
             >
+              <Plus className="h-4 w-4 mr-2" />
               {addButtonText}
             </button>
           )}
         </div>
       </div>
-
-      {/* Instructions */}
-      {instructions !== null ? instructions : defaultInstructions}
 
       {/* Search and Filters */}
       <div className="mb-6">
@@ -146,7 +118,7 @@ const OneAcademicYearPage = ({
                   </label>
                   <input
                     type="text"
-                    placeholder={`Search ${title.toLowerCase()}...`}
+                    placeholder={searchPlaceholder || `Search ${title.toLowerCase()}...`}
                     value={filters.search || ''}
                     onChange={(e) => {
                       const newFilters = { ...filters, search: e.target.value };

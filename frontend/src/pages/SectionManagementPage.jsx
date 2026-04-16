@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
+import { Save, Loader2, Plus } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import Card from '../components/ui/Card';
 import ConfirmationDialog from '../components/ui/ConfirmationDialog';
@@ -14,6 +15,8 @@ import userService from '../services/userService';
 import { academicService } from '../services/academicService';
 import subjectService from '../services/subjectService';
 import sectionSubjectService from '../services/sectionSubjectService';
+import RequiredAsterisk from '../components/ui/RequiredAsterisk';
+import { EditButton, DeleteButton, ActionButtonGroup } from '../components/ui/ActionButtons';
 
 // AutocompleteInput component for teacher and student search
 const AutocompleteInput = ({ 
@@ -90,7 +93,7 @@ const AutocompleteInput = ({
   return (
     <div className={`relative ${className}`}>
       <label className="block text-xs font-medium text-gray-700 mb-1">
-        {label} {required && <span className="text-red-500">*</span>}
+        {label} {required && <RequiredAsterisk />}
       </label>
       <input
         type="text"
@@ -154,7 +157,7 @@ const AutocompleteInput = ({
 const InputField = ({ label, name, type = 'text', required = false, options = null, className = '', formData, handleInputChange, placeholder = '', disabled = false }) => (
   <div className={`${className}`}>
     <label className="block text-xs font-medium text-gray-700 mb-1">
-      {label} {required && <span className="text-red-500">*</span>}
+      {label} {required && <RequiredAsterisk />}
     </label>
     {type === 'select' ? (
       <select
@@ -191,7 +194,7 @@ const InputField = ({ label, name, type = 'text', required = false, options = nu
 const RoomSelectField = ({ label, name, required = false, options = null, className = '', formData, handleInputChange, selectedRoom }) => (
   <div className={`${className}`}>
     <label className="block text-xs font-medium text-gray-700 mb-1">
-      {label} {required && <span className="text-red-500">*</span>}
+      {label} {required && <RequiredAsterisk />}
     </label>
     <select
       name={name}
@@ -597,7 +600,7 @@ const SectionManagement = () => {
 
     // Handle room selection - update selected room data
     if (name === 'room_id') {
-      const selectedRoomData = rooms.find(room => room.id.toString() === value);
+      const selectedRoomData = allRooms.find(room => room.id.toString() === value);
       setSelectedRoom(selectedRoomData || null);
     }
   };
@@ -756,7 +759,7 @@ const SectionManagement = () => {
 
     // Set selected room data
     if (section.room_id) {
-      const selectedRoomData = rooms.find(room => room.id === section.room_id);
+      const selectedRoomData = allRooms.find(room => room.id === section.room_id);
       setSelectedRoom(selectedRoomData || null);
     }
 
@@ -808,10 +811,11 @@ const SectionManagement = () => {
   };
 
   // Confirm delete section
-  const confirmDeleteSection = async () => {
+  const confirmDeleteSection = async (section) => {
     try {
+      setDeleteConfirm({ show: false, section: section });
       setDeleting(true);
-      const response = await sectionService.deleteSection(deleteConfirm.section.section_id);
+      const response = await sectionService.deleteSection(section.section_id);
       if (response.success) {
         toast.success('Section deleted successfully!');
         fetchSections();
@@ -856,7 +860,7 @@ const SectionManagement = () => {
   };
 
   const getRoomNumber = (roomId) => {
-    const room = rooms.find(r => r.id === roomId);
+    const room = allRooms.find(r => r.id === roomId);
     return room ? room.name : 'No Room';
   };
 
@@ -865,38 +869,7 @@ const SectionManagement = () => {
     fetchSections();
     fetchDropdownData();
     fetchFilterOptions();
-  }, []);
-
-  // Custom instructions for sections
-  const sectionInstructions = (
-    <div className="mb-6">
-      <Card>
-        <div className="p-4 bg-blue-50 border-l-4 border-blue-400">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-blue-800">Instructions</h3>
-              <div className="mt-2 text-sm text-blue-700">
-                <ul className="list-disc list-inside space-y-1">
-                  <li><strong>Creating Sections:</strong> Academic Year (Year, Curriculum, Medium) and Class are required fields</li>
-                  <li><strong>Academic Year Selection:</strong> Choose the academic year, curriculum, and medium. The system will validate this combination.</li>
-                  <li><strong>Section Names:</strong> Use descriptive names like A, B, Alpha, Beta, etc.</li>
-                  <li><strong>Room Assignment:</strong> Optional - assign a specific room to the section</li>
-                  <li><strong>Capacity:</strong> Optional - set maximum number of students for the section</li>
-                  <li><strong>Student Monitor:</strong> Can only be selected after choosing a valid academic year combination and class</li>
-                  <li><strong>Permissions:</strong> Users with section permissions can create, edit, or delete sections. All users can view sections</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </div>
-      </Card>
-    </div>
-  );
+  }, []); 
 
   if (showAddForm || showEditForm) {
     return (
@@ -1063,26 +1036,31 @@ const SectionManagement = () => {
                 </div>
 
                 {/* Form Actions */}
-                <div className="flex justify-end space-x-4 mt-6 pt-4 border-t">
+                <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-secondary-200">
                   <button
                     type="button"
                     onClick={handleCancel}
-                    className="px-6 py-2 text-gray-600 border border-gray-300 rounded hover:bg-gray-50"
+                    className="btn-secondary text-sm px-4 py-2"
                     disabled={loading}
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className={`px-6 py-2 text-white rounded transition-colors flex items-center gap-2 ${
-                      academicYearValidation.isValid && capacityValidation.isValid
-                        ? 'bg-blue-600 hover:bg-blue-700' 
-                        : 'bg-gray-400 cursor-not-allowed'
-                    }`}
+                    className="btn-primary text-sm px-4 py-2"
                     disabled={loading || !academicYearValidation.isValid || !capacityValidation.isValid}
                   >
-                    {loading && <LoadingSpinner className="w-4 h-4" />}
-                    {showEditForm ? 'Update Section' : 'Add Section'}
+                    {loading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        {showEditForm ? 'Updating...' : 'Adding...'}
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4 mr-2" />
+                        {showEditForm ? 'Update Section' : 'Add Section'}
+                      </>
+                    )}
                   </button>
                 </div>
               </form>
@@ -1102,7 +1080,7 @@ const SectionManagement = () => {
       onFiltersChange={handleFiltersChange}
       showClassFilter={true}
       showSearchFilter={true}
-      instructions={sectionInstructions}
+      searchPlaceholder="Search by section name, Academic year, Class"
       addButtonText="Add Section"
       onAddClick={handleAddSection}
       canAdd={canCreateSection}
@@ -1129,11 +1107,9 @@ const SectionManagement = () => {
                 <div className="mt-6">
                   <button
                     onClick={handleAddSection}
-                    className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                    className="btn-primary"
                   >
-                    <svg className="-ml-1 mr-2 h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-                    </svg>
+                    <Plus className="h-4 w-4 mr-2" />
                     Add Section
                   </button>
                 </div>
@@ -1172,29 +1148,38 @@ const SectionManagement = () => {
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{getRoomNumber(section.room_id)}</td>
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{section.capacity || '-'}</td>
                       <td className="px-4 py-2 whitespace-nowrap text-sm font-medium">
-                        <div className="flex space-x-2">
+                        <ActionButtonGroup>
                           {canEditOrDeleteSection ? (
                             <>
-                              <button 
+                              <EditButton 
                                 onClick={() => handleEditSection(section)}
-                                className="inline-flex items-center px-3 py-1 border border-transparent text-xs leading-4 font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:border-blue-300 focus:shadow-outline-blue active:bg-blue-200 transition ease-in-out duration-150"
                                 title="Edit section"
-                              >
-                                <svg className="-ml-0.5 mr-1 h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
-                                  <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                                </svg>
-                                Edit
-                              </button>
-                              <button 
-                                onClick={() => handleDeleteSection(section)}
-                                className="inline-flex items-center px-3 py-1 border border-transparent text-xs leading-4 font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:border-red-300 focus:shadow-outline-red active:bg-red-200 transition ease-in-out duration-150"
-                                title="Delete section"
-                              >
-                                <svg className="-ml-0.5 mr-1 h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
-                                  <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                                </svg>
-                                Delete
-                              </button>
+                              />
+                              <DeleteButton 
+                                  onClick={() => confirmDeleteSection(section)}
+                                  title="Delete section"
+                                  isDeleting={deleting && deleteConfirm.section?.section_id === section.section_id}
+                                  confirmTitle="Delete Section"
+                                  confirmMessage={
+                                  <div>
+                                    <p className="mb-2">Are you sure you want to delete section <strong>"{section.section_name}"</strong>?</p>
+                                    <div className="bg-yellow-50 border-l-4 border-yellow-400 p-3 mt-3">
+                                      <div className="flex">
+                                        <div className="flex-shrink-0">
+                                          <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                          </svg>
+                                        </div>
+                                        <div className="ml-3">
+                                          <p className="text-sm text-yellow-700">
+                                            <strong>Warning:</strong> This action cannot be undone. If students are enrolled in this section, deletion may be prevented.
+                                          </p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                }
+                              />
                             </>
                           ) : (
                             <span className="inline-flex items-center px-3 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-600">
@@ -1205,7 +1190,7 @@ const SectionManagement = () => {
                               View Only
                             </span>
                           )}
-                        </div>
+                        </ActionButtonGroup>
                       </td>
                     </tr>
                   ))}
@@ -1246,35 +1231,6 @@ const SectionManagement = () => {
       </Card>
 
       {/* Delete Confirmation Dialog */}
-      <ConfirmationDialog
-        isOpen={deleteConfirm.show}
-        onClose={() => setDeleteConfirm({ show: false, section: null })}
-        onConfirm={confirmDeleteSection}
-        title="Delete Section"
-        message={
-          <div>
-            <p className="mb-2">Are you sure you want to delete section <strong>"{deleteConfirm.section?.section_name}"</strong>?</p>
-            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-3 mt-3">
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm text-yellow-700">
-                    <strong>Warning:</strong> This action cannot be undone. If students are enrolled in this section, deletion may be prevented.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        }
-        confirmText="Delete Section"
-        cancelText="Cancel"
-        variant="danger"
-        isLoading={deleting}
-      />
     </OneAcademicYearPage>
   );
 };

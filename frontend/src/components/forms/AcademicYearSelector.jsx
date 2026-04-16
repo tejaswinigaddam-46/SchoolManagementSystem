@@ -4,6 +4,7 @@ import YearNameDropdown from './YearNameDropdown.jsx';
 import CurriculumDropdown from './CurriculumDropdown.jsx';
 import MediumDropdown from './MediumDropdown.jsx';
 import { useAuth } from '../../contexts/AuthContext';
+import RequiredAsterisk from '../ui/RequiredAsterisk';
 
 const AcademicYearSelector = ({ 
   campusId, 
@@ -394,7 +395,7 @@ const AcademicYearSelector = ({
         <div className="mb-4">
           <h3 className="text-lg font-medium text-gray-900 mb-2">
             {label}
-            {required && <span className="text-red-500 ml-1">*</span>}
+            {required && <RequiredAsterisk />}
           </h3>
         </div>
       )}
