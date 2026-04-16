@@ -3,11 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { 
   Home, 
   Plus, 
-  Edit, 
-  Trash2, 
   AlertCircle,
   Save,
-  X,
   Loader2,
   Search,
   Filter,
@@ -19,10 +16,11 @@ import {
 } from 'lucide-react'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import Modal from '../components/ui/Modal'
-import ConfirmationDialog from '../components/ui/ConfirmationDialog'
 
 import { useAuth } from '../contexts/AuthContext';
 import { PERMISSIONS } from '../config/permissions';
+import RequiredAsterisk from '../components/ui/RequiredAsterisk'
+import { EditButton, DeleteButton, ActionButtonGroup } from '../components/ui/ActionButtons'
 import { roomService } from '../services/roomService'
 import { buildingService } from '../services/buildingService'
 import { toast } from 'react-hot-toast'
@@ -180,7 +178,7 @@ const RoomForm = ({ room, onClose, onSuccess }) => {
         {/* Building Selection */}
         <div>
           <label className="block text-sm font-medium text-secondary-700 mb-1">
-            Building *
+            Building <RequiredAsterisk />
           </label>
           <select
             value={formData.building_id}
@@ -202,7 +200,7 @@ const RoomForm = ({ room, onClose, onSuccess }) => {
         {/* Room Number */}
         <div>
           <label className="block text-sm font-medium text-secondary-700 mb-1">
-            Room Number *
+            Room Number <RequiredAsterisk />
           </label>
           <input
             type="text"
@@ -223,7 +221,7 @@ const RoomForm = ({ room, onClose, onSuccess }) => {
         {/* Floor Number */}
         <div>
           <label className="block text-sm font-medium text-secondary-700 mb-1">
-            Floor Number *
+            Floor Number <RequiredAsterisk />
           </label>
           <input
             type="number"
@@ -245,7 +243,7 @@ const RoomForm = ({ room, onClose, onSuccess }) => {
         {/* Room Type */}
         <div>
           <label className="block text-sm font-medium text-secondary-700 mb-1">
-            Room Type *
+            Room Type <RequiredAsterisk />
           </label>
           <select
             value={formData.room_type}
@@ -322,17 +320,11 @@ const RoomForm = ({ room, onClose, onSuccess }) => {
 // Room Card Component
 const RoomCard = ({ room, onEdit, onDelete, isAdmin, buildings }) => {
   const [isDeleting, setIsDeleting] = useState(false)
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   const building = buildings.find(b => b.building_id === room.building_id)
 
-  const handleDeleteClick = () => {
-    setShowDeleteConfirm(true)
-  }
-
   const handleDeleteConfirm = async () => {
     setIsDeleting(true)
-    setShowDeleteConfirm(false)
     
     try {
       await onDelete(room.room_id)
@@ -341,121 +333,97 @@ const RoomCard = ({ room, onEdit, onDelete, isAdmin, buildings }) => {
     }
   }
 
-  const handleDeleteCancel = () => {
-    setShowDeleteConfirm(false)
-  }
-
   const formatRoomType = (roomType) => {
     return roomType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
   }
 
   return (
-    <>
-      <div className="bg-white rounded-lg border border-secondary-200 p-6 hover:shadow-lg transition-shadow">
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex items-start space-x-3">
-            <div className="p-2 bg-primary-100 rounded-lg">
-              <Home className="h-6 w-6 text-primary-600" />
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold text-secondary-900">
+    <div className="bg-white rounded-lg border border-secondary-200 p-6 hover:shadow-lg transition-shadow">
+      <div className="flex flex-col sm:flex-row items-start justify-between mb-4 space-y-3 sm:space-y-0">
+        <div className="flex items-start space-x-3 min-w-0 w-full">
+          <div className="p-2 bg-primary-100 rounded-lg flex-shrink-0">
+            <Home className="h-6 w-6 text-primary-600" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2 w-full">
+              <h3 className="text-lg font-semibold text-secondary-900 break-all sm:break-words line-clamp-2">
                 Room {room.room_number}
               </h3>
-              <p className="text-sm text-secondary-600">
-                {building?.building_name || 'Unknown Building'}
-              </p>
             </div>
+            <p className="text-sm text-secondary-600 mt-1 truncate">
+              {building?.building_name || 'Unknown Building'}
+            </p>
           </div>
-          
-          {isAdmin && (
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={() => onEdit(room)}
-                className="p-2 text-secondary-500 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
-                title="Edit room"
-              >
-                <Edit className="h-4 w-4" />
-              </button>
-              <button
-                onClick={handleDeleteClick}
-                disabled={isDeleting}
-                className="p-2 text-secondary-500 hover:text-error-600 hover:bg-error-50 rounded-lg transition-colors"
-                title="Delete room"
-              >
-                {isDeleting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Trash2 className="h-4 w-4" />
-                )}
-              </button>
-            </div>
-          )}
         </div>
-
-        <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex items-center space-x-2">
-              <Layers3 className="h-4 w-4 text-secondary-400" />
-              <span className="text-sm text-secondary-600">
-                Floor {room.floor_number}
-              </span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Grid3X3 className="h-4 w-4 text-secondary-400" />
-              <span className="text-sm text-secondary-600">
-                {formatRoomType(room.room_type)}
-              </span>
-            </div>
-          </div>
-          
-          {room.capacity && (
-            <div className="flex items-center space-x-2">
-              <Users className="h-4 w-4 text-secondary-400" />
-              <span className="text-sm text-secondary-600">
-                Capacity: {room.capacity}
-              </span>
-            </div>
-          )}
-          {room.available_capacity !== undefined && room.available_capacity !== null && (
-            <div className="flex items-center space-x-2">
-              <Users className="h-4 w-4 text-secondary-400" />
-              <span className="text-sm text-secondary-600">
-                Available Capacity: {room.available_capacity}
-              </span>
-            </div>
-          )}
-          {room.status && (
-            <div className="flex items-center space-x-2">
-              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${room.status === 'booked' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
-                {room.status === 'booked' ? 'Booked' : 'Available'}
-              </span>
-              {room.status === 'booked' && (room.booking_curriculum_code || room.booking_class_name || room.booking_section_name) && (
-                <span className="text-xs text-secondary-700">
-                  {[
-                    room.booking_curriculum_code,
-                    room.booking_class_name,
-                    room.booking_section_name
-                  ].filter(Boolean).join('-')}
-                </span>
-              )}
-            </div>
-          )}
-        </div>
+        
+        {isAdmin && (
+          <ActionButtonGroup className="self-end sm:self-start">
+            <EditButton
+              onClick={() => onEdit(room)}
+              title="Edit room"
+            />
+            <DeleteButton
+              onClick={handleDeleteConfirm}
+              isDeleting={isDeleting}
+              title="Delete room"
+              confirmTitle="Delete Room"
+              confirmMessage={`Are you sure you want to delete Room ${room.room_number}? This action cannot be undone and will permanently remove all room data.`}
+              confirmText="Delete Room"
+            />
+          </ActionButtonGroup>
+        )}
       </div>
 
-      {/* Delete Confirmation Dialog */}
-      <ConfirmationDialog
-        isOpen={showDeleteConfirm}
-        onClose={handleDeleteCancel}
-        onConfirm={handleDeleteConfirm}
-        title="Delete Room"
-        message={`Are you sure you want to delete Room ${room.room_number}? This action cannot be undone and will permanently remove all room data.`}
-        confirmText="Delete Room"
-        cancelText="Cancel"
-        variant="danger"
-        isLoading={isDeleting}
-      />
-    </>
+      <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="flex items-center space-x-2">
+            <Layers3 className="h-4 w-4 text-secondary-400 flex-shrink-0" />
+            <span className="text-sm text-secondary-600">
+              Floor {room.floor_number}
+            </span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Grid3X3 className="h-4 w-4 text-secondary-400 flex-shrink-0" />
+            <span className="text-sm text-secondary-600 truncate">
+              {formatRoomType(room.room_type)}
+            </span>
+          </div>
+        </div>
+        
+        {room.capacity && (
+          <div className="flex items-center space-x-2">
+            <Users className="h-4 w-4 text-secondary-400 flex-shrink-0" />
+            <span className="text-sm text-secondary-600">
+              Capacity: {room.capacity}
+            </span>
+          </div>
+        )}
+        {room.available_capacity !== undefined && room.available_capacity !== null && (
+          <div className="flex items-center space-x-2">
+            <Users className="h-4 w-4 text-secondary-400 flex-shrink-0" />
+            <span className="text-sm text-secondary-600">
+              Available Capacity: {room.available_capacity}
+            </span>
+          </div>
+        )}
+        {room.status && (
+          <div className="flex items-center space-x-2">
+            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${room.status === 'booked' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
+              {room.status === 'booked' ? 'Booked' : 'Available'}
+            </span>
+            {room.status === 'booked' && (room.booking_curriculum_code || room.booking_class_name || room.booking_section_name) && (
+              <span className="text-xs text-secondary-700 truncate">
+                {[
+                  room.booking_curriculum_code,
+                  room.booking_class_name,
+                  room.booking_section_name
+                ].filter(Boolean).join('-')}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -618,15 +586,12 @@ export default function CampusRoomsManagementPage() {
   console.log('🏠 Rendering main campus rooms management content')
   
   return (
-    <div className="space-y-6">
-      <div className="mb-6">
-        <div className="flex items-center space-x-2 mb-2">
-          <MapPin className="h-5 w-5 text-primary-600" />
-          <span className="text-sm font-medium text-primary-600">{getCampusName()}</span>
-        </div>
-        <h1 className="text-3xl font-bold text-secondary-900 mb-2">Campus Rooms Management</h1>
+    <div className="flex flex-col gap-6">
+      {/* Header */}
+      <div>
+        <h1 className="font-bold text-3xl text-secondary mb-2">Campus Rooms Management</h1>
         <p className="text-secondary-600">
-          Welcome, {getFullName()}! Manage rooms across your campus buildings.
+          Campus: {getCampusName()}
         </p>
       </div>
 
