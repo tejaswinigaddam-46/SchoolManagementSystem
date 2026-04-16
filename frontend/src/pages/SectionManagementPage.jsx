@@ -873,10 +873,10 @@ const SectionManagement = () => {
 
   if (showAddForm || showEditForm) {
     return (
-      <div className="p-6">
+      <div className="p-4 md:p-6">
         <div className="max-w-4xl mx-auto">
           <Card>
-            <div className="p-6">
+            <div className="p-4 md:p-6">
               <h2 className="text-xl font-semibold mb-4">
                 {showEditForm ? 'Edit Section' : 'Add Section'}
               </h2>
@@ -1036,18 +1036,18 @@ const SectionManagement = () => {
                 </div>
 
                 {/* Form Actions */}
-                <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-secondary-200">
+                <div className="flex flex-col-reverse md:flex-row md:justify-end gap-3 mt-6 pt-4 border-t border-secondary-200">
                   <button
                     type="button"
                     onClick={handleCancel}
-                    className="btn-secondary text-sm px-4 py-2"
+                    className="btn-secondary text-sm px-4 py-2 w-full md:w-auto"
                     disabled={loading}
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="btn-primary text-sm px-4 py-2"
+                    className="btn-primary text-sm px-4 py-2 w-full md:w-auto flex justify-center items-center"
                     disabled={loading || !academicYearValidation.isValid || !capacityValidation.isValid}
                   >
                     {loading ? (
@@ -1087,7 +1087,7 @@ const SectionManagement = () => {
     >
       {/* Sections List */}
       <Card>
-        <div className="p-6">
+        <div className="p-4 md:p-6">
           <h2 className="text-xl font-semibold mb-4">Sections List</h2>
           {loading ? (
             <div className="flex justify-center items-center py-8">
@@ -1116,87 +1116,161 @@ const SectionManagement = () => {
               )}
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full table-auto">
-                <thead>
-                  <tr className="bg-gray-50">
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Section Name</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Academic Year</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Class</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Room</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Capacity</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {sections.map((section) => (
-                    <tr 
-                      key={section.section_id} 
-                      className="hover:bg-gray-50 transition-colors duration-150" 
-                      onClick={(e) => {
-                        if (e.target.closest('button')) return;
-                        handleRowClick(section);
-                      }}
-                    >
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                          {section.section_name}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{getAcademicYearDisplay(section)}</td>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{getClassName(section.class_id)}</td>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{getRoomNumber(section.room_id)}</td>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{section.capacity || '-'}</td>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm font-medium">
-                        <ActionButtonGroup>
-                          {canEditOrDeleteSection ? (
-                            <>
-                              <EditButton 
-                                onClick={() => handleEditSection(section)}
-                                title="Edit section"
-                              />
-                              <DeleteButton 
-                                  onClick={() => confirmDeleteSection(section)}
-                                  title="Delete section"
-                                  isDeleting={deleting && deleteConfirm.section?.section_id === section.section_id}
-                                  confirmTitle="Delete Section"
-                                  confirmMessage={
-                                  <div>
-                                    <p className="mb-2">Are you sure you want to delete section <strong>"{section.section_name}"</strong>?</p>
-                                    <div className="bg-yellow-50 border-l-4 border-yellow-400 p-3 mt-3">
-                                      <div className="flex">
-                                        <div className="flex-shrink-0">
-                                          <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
-                                            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                                          </svg>
-                                        </div>
-                                        <div className="ml-3">
-                                          <p className="text-sm text-yellow-700">
-                                            <strong>Warning:</strong> This action cannot be undone. If students are enrolled in this section, deletion may be prevented.
-                                          </p>
+            <>
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="min-w-full table-auto">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-200">
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Section Name</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Academic Year</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Class</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Room</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider text-center">Capacity</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-100">
+                    {sections.map((section) => (
+                      <tr 
+                        key={section.section_id} 
+                        className="hover:bg-gray-50 transition-colors duration-150 cursor-pointer" 
+                        onClick={(e) => {
+                          if (e.target.closest('button')) return;
+                          handleRowClick(section);
+                        }}
+                      >
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200 shadow-sm">
+                            {section.section_name}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{getAcademicYearDisplay(section)}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{getClassName(section.class_id)}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{getRoomNumber(section.room_id)}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-center font-medium">{section.capacity || '-'}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-right">
+                          <ActionButtonGroup>
+                            {canEditOrDeleteSection ? (
+                              <>
+                                <EditButton 
+                                  onClick={() => handleEditSection(section)}
+                                  title="Edit section"
+                                />
+                                <DeleteButton 
+                                    onClick={() => confirmDeleteSection(section)}
+                                    title="Delete section"
+                                    isDeleting={deleting && deleteConfirm.section?.section_id === section.section_id}
+                                    confirmTitle="Delete Section"
+                                    confirmMessage={
+                                    <div>
+                                      <p className="mb-2">Are you sure you want to delete section <strong>"{section.section_name}"</strong>?</p>
+                                      <div className="bg-yellow-50 border-l-4 border-yellow-400 p-3 mt-3 text-left">
+                                        <div className="flex">
+                                          <div className="flex-shrink-0">
+                                            <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                                              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                            </svg>
+                                          </div>
+                                          <div className="ml-3">
+                                            <p className="text-sm text-yellow-700">
+                                              <strong>Warning:</strong> This action cannot be undone. If students are enrolled in this section, deletion may be prevented.
+                                            </p>
+                                          </div>
                                         </div>
                                       </div>
                                     </div>
-                                  </div>
-                                }
-                              />
-                            </>
-                          ) : (
-                            <span className="inline-flex items-center px-3 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-600">
-                              <svg className="-ml-0.5 mr-1 h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
-                                <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                                <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+                                  }
+                                />
+                              </>
+                            ) : (
+                              <span className="inline-flex items-center px-3 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-600">
+                                <svg className="-ml-0.5 mr-1 h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+                                  <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                                  <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+                                </svg>
+                                View Only
+                              </span>
+                            )}
+                          </ActionButtonGroup>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden space-y-4">
+                {sections.map((section) => (
+                  <div 
+                    key={section.section_id} 
+                    className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:border-primary-300 transition-all duration-200"
+                    onClick={() => handleRowClick(section)}
+                  >
+                    <div className="flex justify-between items-start mb-4">
+                      <div>
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800 border border-green-200">
+                          {section.section_name}
+                        </span>
+                        <h3 className="text-base font-bold text-gray-900 mt-2">
+                          Class: {getClassName(section.class_id)}
+                        </h3>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        {canEditOrDeleteSection ? (
+                          <>
+                            <button 
+                              onClick={() => handleEditSection(section)}
+                              className="p-2 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                              title="Edit section"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                               </svg>
-                              View Only
-                            </span>
-                          )}
-                        </ActionButtonGroup>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                            </button>
+                            <button 
+                              onClick={() => confirmDeleteSection(section)}
+                              className="p-2 text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
+                              title="Delete section"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          </>
+                        ) : (
+                          <span className="p-1.5 bg-gray-50 text-gray-500 rounded-md">
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+                            </svg>
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div className="bg-gray-50 p-2 rounded-lg">
+                        <p className="text-[11px] font-medium text-gray-500 uppercase tracking-wider mb-1">Academic Year</p>
+                        <p className="font-semibold text-gray-800 leading-tight">{getAcademicYearDisplay(section)}</p>
+                      </div>
+                      <div className="bg-gray-50 p-2 rounded-lg">
+                        <p className="text-[11px] font-medium text-gray-500 uppercase tracking-wider mb-1">Room</p>
+                        <p className="font-semibold text-gray-800">{getRoomNumber(section.room_id)}</p>
+                      </div>
+                      <div className="bg-gray-50 p-2 rounded-lg">
+                        <p className="text-[11px] font-medium text-gray-500 uppercase tracking-wider mb-1">Capacity</p>
+                        <p className="font-semibold text-gray-800">{section.capacity || '-'}</p>
+                      </div>
+                      <div className="bg-gray-50 p-2 rounded-lg">
+                        <p className="text-[11px] font-medium text-gray-500 uppercase tracking-wider mb-1">Status</p>
+                        <span className="text-xs font-bold text-blue-600">Active</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
 
           {/* Pagination */}

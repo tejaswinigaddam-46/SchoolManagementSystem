@@ -355,17 +355,6 @@ export default function TeacherToSectionPage() {
     >
       <Card>
         <div className="p-6 border border-gray-200 rounded-lg bg-white">
-          <div className="mb-4 p-3 bg-blue-50 rounded-lg flex items-center justify-between">
-            <p className="text-sm text-blue-700"><strong>Campus:</strong> {getCampusName()}</p>
-            {showAssignment && (
-              <button
-                onClick={() => { setShowAssignment(false); setSelectedSectionId(''); }}
-                className="px-4 py-2 text-sm font-medium rounded-md border border-gray-300 text-gray-700 bg-white hover:bg-gray-50"
-              >
-                Back to Sections
-              </button>
-            )}
-          </div>
           {!showAssignment ? (
             <div>
               {sectionsLoading ? (
@@ -396,7 +385,7 @@ export default function TeacherToSectionPage() {
                           <td className="px-4 py-2 text-sm">
                             <button
                               onClick={() => { setSelectedSectionId(String(s.section_id)); setShowAssignment(true); }}
-                              className={`px-3 py-1.5 text-xs rounded-md ${canAssignSectionSubjects ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-200 text-gray-700 cursor-pointer'}`}
+                              className={`px-3 py-1.5 text-xs rounded-md ${canAssignSectionSubjects ? 'bg-primary-600 text-white hover:bg-primary-700' : 'bg-gray-200 text-gray-700 cursor-pointer'}`}
                             >
                               {canAssignSectionSubjects ? 'Assign Teachers' : 'View Teachers'}
                             </button>
@@ -410,23 +399,9 @@ export default function TeacherToSectionPage() {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Section</label>
-                  {(filters.class_id && filters.academic_year_id) ? (
-                    <select
-                      value={selectedSectionId || ''}
-                      onChange={(e) => setSelectedSectionId(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                    >
-                      <option value="">Select Section</option>
-                      {sections.map(s => (
-                        <option key={s.section_id} value={s.section_id}>{`${s.section_name} - ${s.class_name} - ${s.year_name}`}</option>
-                      ))}
-                    </select>
-                  ) : (
-                    <div className="text-sm text-gray-600">Please select both academic year and class to choose a section.</div>
-                  )}
+              <div className="mb-6 px-4 py-3 bg-gray-50 border border-200 rounded-lg">
+                <div className="text-medium font-medium text-gray-800">
+                  Section : <span className="font-medium text-primary-700">{sections.find(s => String(s.section_id) === String(selectedSectionId))?.section_name || ''}</span>
                 </div>
               </div>
               {sectionsLoading && (
@@ -454,7 +429,7 @@ export default function TeacherToSectionPage() {
                   ) : (
                     <div className="space-y-3">
                       {assignedSubjects.map(sub => (
-                        <div key={sub.subject_id} className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center border border-gray-200 rounded-lg p-3 bg-gray-50">
+                        <div key={sub.subject_id} className={`grid grid-cols-1 md:grid-cols-2 gap-4 items-center border border-gray-200 rounded-lg p-3 ${selectedTeachersBySubject[sub.subject_id] ? 'bg-green-50' : 'bg-blue-50'}`}>
                           <div className="text-sm font-medium text-gray-800">{sub.subject_name}</div>
                           <div>
                             <select
@@ -474,7 +449,7 @@ export default function TeacherToSectionPage() {
                       }
                       <div className="mt-6 border-t pt-4">
                         <h3 className="text-md font-semibold mb-2">Primary Teacher</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+                        <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 items-center border border-gray-200 rounded-lg p-3 ${primaryTeacherId ? 'bg-green-50' : 'bg-blue-50'}`}>
                           <div className="text-sm text-gray-700">Select the primary teacher for this section</div>
                           <div>
                             <select
@@ -492,17 +467,29 @@ export default function TeacherToSectionPage() {
                         </div>
                       </div>
                       {canAssignSectionSubjects ? (
-                        <div className="flex justify-end mt-4">
+                        <div className="flex justify-end mt-4 gap-3">
+                          <button
+                            onClick={() => { setShowAssignment(false); setSelectedSectionId(''); }}
+                            className="px-6 py-2 text-gray-700 rounded border border-gray-300 bg-white hover:bg-gray-50"
+                          >
+                            Cancel
+                          </button>
                           <button
                             onClick={handleAssignTeachers}
-                            className="px-6 py-2 text-white rounded bg-green-600 hover:bg-green-700"
+                            className="px-6 py-2 text-white rounded bg-primary-600 hover:bg-primary-700"
                           >
                             Assign Teachers
                           </button>
                         </div>
                       ) : (
-                        <div className="mt-4 text-sm text-gray-500 text-right">
-                          You have view-only access to teacher assignments.
+                        <div className="mt-4 text-sm text-gray-500 text-right flex justify-end items-center gap-3">
+                          <button
+                            onClick={() => { setShowAssignment(false); setSelectedSectionId(''); }}
+                            className="px-6 py-2 text-gray-700 rounded border border-gray-300 bg-white hover:bg-gray-50"
+                          >
+                            Back to Sections
+                          </button>
+                          <span>You have view-only access to teacher assignments.</span>
                         </div>
                       )}
                     </div>

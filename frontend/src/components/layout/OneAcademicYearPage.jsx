@@ -84,19 +84,19 @@ const OneAcademicYearPage = ({
   };
 
   return (
-    <div className="p-6">
+    <div className="p-4 md:p-6">
       {/* Header */}
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-800">{title}</h1>
-          <p className="text-gray-600 mt-1">Campus: {getCampusName()}</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-800">{title}</h1>
+          <p className="text-gray-600 mt-1 text-sm md:text-base">Campus: {getCampusName()}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {extraHeaderContent}
           {canAdd && onAddClick && (
             <button
               onClick={onAddClick}
-              className="btn-primary whitespace-nowrap"
+              className="btn-primary whitespace-nowrap w-full md:w-auto flex justify-center items-center"
             >
               <Plus className="h-4 w-4 mr-2" />
               {addButtonText}
@@ -176,7 +176,7 @@ const OneAcademicYearPage = ({
             
             {/* Filter Summary */}
             {(filters.search || filters.academic_year_id || filters.class_id) && (
-              <div className="mt-4 flex items-center justify-between">
+              <div className="mt-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex flex-wrap gap-2">
                   {filters.search && (
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
@@ -214,7 +214,7 @@ const OneAcademicYearPage = ({
                 </div>
                 <button
                   onClick={clearAllFilters}
-                  className="text-sm font-medium px-3 py-1.5 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                  className="text-sm font-medium px-3 py-1.5 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 w-full md:w-auto"
                 >
                   Clear all filters
                 </button>
