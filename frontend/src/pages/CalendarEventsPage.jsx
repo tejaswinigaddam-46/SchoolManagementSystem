@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react'
 import { format, addDays, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear } from 'date-fns'
 import { toast } from 'react-hot-toast'
 import Card from '../components/ui/Card'
+import { Plus } from 'lucide-react'
 import Modal from '../components/ui/Modal'
+import RequiredAsterisk from '../components/ui/RequiredAsterisk'
 import ConfirmationDialog from '../components/ui/ConfirmationDialog'
 import AcademicYearSelector from '../components/forms/AcademicYearSelector'
 import { useAuth } from '../contexts/AuthContext'
@@ -1009,9 +1011,7 @@ export default function CalendarEventsPage() {
               disabled={!academicYearValidation.isValid}
             >
               <span className="flex items-center gap-2">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-                </svg>
+                <Plus className="h-4 w-4 mr-2" />
                 Add Event
               </span>
             </button>
@@ -1169,11 +1169,13 @@ export default function CalendarEventsPage() {
           </div>
         </div>
       </Card>
-      <Modal isOpen={isAddOpen} onClose={() => setIsAddOpen(false)} title="Add Event" size="md">
+      <Modal isOpen={isAddOpen} onClose={() => setIsAddOpen(false)} title="Add Event" size="lg" showCloseButton={false}>
         <div className="p-6 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-secondary-700 mb-3">Event name</label>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-x-4 gap-y-6">
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-secondary-700 mb-2">
+                Event name <RequiredAsterisk />
+              </label>
               <input
                 className="input"
                 type="text"
@@ -1181,8 +1183,10 @@ export default function CalendarEventsPage() {
                 onChange={(e) => setForm(prev => ({ ...prev, title: e.target.value }))}
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-secondary-700 mb-3">Event Type</label>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-secondary-700 mb-2">
+                Event Type <RequiredAsterisk />
+              </label>
               <select
                 className="input"
                 value={form.eventType}
@@ -1191,60 +1195,19 @@ export default function CalendarEventsPage() {
                 {EVENT_TYPES.map(type => <option key={type} value={type}>{type}</option>)}
               </select>
             </div>
-          </div>
 
-          {form.eventType === 'Test' && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-secondary-700 mb-3">Subject Name</label>
-                <input
-                  className="input"
-                  type="text"
-                  value={form.subject_name}
-                  onChange={(e) => setForm(prev => ({ ...prev, subject_name: e.target.value }))}
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-secondary-700 mb-3">Total Score</label>
-                <input
-                  className="input"
-                  type="number"
-                  value={form.total_score}
-                  onChange={(e) => {
-                    const total = Number(e.target.value);
-                    setForm(prev => ({ 
-                      ...prev, 
-                      total_score: total,
-                      passing_score: (total * 0.35).toFixed(2)
-                    }));
-                  }}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-secondary-700 mb-3">Passing Score (35%)</label>
-                <input
-                  className="input bg-gray-100"
-                  type="number"
-                  value={form.passing_score}
-                  readOnly
-                  disabled
-                />
-              </div>
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-secondary-700 mb-3">Event description</label>
-              <textarea
-                className="input"
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-secondary-700 mb-2">Event description</label>
+              <input
+                className="input h-[42px] min-h-[42px] py-2"
                 value={form.description}
                 onChange={(e) => setForm(prev => ({ ...prev, description: e.target.value }))}
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-secondary-700 mb-3">Event Status</label>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-secondary-700 mb-2">
+                Event Status <RequiredAsterisk />
+              </label>
               <select
                 className="input"
                 value={form.event_status}
@@ -1253,13 +1216,55 @@ export default function CalendarEventsPage() {
                 {EVENT_STATUSES.map(status => <option key={status} value={status}>{status}</option>)}
               </select>
             </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-secondary-700 mb-3">Audience</label>
-              <div className="space-y-3">
+
+            {form.eventType === 'Test' && (
+              <>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-secondary-700 mb-2">
+                    Subject Name <RequiredAsterisk />
+                  </label>
+                  <input
+                    className="input"
+                    type="text"
+                    value={form.subject_name}
+                    onChange={(e) => setForm(prev => ({ ...prev, subject_name: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="md:col-span-1">
+                  <label className="block text-sm font-medium text-secondary-700 mb-2">Total Score</label>
+                  <input
+                    className="input"
+                    type="number"
+                    value={form.total_score}
+                    onChange={(e) => {
+                      const total = Number(e.target.value);
+                      setForm(prev => ({ 
+                        ...prev, 
+                        total_score: total,
+                        passing_score: (total * 0.35).toFixed(2)
+                      }));
+                    }}
+                  />
+                </div>
+                <div className="md:col-span-1">
+                  <label className="block text-sm font-medium text-secondary-700 mb-2">Passing Score (35%)</label>
+                  <input
+                    className="input bg-gray-100"
+                    type="number"
+                    value={form.passing_score}
+                    readOnly
+                    disabled
+                  />
+                </div>
+              </>
+            )}
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-secondary-700 mb-2">Audience</label>
+              <div className="grid grid-cols-2 gap-2">
                 {["all","Class","Teachers","Employees","Parents","Students"].map(a => (
-                  <label key={a} className="flex items-center p-3 rounded-lg border border-secondary-200 hover:bg-secondary-50 cursor-pointer transition-colors">
+                  <label key={a} className="flex items-center p-2 rounded-lg border border-secondary-200 hover:bg-secondary-50 cursor-pointer transition-colors">
                     <input
                       type="checkbox"
                       className="w-4 h-4 text-primary-600 bg-white border-secondary-300 rounded focus:ring-primary-500 focus:ring-2 mr-3"
@@ -1283,7 +1288,7 @@ export default function CalendarEventsPage() {
                         })
                       }}
                     />
-                    <span className={`text-sm font-medium ${
+                    <span className={`text-xs font-medium ${
                       form.selectedAudiences.includes('all') && a !== 'all' 
                         ? 'text-secondary-400' 
                         : 'text-secondary-700'
@@ -1294,8 +1299,8 @@ export default function CalendarEventsPage() {
                 ))}
               </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-secondary-700 mb-3">Room</label>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-secondary-700 mb-2">Room</label>
               <select
                 className="input mb-3"
                 value={form.room_id || ''}
@@ -1321,69 +1326,73 @@ export default function CalendarEventsPage() {
                 ) : null;
               })()}
             </div>
-          </div>
-          {form.selectedAudiences.includes('Class') && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-secondary-700 mb-3">Class</label>
-                <select
-                  className="input"
-                  value={form.selectedClasses[0] || ''}
-                  onChange={(e) => {
-                    const classId = String(e.target.value)
-                    setForm(prev => {
-                      const audiences = prev.selectedAudiences || []
-                      const withClass = audiences.includes('Class') ? audiences : [...audiences, 'Class']
-                      return { ...prev, selectedClasses: [classId], selectedSections: [], selectedAudiences: withClass }
-                    })
-                    ;(async () => {
-                      try {
-                        const res = await sectionService.getAllSections({ academic_year_id: academicYearValidation.academicYearId, class_id: classId })
-                        const secs = (res.data?.sections || []).map(s => ({ id: s.section_id, name: s.section_name }))
-                        setAvailableSections(secs)
-                      } catch (err) {
-                        setAvailableSections([])
-                      }
-                    })()
-                  }} >
-                  <option value="">Select a class</option>
-                  {classes.map(c => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
-                </select>
-              </div>
-              {(form.selectedClasses || []).length > 0 && (
-                <div>
-                  <label className="block text-sm font-medium text-secondary-700 mb-3">Sections</label>
-                  <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto">
-                    {availableSections.map(s => (
-                      <label key={s.id} className="flex items-center p-2 rounded-lg border border-secondary-200 hover:bg-secondary-50 cursor-pointer transition-colors">
-                        <input
-                          type="checkbox"
-                          className="w-4 h-4 text-primary-600 bg-white border-secondary-300 rounded focus:ring-primary-500 focus:ring-2 mr-2"
-                          checked={form.selectedSections.includes(String(s.id))}
-                          onChange={(e) => {
-                            const checked = e.target.checked
-                            setForm(prev => {
-                              let secs = [...prev.selectedSections]
-                              if (checked) {
-                                if (!secs.includes(String(s.id))) secs.push(String(s.id))
-                              } else {
-                                secs = secs.filter(id => id !== String(s.id))
-                              }
-                              const audiences = prev.selectedAudiences || []
-                              const withClass = audiences.includes('Class') ? audiences : [...audiences, 'Class']
-                              return { ...prev, selectedSections: secs, selectedAudiences: withClass }
-                            })
-                          }}
-                        />
-                        <span className="text-sm font-medium text-secondary-700">{s.name}</span>
-                      </label>
-                    ))}
+
+            {form.selectedAudiences.includes('Class') && (
+              <>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-secondary-700 mb-2">Class</label>
+                  <select
+                    className="input"
+                    value={form.selectedClasses[0] || ''}
+                    onChange={(e) => {
+                      const classId = String(e.target.value)
+                      setForm(prev => {
+                        const audiences = prev.selectedAudiences || []
+                        const withClass = audiences.includes('Class') ? audiences : [...audiences, 'Class']
+                        return { ...prev, selectedClasses: [classId], selectedSections: [], selectedAudiences: withClass }
+                      })
+                      ;(async () => {
+                        try {
+                          const res = await sectionService.getAllSections({ academic_year_id: academicYearValidation.academicYearId, class_id: classId })
+                          const secs = (res.data?.sections || []).map(s => ({ id: s.section_id, name: s.section_name }))
+                          setAvailableSections(secs)
+                        } catch (err) {
+                          setAvailableSections([])
+                        }
+                      })()
+                    }} >
+                    <option value="">Select a class</option>
+                    {classes.map(c => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
+                  </select>
+                </div>
+                {(form.selectedClasses || []).length > 0 && (
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-secondary-700 mb-2">Sections</label>
+                    <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto">
+                      {availableSections.map(s => (
+                        <label key={s.id} className="flex items-center p-2 rounded-lg border border-secondary-200 hover:bg-secondary-50 cursor-pointer transition-colors">
+                          <input
+                            type="checkbox"
+                            className="w-4 h-4 text-primary-600 bg-white border-secondary-300 rounded focus:ring-primary-500 focus:ring-2 mr-2"
+                            checked={form.selectedSections.includes(String(s.id))}
+                            onChange={(e) => {
+                              const checked = e.target.checked
+                              setForm(prev => {
+                                let secs = [...prev.selectedSections]
+                                if (checked) {
+                                  if (!secs.includes(String(s.id))) secs.push(String(s.id))
+                                } else {
+                                  secs = secs.filter(id => id !== String(s.id))
+                                }
+                                const audiences = prev.selectedAudiences || []
+                                const withClass = audiences.includes('Class') ? audiences : [...audiences, 'Class']
+                                return { ...prev, selectedSections: secs, selectedAudiences: withClass }
+                              })
+                            }}
+                          />
+                          <span className="text-sm font-medium text-secondary-700">{s.name}</span>
+                        </label>
+                      ))}
+                    </div>
                   </div>
+                )}
+                <div className="md:col-span-4">
                   {(() => {
                     const clsName = classes.find(c => String(c.id) === String(form.selectedClasses[0]))?.name
                     const secNames = availableSections.filter(s => form.selectedSections.includes(String(s.id))).map(s => s.name)
+                    if (!clsName && secNames.length === 0) return null;
                     return (
-                      <div className="mt-3 p-3 bg-primary-50 rounded-lg border border-primary-200">
+                      <div className="p-3 bg-primary-50 rounded-lg border border-primary-200">
                         <div className="text-sm text-primary-700">
                           <span className="font-medium">Selected:</span>
                           {clsName && <span className="ml-2">Class: {clsName}</span>}
@@ -1393,119 +1402,131 @@ export default function CalendarEventsPage() {
                     )
                   })()}
                 </div>
-              )}
-            </div>
-          )}
-          {form.selectedAudiences.includes('Class') && (form.selectedSections || []).length > 0 && (
-            <div>
-              <label className="block text-sm font-medium text-secondary-700 mb-3">Notifications</label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <label className="flex items-center p-3 rounded-lg border border-secondary-200 hover:bg-secondary-50 cursor-pointer transition-colors">
+              </>
+            )}
+
+            {form.selectedAudiences.includes('Class') && (form.selectedSections || []).length > 0 && (
+              <div className="md:col-span-4">
+                <label className="block text-sm font-medium text-secondary-700 mb-2">Notifications</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <label className="flex items-center p-3 rounded-lg border border-secondary-200 hover:bg-secondary-50 cursor-pointer transition-colors">
+                    <input
+                      type="checkbox"
+                      className="w-4 h-4 text-primary-600 bg-white border-secondary-300 rounded focus:ring-primary-500 focus:ring-2 mr-3"
+                      checked={form.notifyParents}
+                      onChange={(e) => setForm(prev => ({ ...prev, notifyParents: e.target.checked }))}
+                    />
+                    <span className="text-sm font-medium text-secondary-700">Notify parents</span>
+                  </label>
+                  <label className="flex items-center p-3 rounded-lg border border-secondary-200 hover:bg-secondary-50 cursor-pointer transition-colors">
+                    <input
+                      type="checkbox"
+                      className="w-4 h-4 text-primary-600 bg-white border-secondary-300 rounded focus:ring-primary-500 focus:ring-2 mr-3"
+                      checked={form.notifyTeachers}
+                      onChange={(e) => setForm(prev => ({ ...prev, notifyTeachers: e.target.checked }))}
+                    />
+                    <span className="text-sm font-medium text-secondary-700">Notify teachers</span>
+                  </label>
+                </div>
+              </div>
+            )}
+
+            <div className="md:col-span-2">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-secondary-700 mb-2">
+                    Start Date <RequiredAsterisk />
+                  </label>
                   <input
-                    type="checkbox"
-                    className="w-4 h-4 text-primary-600 bg-white border-secondary-300 rounded focus:ring-primary-500 focus:ring-2 mr-3"
-                    checked={form.notifyParents}
-                    onChange={(e) => setForm(prev => ({ ...prev, notifyParents: e.target.checked }))}
+                    className="input"
+                    type="date"
+                    value={format(form.start, "yyyy-MM-dd")}
+                    onChange={(e) => {
+                      const dateStr = e.target.value
+                      const timeStr = format(form.start, "HH:mm")
+                      const newStart = new Date(`${dateStr}T${timeStr}`)
+                      setForm(prev => ({ ...prev, start: newStart }))
+                    }}
                   />
-                  <span className="text-sm font-medium text-secondary-700">Notify parents of above sections</span>
-                </label>
-                <label className="flex items-center p-3 rounded-lg border border-secondary-200 hover:bg-secondary-50 cursor-pointer transition-colors">
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-secondary-700 mb-2">
+                    Start Time <RequiredAsterisk />
+                  </label>
                   <input
-                    type="checkbox"
-                    className="w-4 h-4 text-primary-600 bg-white border-secondary-300 rounded focus:ring-primary-500 focus:ring-2 mr-3"
-                    checked={form.notifyTeachers}
-                    onChange={(e) => setForm(prev => ({ ...prev, notifyTeachers: e.target.checked }))}
+                    className="input"
+                    type="time"
+                    value={format(form.start, "HH:mm")}
+                    onChange={(e) => {
+                      const timeStr = e.target.value
+                      const dateStr = format(form.start, "yyyy-MM-dd")
+                      const newStart = new Date(`${dateStr}T${timeStr}`)
+                      setForm(prev => ({ ...prev, start: newStart }))
+                    }}
                   />
-                  <span className="text-sm font-medium text-secondary-700">Notify teachers of above sections</span>
-                </label>
+                </div>
               </div>
             </div>
-          )}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-secondary-700 mb-3">Start Date</label>
-                <input
-                  className="input"
-                  type="date"
-                  value={format(form.start, "yyyy-MM-dd")}
-                  onChange={(e) => {
-                    const dateStr = e.target.value
-                    const timeStr = format(form.start, "HH:mm")
-                    const newStart = new Date(`${dateStr}T${timeStr}`)
-                    setForm(prev => ({ ...prev, start: newStart }))
-                  }}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-secondary-700 mb-3">Start Time</label>
-                <input
-                  className="input"
-                  type="time"
-                  value={format(form.start, "HH:mm")}
-                  onChange={(e) => {
-                    const timeStr = e.target.value
-                    const dateStr = format(form.start, "yyyy-MM-dd")
-                    const newStart = new Date(`${dateStr}T${timeStr}`)
-                    setForm(prev => ({ ...prev, start: newStart }))
-                  }}
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-secondary-700 mb-3">End Date</label>
-                <input
-                  className="input"
-                  type="date"
-                  value={format(form.end, "yyyy-MM-dd")}
-                  onChange={(e) => {
-                    const dateStr = e.target.value
-                    const timeStr = format(form.end, "HH:mm")
-                    const newEnd = new Date(`${dateStr}T${timeStr}`)
-                    setForm(prev => ({ ...prev, end: newEnd }))
-                  }}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-secondary-700 mb-3">End Time</label>
-                <input
-                  className="input"
-                  type="time"
-                  value={format(form.end, "HH:mm")}
-                  onChange={(e) => {
-                    const timeStr = e.target.value
-                    const dateStr = format(form.end, "yyyy-MM-dd")
-                    const newEnd = new Date(`${dateStr}T${timeStr}`)
-                    setForm(prev => ({ ...prev, end: newEnd }))
-                  }}
-                />
+            <div className="md:col-span-2">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-secondary-700 mb-2">
+                    End Date <RequiredAsterisk />
+                  </label>
+                  <input
+                    className="input"
+                    type="date"
+                    value={format(form.end, "yyyy-MM-dd")}
+                    onChange={(e) => {
+                      const dateStr = e.target.value
+                      const timeStr = format(form.end, "HH:mm")
+                      const newEnd = new Date(`${dateStr}T${timeStr}`)
+                      setForm(prev => ({ ...prev, end: newEnd }))
+                    }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-secondary-700 mb-2">
+                    End Time <RequiredAsterisk />
+                  </label>
+                  <input
+                    className="input"
+                    type="time"
+                    value={format(form.end, "HH:mm")}
+                    onChange={(e) => {
+                      const timeStr = e.target.value
+                      const dateStr = format(form.end, "yyyy-MM-dd")
+                      const newEnd = new Date(`${dateStr}T${timeStr}`)
+                      setForm(prev => ({ ...prev, end: newEnd }))
+                    }}
+                  />
+                </div>
               </div>
             </div>
-          </div>
-          <div>
-            <label className="inline-flex items-center gap-2 mt-2">
-              <input
-                type="checkbox"
-                className="checkbox"
-                checked={form.allDay}
-                onChange={e => {
-                  const allDay = e.target.checked
-                  if (allDay) {
-                    const newEnd = new Date(form.start)
-                    newEnd.setHours(23, 59, 59, 999)
-                    setForm(prev => ({ ...prev, allDay, end: newEnd }))
-                  } else {
-                    setForm(prev => ({ ...prev, allDay }))
-                  }
-                }}
-              />
-              <span>All day</span>
-            </label>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-secondary-700 mb-3">Repeat</label>
+
+            <div className="md:col-span-4">
+              <label className="inline-flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  className="checkbox"
+                  checked={form.allDay}
+                  onChange={e => {
+                    const allDay = e.target.checked
+                    if (allDay) {
+                      const newEnd = new Date(form.start)
+                      newEnd.setHours(23, 59, 59, 999)
+                      setForm(prev => ({ ...prev, allDay, end: newEnd }))
+                    } else {
+                      setForm(prev => ({ ...prev, allDay }))
+                    }
+                  }}
+                />
+                <span className="text-sm font-medium text-secondary-700">All day event</span>
+              </label>
+            </div>
+
+            <div className="md:col-span-1">
+              <label className="block text-sm font-medium text-secondary-700 mb-2">Repeat</label>
               <select
                 className="input"
                 value={form.repeat}
@@ -1515,8 +1536,8 @@ export default function CalendarEventsPage() {
                 <option value="yes">Yes</option>
               </select>
             </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-secondary-700 mb-3">Frequency</label>
+            <div className="md:col-span-3">
+              <label className="block text-sm font-medium text-secondary-700 mb-2">Frequency</label>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {['Everyday','Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'].map((day) => (
                   <label key={day} className={`flex items-center p-2 rounded-lg border cursor-pointer transition-colors ${
@@ -1547,7 +1568,7 @@ export default function CalendarEventsPage() {
                       }}
                       disabled={form.repeat !== 'yes'}
                     />
-                    <span className={`text-xs font-medium ${
+                    <span className={`text-[10px] font-medium ${
                       form.repeat !== 'yes' ? 'text-secondary-400' : 'text-secondary-700'
                     }`}>
                       {day === 'Everyday' ? 'Every Day' : day.substring(0, 3)}
@@ -1573,15 +1594,19 @@ export default function CalendarEventsPage() {
           </div>
         </div>
       </Modal>
-      <Modal isOpen={isEditOpen} onClose={() => setIsEditOpen(false)} title="Edit Event" size="md">
+      <Modal isOpen={isEditOpen} onClose={() => setIsEditOpen(false)} title="Edit Event" size="lg" showCloseButton={false}>
         <div className="p-6 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-secondary-700 mb-3">Event name</label>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-x-4 gap-y-6">
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-secondary-700 mb-2">
+                Event name <RequiredAsterisk />
+              </label>
               <input className="input" type="text" value={editForm.title} onChange={(e) => setEditForm(prev => ({ ...prev, title: e.target.value }))} />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-secondary-700 mb-3">Event Type</label>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-secondary-700 mb-2">
+                Event Type <RequiredAsterisk />
+              </label>
               <select
                 className="input"
                 value={editForm.eventType}
@@ -1590,18 +1615,19 @@ export default function CalendarEventsPage() {
                 {EVENT_TYPES.map(type => <option key={type} value={type}>{type}</option>)}
               </select>
             </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-secondary-700 mb-3">Event description</label>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-secondary-700 mb-2">Event description</label>
               <textarea
-                className="input"
+                className="input h-[42px] min-h-[42px] py-2"
                 value={editForm.description}
                 onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-secondary-700 mb-3">Event Status</label>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-secondary-700 mb-2">
+                Event Status <RequiredAsterisk />
+              </label>
               <select
                 className="input"
                 value={editForm.event_status}
@@ -1610,53 +1636,55 @@ export default function CalendarEventsPage() {
                 {EVENT_STATUSES.map(status => <option key={status} value={status}>{status}</option>)}
               </select>
             </div>
-          </div>
-          {editForm.eventType === 'Test' && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-secondary-700 mb-3">Subject Name</label>
-                <input
-                  className="input"
-                  type="text"
-                  value={editForm.subject_name}
-                  onChange={(e) => setEditForm(prev => ({ ...prev, subject_name: e.target.value }))}
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-secondary-700 mb-3">Total Score</label>
-                <input
-                  className="input"
-                  type="number"
-                  value={editForm.total_score}
-                  onChange={(e) => {
-                    const total = Number(e.target.value);
-                    setEditForm(prev => ({ 
-                      ...prev, 
-                      total_score: total,
-                      passing_score: (total * 0.35).toFixed(2)
-                    }));
-                  }}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-secondary-700 mb-3">Passing Score (35%)</label>
-                <input
-                  className="input bg-gray-100"
-                  type="number"
-                  value={editForm.passing_score}
-                  readOnly
-                  disabled
-                />
-              </div>
-            </div>
-          )}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-secondary-700 mb-3">Audience</label>
-              <div className="space-y-3">
+
+            {editForm.eventType === 'Test' && (
+              <>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-secondary-700 mb-2">
+                    Subject Name <RequiredAsterisk />
+                  </label>
+                  <input
+                    className="input"
+                    type="text"
+                    value={editForm.subject_name}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, subject_name: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="md:col-span-1">
+                  <label className="block text-sm font-medium text-secondary-700 mb-2">Total Score</label>
+                  <input
+                    className="input"
+                    type="number"
+                    value={editForm.total_score}
+                    onChange={(e) => {
+                      const total = Number(e.target.value);
+                      setEditForm(prev => ({ 
+                        ...prev, 
+                        total_score: total,
+                        passing_score: (total * 0.35).toFixed(2)
+                      }));
+                    }}
+                  />
+                </div>
+                <div className="md:col-span-1">
+                  <label className="block text-sm font-medium text-secondary-700 mb-2">Passing Score (35%)</label>
+                  <input
+                    className="input bg-gray-100"
+                    type="number"
+                    value={editForm.passing_score}
+                    readOnly
+                    disabled
+                  />
+                </div>
+              </>
+            )}
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-secondary-700 mb-2">Audience</label>
+              <div className="grid grid-cols-2 gap-2">
                 {["all","Class","Teachers","Employees","Parents","Students"].map(a => (
-                  <label key={a} className="flex items-center p-3 rounded-lg border border-secondary-200 hover:bg-secondary-50 cursor-pointer transition-colors">
+                  <label key={a} className="flex items-center p-2 rounded-lg border border-secondary-200 hover:bg-secondary-50 cursor-pointer transition-colors">
                     <input
                       type="checkbox"
                       className="w-4 h-4 text-primary-600 bg-white border-secondary-300 rounded focus:ring-primary-500 focus:ring-2 mr-3"
@@ -1680,7 +1708,7 @@ export default function CalendarEventsPage() {
                         })
                       }}
                     />
-                    <span className={`text-sm font-medium ${
+                    <span className={`text-xs font-medium ${
                       editForm.selectedAudiences.includes('all') && a !== 'all' 
                         ? 'text-secondary-400' 
                         : 'text-secondary-700'
@@ -1691,8 +1719,8 @@ export default function CalendarEventsPage() {
                 ))}
               </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-secondary-700 mb-3">Room</label>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-secondary-700 mb-2">Room</label>
               <select
                 className="input mb-3"
                 value={editForm.room_id || ''}
@@ -1718,69 +1746,73 @@ export default function CalendarEventsPage() {
                 ) : null;
               })()}
             </div>
-          </div>
-          {editForm.selectedAudiences.includes('Class') && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-secondary-700 mb-3">Class</label>
-                <select
-                  className="input"
-                  value={editForm.selectedClasses[0] || ''}
-                  onChange={(e) => {
-                    const classId = String(e.target.value)
-                    setEditForm(prev => {
-                      const audiences = prev.selectedAudiences || []
-                      const withClass = audiences.includes('Class') ? audiences : [...audiences, 'Class']
-                      return { ...prev, selectedClasses: [classId], selectedSections: [], selectedAudiences: withClass }
-                    })
-                    ;(async () => {
-                      try {
-                        const res = await sectionService.getAllSections({ academic_year_id: academicYearValidation.academicYearId, class_id: classId })
-                        const secs = (res.data?.sections || []).map(s => ({ id: s.section_id, name: s.section_name }))
-                        setAvailableSections(secs)
-                      } catch (err) {
-                        setAvailableSections([])
-                      }
-                    })()
-                  }} >
-                  <option value="">Select a class</option>
-                  {classes.map(c => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
-                </select>
-              </div>
-              {(editForm.selectedClasses || []).length > 0 && (
-                <div>
-                  <label className="block text-sm font-medium text-secondary-700 mb-3">Sections</label>
-                  <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto">
-                    {availableSections.map(s => (
-                      <label key={s.id} className="flex items-center p-2 rounded-lg border border-secondary-200 hover:bg-secondary-50 cursor-pointer transition-colors">
-                        <input
-                          type="checkbox"
-                          className="w-4 h-4 text-primary-600 bg-white border-secondary-300 rounded focus:ring-primary-500 focus:ring-2 mr-2"
-                          checked={editForm.selectedSections.includes(String(s.id))}
-                          onChange={(e) => {
-                            const checked = e.target.checked
-                            setEditForm(prev => {
-                              let secs = [...prev.selectedSections]
-                              if (checked) {
-                                if (!secs.includes(String(s.id))) secs.push(String(s.id))
-                              } else {
-                                secs = secs.filter(id => id !== String(s.id))
-                              }
-                              const audiences = prev.selectedAudiences || []
-                              const withClass = audiences.includes('Class') ? audiences : [...audiences, 'Class']
-                              return { ...prev, selectedSections: secs, selectedAudiences: withClass }
-                            })
-                          }}
-                        />
-                        <span className="text-sm font-medium text-secondary-700">{s.name}</span>
-                      </label>
-                    ))}
+
+            {editForm.selectedAudiences.includes('Class') && (
+              <>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-secondary-700 mb-2">Class</label>
+                  <select
+                    className="input"
+                    value={editForm.selectedClasses[0] || ''}
+                    onChange={(e) => {
+                      const classId = String(e.target.value)
+                      setEditForm(prev => {
+                        const audiences = prev.selectedAudiences || []
+                        const withClass = audiences.includes('Class') ? audiences : [...audiences, 'Class']
+                        return { ...prev, selectedClasses: [classId], selectedSections: [], selectedAudiences: withClass }
+                      })
+                      ;(async () => {
+                        try {
+                          const res = await sectionService.getAllSections({ academic_year_id: academicYearValidation.academicYearId, class_id: classId })
+                          const secs = (res.data?.sections || []).map(s => ({ id: s.section_id, name: s.section_name }))
+                          setAvailableSections(secs)
+                        } catch (err) {
+                          setAvailableSections([])
+                        }
+                      })()
+                    }} >
+                    <option value="">Select a class</option>
+                    {classes.map(c => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
+                  </select>
+                </div>
+                {(editForm.selectedClasses || []).length > 0 && (
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-secondary-700 mb-2">Sections</label>
+                    <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto">
+                      {availableSections.map(s => (
+                        <label key={s.id} className="flex items-center p-2 rounded-lg border border-secondary-200 hover:bg-secondary-50 cursor-pointer transition-colors">
+                          <input
+                            type="checkbox"
+                            className="w-4 h-4 text-primary-600 bg-white border-secondary-300 rounded focus:ring-primary-500 focus:ring-2 mr-2"
+                            checked={editForm.selectedSections.includes(String(s.id))}
+                            onChange={(e) => {
+                              const checked = e.target.checked
+                              setEditForm(prev => {
+                                let secs = [...prev.selectedSections]
+                                if (checked) {
+                                  if (!secs.includes(String(s.id))) secs.push(String(s.id))
+                                } else {
+                                  secs = secs.filter(id => id !== String(s.id))
+                                }
+                                const audiences = prev.selectedAudiences || []
+                                const withClass = audiences.includes('Class') ? audiences : [...audiences, 'Class']
+                                return { ...prev, selectedSections: secs, selectedAudiences: withClass }
+                              })
+                            }}
+                          />
+                          <span className="text-sm font-medium text-secondary-700">{s.name}</span>
+                        </label>
+                      ))}
+                    </div>
                   </div>
+                )}
+                <div className="md:col-span-4">
                   {(() => {
                     const clsName = classes.find(c => String(c.id) === String(editForm.selectedClasses[0]))?.name
                     const secNames = availableSections.filter(s => editForm.selectedSections.includes(String(s.id))).map(s => s.name)
+                    if (!clsName && secNames.length === 0) return null;
                     return (
-                      <div className="mt-3 p-3 bg-primary-50 rounded-lg border border-primary-200">
+                      <div className="p-3 bg-primary-50 rounded-lg border border-primary-200">
                         <div className="text-sm text-primary-700">
                           <span className="font-medium">Selected:</span>
                           {clsName && <span className="ml-2">Class: {clsName}</span>}
@@ -1790,98 +1822,110 @@ export default function CalendarEventsPage() {
                     )
                   })()}
                 </div>
-              )}
-            </div>
-          )}
-          {editForm.selectedAudiences.includes('Class') && (editForm.selectedSections || []).length > 0 && (
-            <div>
-              <label className="block text-sm font-medium text-secondary-700 mb-3">Notifications</label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <label className="flex items-center p-3 rounded-lg border border-secondary-200 hover:bg-secondary-50 cursor-pointer transition-colors">
+              </>
+            )}
+
+            {editForm.selectedAudiences.includes('Class') && (editForm.selectedSections || []).length > 0 && (
+              <div className="md:col-span-4">
+                <label className="block text-sm font-medium text-secondary-700 mb-2">Notifications</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <label className="flex items-center p-3 rounded-lg border border-secondary-200 hover:bg-secondary-50 cursor-pointer transition-colors">
+                    <input
+                      type="checkbox"
+                      className="w-4 h-4 text-primary-600 bg-white border-secondary-300 rounded focus:ring-primary-500 focus:ring-2 mr-3"
+                      checked={editForm.notifyParents}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, notifyParents: e.target.checked }))}
+                    />
+                    <span className="text-sm font-medium text-secondary-700">Notify parents</span>
+                  </label>
+                  <label className="flex items-center p-3 rounded-lg border border-secondary-200 hover:bg-secondary-50 cursor-pointer transition-colors">
+                    <input
+                      type="checkbox"
+                      className="w-4 h-4 text-primary-600 bg-white border-secondary-300 rounded focus:ring-primary-500 focus:ring-2 mr-3"
+                      checked={editForm.notifyTeachers}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, notifyTeachers: e.target.checked }))}
+                    />
+                    <span className="text-sm font-medium text-secondary-700">Notify teachers</span>
+                  </label>
+                </div>
+              </div>
+            )}
+
+            <div className="md:col-span-2">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-secondary-700 mb-2">
+                    Start Date <RequiredAsterisk />
+                  </label>
                   <input
-                    type="checkbox"
-                    className="w-4 h-4 text-primary-600 bg-white border-secondary-300 rounded focus:ring-primary-500 focus:ring-2 mr-3"
-                    checked={editForm.notifyParents}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, notifyParents: e.target.checked }))}
+                    className="input"
+                    type="date"
+                    value={format(editForm.start, "yyyy-MM-dd")}
+                    onChange={(e) => {
+                      const dateStr = e.target.value
+                      const timeStr = format(editForm.start, "HH:mm")
+                      const newStart = new Date(`${dateStr}T${timeStr}`)
+                      setEditForm(prev => ({ ...prev, start: newStart }))
+                    }}
                   />
-                  <span className="text-sm font-medium text-secondary-700">Notify parents of above sections</span>
-                </label>
-                <label className="flex items-center p-3 rounded-lg border border-secondary-200 hover:bg-secondary-50 cursor-pointer transition-colors">
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-secondary-700 mb-2">
+                    Start Time <RequiredAsterisk />
+                  </label>
                   <input
-                    type="checkbox"
-                    className="w-4 h-4 text-primary-600 bg-white border-secondary-300 rounded focus:ring-primary-500 focus:ring-2 mr-3"
-                    checked={editForm.notifyTeachers}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, notifyTeachers: e.target.checked }))}
+                    className="input"
+                    type="time"
+                    value={format(editForm.start, "HH:mm")}
+                    onChange={(e) => {
+                      const timeStr = e.target.value
+                      const dateStr = format(editForm.start, "yyyy-MM-dd")
+                      const newStart = new Date(`${dateStr}T${timeStr}`)
+                      setEditForm(prev => ({ ...prev, start: newStart }))
+                    }}
                   />
-                  <span className="text-sm font-medium text-secondary-700">Notify teachers of above sections</span>
-                </label>
+                </div>
               </div>
             </div>
-          )}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-secondary-700 mb-3">Start Date</label>
-                <input
-                  className="input"
-                  type="date"
-                  value={format(editForm.start, "yyyy-MM-dd")}
-                  onChange={(e) => {
-                    const dateStr = e.target.value
-                    const timeStr = format(editForm.start, "HH:mm")
-                    const newStart = new Date(`${dateStr}T${timeStr}`)
-                    setEditForm(prev => ({ ...prev, start: newStart }))
-                  }}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-secondary-700 mb-3">Start Time</label>
-                <input
-                  className="input"
-                  type="time"
-                  value={format(editForm.start, "HH:mm")}
-                  onChange={(e) => {
-                    const timeStr = e.target.value
-                    const dateStr = format(editForm.start, "yyyy-MM-dd")
-                    const newStart = new Date(`${dateStr}T${timeStr}`)
-                    setEditForm(prev => ({ ...prev, start: newStart }))
-                  }}
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-secondary-700 mb-3">End Date</label>
-                <input
-                  className="input"
-                  type="date"
-                  value={format(editForm.end, "yyyy-MM-dd")}
-                  onChange={(e) => {
-                    const dateStr = e.target.value
-                    const timeStr = format(editForm.end, "HH:mm")
-                    const newEnd = new Date(`${dateStr}T${timeStr}`)
-                    setEditForm(prev => ({ ...prev, end: newEnd }))
-                  }}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-secondary-700 mb-3">End Time</label>
-                <input
-                  className="input"
-                  type="time"
-                  value={format(editForm.end, "HH:mm")}
-                  onChange={(e) => {
-                    const timeStr = e.target.value
-                    const dateStr = format(editForm.end, "yyyy-MM-dd")
-                    const newEnd = new Date(`${dateStr}T${timeStr}`)
-                    setEditForm(prev => ({ ...prev, end: newEnd }))
-                  }}
-                />
+            <div className="md:col-span-2">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-secondary-700 mb-2">
+                    End Date <RequiredAsterisk />
+                  </label>
+                  <input
+                    className="input"
+                    type="date"
+                    value={format(editForm.end, "yyyy-MM-dd")}
+                    onChange={(e) => {
+                      const dateStr = e.target.value
+                      const timeStr = format(editForm.end, "HH:mm")
+                      const newEnd = new Date(`${dateStr}T${timeStr}`)
+                      setEditForm(prev => ({ ...prev, end: newEnd }))
+                    }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-secondary-700 mb-2">
+                    End Time <RequiredAsterisk />
+                  </label>
+                  <input
+                    className="input"
+                    type="time"
+                    value={format(editForm.end, "HH:mm")}
+                    onChange={(e) => {
+                      const timeStr = e.target.value
+                      const dateStr = format(editForm.end, "yyyy-MM-dd")
+                      const newEnd = new Date(`${dateStr}T${timeStr}`)
+                      setEditForm(prev => ({ ...prev, end: newEnd }))
+                    }}
+                  />
+                </div>
               </div>
             </div>
-          </div>
-          <div>
-              <label className="flex items-center gap-2 mt-3 p-2 rounded-lg hover:bg-secondary-50 cursor-pointer transition-colors">
+
+            <div className="md:col-span-4">
+              <label className="inline-flex items-center gap-2">
                 <input
                   type="checkbox"
                   className="w-4 h-4 text-primary-600 bg-white border-secondary-300 rounded focus:ring-primary-500 focus:ring-2"
@@ -1897,12 +1941,12 @@ export default function CalendarEventsPage() {
                     }
                   }}
                 />
-                <span className="text-sm font-medium text-secondary-700">All day</span>
+                <span className="text-sm font-medium text-secondary-700">All day event</span>
               </label>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-secondary-700 mb-3">Repeat</label>
+            </div>
+
+            <div className="md:col-span-1">
+              <label className="block text-sm font-medium text-secondary-700 mb-2">Repeat</label>
               <select
                 className="input"
                 value={editForm.repeat}
@@ -1912,8 +1956,8 @@ export default function CalendarEventsPage() {
                 <option value="yes">Yes</option>
               </select>
             </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-secondary-700 mb-3">Frequency</label>
+            <div className="md:col-span-3">
+              <label className="block text-sm font-medium text-secondary-700 mb-2">Frequency</label>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {['Everyday','Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'].map((day) => (
                   <label key={day} className={`flex items-center p-2 rounded-lg border cursor-pointer transition-colors ${
@@ -1944,7 +1988,7 @@ export default function CalendarEventsPage() {
                       }}
                       disabled={editForm.repeat !== 'yes'}
                     />
-                    <span className={`text-xs font-medium ${
+                    <span className={`text-[10px] font-medium ${
                       editForm.repeat !== 'yes' ? 'text-secondary-400' : 'text-secondary-700'
                     }`}>
                       {day === 'Everyday' ? 'Every Day' : day.substring(0, 3)}
@@ -1972,7 +2016,7 @@ export default function CalendarEventsPage() {
                 className="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors"
                 onClick={editEvent}
               >
-                Save Changes
+                Update Event
               </button>
             </div>
           </div>

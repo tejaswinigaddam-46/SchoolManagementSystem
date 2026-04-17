@@ -14,30 +14,39 @@ export const leaveService = {
   // Get current user's leave requests
   async getMyLeaveRequests(params = {}) {
     try {
-      const res = await api.get('/leave-requests/my', { params })
-      return res.data
+      const queryParams = new URLSearchParams();
+      if (params.startDate) queryParams.append('startDate', params.startDate);
+      if (params.endDate) queryParams.append('endDate', params.endDate);
+      const res = await api.get(`/leave-requests/my?${queryParams.toString()}`);
+      return res.data;
     } catch (error) {
-      throw error.response?.data || error
+      throw error.response?.data || error;
     }
   },
 
   // Get pending approvals assigned to current approver (optional)
   async getPendingApprovals(params = {}) {
     try {
-      const res = await api.get('/leave-requests/pending', { params })
-      return res.data
+      const queryParams = new URLSearchParams();
+      if (params.startDate) queryParams.append('startDate', params.startDate);
+      if (params.endDate) queryParams.append('endDate', params.endDate);
+      const res = await api.get(`/leave-requests/pending?${queryParams.toString()}`);
+      return res.data;
     } catch (error) {
-      throw error.response?.data || error
+      throw error.response?.data || error;
     }
   },
 
   // Get completed approvals (history)
   async getCompletedApprovals(params = {}) {
     try {
-      const res = await api.get('/leave-requests/history', { params })
-      return res.data
+      const queryParams = new URLSearchParams();
+      if (params.startDate) queryParams.append('startDate', params.startDate);
+      if (params.endDate) queryParams.append('endDate', params.endDate);
+      const res = await api.get(`/leave-requests/history?${queryParams.toString()}`);
+      return res.data;
     } catch (error) {
-      throw error.response?.data || error
+      throw error.response?.data || error;
     }
   },
 
