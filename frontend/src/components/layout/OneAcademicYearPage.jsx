@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../../contexts/AuthContext';
 import Card from '../ui/Card';
-import LoadingSpinner from '../ui/LoadingSpinner';
-import AcademicYearSelector from '../forms/AcademicYearSelector.jsx';
 import { Plus } from 'lucide-react';
 
 const OneAcademicYearPage = ({ 
@@ -17,7 +15,6 @@ const OneAcademicYearPage = ({
   showSearchFilter = true,
   searchPlaceholder = "",
   customFilters = null,
-  instructions = null,
   addButtonText = "Add Item",
   onAddClick,
   canAdd = true,

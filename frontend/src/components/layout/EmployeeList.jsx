@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
+import { Upload, Edit, Download } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import LoadingSpinner from '../ui/LoadingSpinner';
 import ConfirmationDialog from '../ui/ConfirmationDialog';
 import employeeService from '../../services/employeeService';
 import PhoneNumberDisplay from '../ui/PhoneNumberDisplay';
 import { PERMISSIONS } from '../../config/permissions';
+import { EditButton, DeleteButton, ActionButtonGroup } from '../ui/ActionButtons';
 
 // Table component for better organization
 const EmployeeTable = ({ 
@@ -29,12 +31,16 @@ const EmployeeTable = ({
 
   if (employees.length === 0) {
     return (
-      <div className="text-center py-12">
-        <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-        </svg>
-        <h3 className="mt-2 text-sm font-medium text-gray-900">No employees found</h3>
-        <p className="mt-1 text-sm text-gray-500">
+      <div className="text-center py-16 bg-white">
+        <div className="flex justify-center mb-4">
+          <div className="p-4 bg-secondary-100 rounded-full">
+            <svg className="h-10 w-10 text-secondary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+          </div>
+        </div>
+        <h3 className="text-lg font-bold text-secondary-900">No employees found</h3>
+        <p className="mt-1 text-secondary-500 max-w-xs mx-auto font-medium">
           No employees are currently registered for this campus.
         </p>
       </div>
@@ -43,11 +49,11 @@ const EmployeeTable = ({
 
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
+      <table className="min-w-full divide-y divide-secondary-200">
+        <thead className="bg-secondary-50/50">
           <tr>
             {canSelectEmployees && (
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">
                 <input
                   type="checkbox"
                   checked={selectedEmployees.length === employees.length && employees.length > 0}
@@ -58,41 +64,41 @@ const EmployeeTable = ({
                       onSelectEmployee([]);
                     }
                   }}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  className="rounded border-secondary-300 text-primary-600 focus:ring-primary-500"
                 />
               </th>
             )}
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">
               Employee ID
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">
               Name
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">
               Department
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">
               Designation
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">
               Status
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">
               Contact
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">
               Joining Date
             </th>
             {canPerformRowActions && (
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">
                 Actions
               </th>
             )}
           </tr>
         </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
+        <tbody className="bg-white divide-y divide-secondary-200">
           {employees.map((employee) => (
-            <tr key={employee.username} className="hover:bg-gray-50">
+            <tr key={employee.username} className="hover:bg-secondary-50 transition-colors">
               {canSelectEmployees && (
                 <td className="px-6 py-4 whitespace-nowrap">
                   <input
@@ -105,40 +111,40 @@ const EmployeeTable = ({
                         onSelectEmployee(selectedEmployees.filter(id => id !== employee.username));
                       }
                     }}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    className="rounded border-secondary-300 text-primary-600 focus:ring-primary-500"
                   />
                 </td>
               )}
-              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+              <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-secondary-900">
                 {employee.employee_id}
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
                 <div className="flex items-center">
                   <div className="flex-shrink-0 h-10 w-10">
-                    <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
-                      <span className="text-sm font-medium text-gray-700">
+                    <div className="h-10 w-10 rounded-full bg-secondary-100 flex items-center justify-center border border-secondary-200">
+                      <span className="text-sm font-bold text-secondary-700">
                         {employee.first_name?.charAt(0)}{employee.last_name?.charAt(0)}
                       </span>
                     </div>
                   </div>
                   <div className="ml-4">
-                    <div className="text-sm font-medium text-gray-900">
+                    <div className="text-sm font-bold text-secondary-900">
                       {`${employee.first_name} ${employee.middle_name || ''} ${employee.last_name}`.trim()}
                     </div>
-                    <div className="text-sm text-gray-500">
+                    <div className="text-sm text-secondary-500 font-medium">
                       @{employee.username}
                     </div>
                   </div>
                 </div>
               </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-700 font-medium">
                 {employee.department}
               </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-700 font-medium">
                 {employee.designation}
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
-                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                <span className={`inline-flex px-2 py-1 text-xs font-bold rounded-full uppercase tracking-wider ${
                   employee.employment_status === 'Active' 
                     ? 'bg-green-100 text-green-800'
                     : employee.employment_status === 'On Leave'
@@ -149,28 +155,25 @@ const EmployeeTable = ({
                 </span>
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
-                <div className="text-sm text-gray-900">{employee.email}</div>
-                <PhoneNumberDisplay value={employee.phone_number} className="text-sm text-gray-500" />
+                <div className="text-sm text-secondary-900 font-medium">{employee.email}</div>
+                <PhoneNumberDisplay value={employee.phone_number} className="text-sm text-secondary-500 font-medium" />
               </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-500 font-medium">
                 {employee.joining_date ? new Date(employee.joining_date).toLocaleDateString() : 'N/A'}
               </td>
               {canPerformRowActions && (
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  <div className="flex space-x-2">
-                    <button
+                  <ActionButtonGroup>
+                    <EditButton
                       onClick={() => onEdit(employee)}
-                      className="text-blue-600 hover:text-blue-900 transition-colors"
-                    >
-                      Edit
-                    </button>
-                    <button
+                      title="Edit employee"
+                    />
+                    <DeleteButton
                       onClick={() => onDelete(employee)}
-                      className="text-red-600 hover:text-red-900 transition-colors"
-                    >
-                      Delete
-                    </button>
-                  </div>
+                      title="Delete employee"
+                      confirmMessage={`Are you sure you want to delete ${employee.first_name} ${employee.last_name}?`}
+                    />
+                  </ActionButtonGroup>
                 </td>
               )}
             </tr>
@@ -183,19 +186,23 @@ const EmployeeTable = ({
 
 // Filter component
 const EmployeeFilters = ({ filters, onFilterChange, enumOptions, onClearFilters }) => {
+  const hasActiveFilters = filters.search || filters.department || filters.designation || filters.status || filters.employment_type;
+
   return (
-    <div className="bg-white p-6 rounded-lg border border-gray-200 mb-6">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-medium text-gray-900">Filter Employees</h3>
-        <button
-          onClick={onClearFilters}
-          className="text-sm text-blue-600 hover:text-blue-800"
-        >
-          Clear All Filters
-        </button>
-      </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+    <div className="bg-white p-6 rounded-xl border border-secondary-200 shadow-soft mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 items-end">
+        <div className="relative">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Search Employee
+          </label>
+          <input
+            type="text"
+            value={filters.search || ''}
+            onChange={(e) => onFilterChange('search', e.target.value)}
+            placeholder="Name, ID, or Email"
+            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Department
@@ -259,20 +266,50 @@ const EmployeeFilters = ({ filters, onFilterChange, enumOptions, onClearFilters 
             ))}
           </select>
         </div>
-        
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Search
-          </label>
-          <input
-            type="text"
-            value={filters.search || ''}
-            onChange={(e) => onFilterChange('search', e.target.value)}
-            placeholder="Name, ID, or Email"
-            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
       </div>
+      
+      {hasActiveFilters && (
+        <div className="mt-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex flex-wrap gap-2">
+            {filters.search && (
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                Search: "{filters.search}"
+                <button onClick={() => onFilterChange('search', '')} className="ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full text-blue-600 hover:bg-blue-200">×</button>
+              </span>
+            )}
+            {filters.department && (
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                Dept: {enumOptions.departments?.find(d => d.value === filters.department)?.label}
+                <button onClick={() => onFilterChange('department', '')} className="ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full text-green-600 hover:bg-green-200">×</button>
+              </span>
+            )}
+            {filters.designation && (
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                Desig: {enumOptions.designations?.find(d => d.value === filters.designation)?.label}
+                <button onClick={() => onFilterChange('designation', '')} className="ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full text-purple-600 hover:bg-purple-200">×</button>
+              </span>
+            )}
+            {filters.status && (
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                Status: {enumOptions.employment_status?.find(s => s.value === filters.status)?.label}
+                <button onClick={() => onFilterChange('status', '')} className="ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full text-yellow-600 hover:bg-yellow-200">×</button>
+              </span>
+            )}
+            {filters.employment_type && (
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                Type: {enumOptions.employment_types?.find(t => t.value === filters.employment_type)?.label}
+                <button onClick={() => onFilterChange('employment_type', '')} className="ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full text-orange-600 hover:bg-orange-200">×</button>
+              </span>
+            )}
+          </div>
+          <button
+            onClick={onClearFilters}
+            className="text-sm font-medium px-3 py-1.5 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 w-full md:w-auto transition-colors shadow-sm"
+          >
+            Clear all filters
+          </button>
+        </div>
+      )}
     </div>
   );
 };
@@ -281,78 +318,76 @@ const EmployeeFilters = ({ filters, onFilterChange, enumOptions, onClearFilters 
 const EmployeeStats = ({ stats }) => {
   if (!stats) return null;
 
+  const statItems = [
+    {
+      label: 'Total Departments',
+      value: stats.total_departments,
+      icon: (
+        <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+        </svg>
+      ),
+      bgColor: 'bg-purple-100'
+    },
+    {
+      label: 'Total Employees',
+      value: stats.total_employees,
+      icon: (
+        <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+        </svg>
+      ),
+      bgColor: 'bg-blue-100'
+    },
+    {
+      label: 'Active Employees',
+      value: stats.active_employees,
+      icon: (
+        <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      ),
+      bgColor: 'bg-green-100'
+    },
+    {
+      label: 'On Leave Employees',
+      value: stats.on_leave_employees,
+      icon: (
+        <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      ),
+      bgColor: 'bg-yellow-100'
+    }
+  ].filter(item => item.value > 0);
+
+  if (statItems.length === 0) return null;
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-      <div className="bg-white p-6 rounded-lg border border-gray-200">
-        <div className="flex items-center">
-          <div className="flex-shrink-0">
-            <div className="w-8 h-8 bg-blue-100 rounded-md flex items-center justify-center">
-              <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-              </svg>
+    <div className={`grid grid-cols-1 md:grid-cols-${Math.min(statItems.length, 4)} gap-6 mb-6`}>
+      {statItems.map((item, index) => (
+        <div key={index} className="bg-white p-6 rounded-xl border border-secondary-200 shadow-soft">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <div className={`w-8 h-8 ${item.bgColor} rounded-md flex items-center justify-center`}>
+                {item.icon}
+              </div>
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-semibold text-secondary-500">{item.label}</p>
+              <p className="text-2xl font-bold text-secondary-900">{item.value || 0}</p>
             </div>
           </div>
-          <div className="ml-4">
-            <p className="text-sm font-medium text-gray-500">Total Employees</p>
-            <p className="text-2xl font-semibold text-gray-900">{stats.total_employees || 0}</p>
-          </div>
         </div>
-      </div>
-      
-      <div className="bg-white p-6 rounded-lg border border-gray-200">
-        <div className="flex items-center">
-          <div className="flex-shrink-0">
-            <div className="w-8 h-8 bg-green-100 rounded-md flex items-center justify-center">
-              <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-          </div>
-          <div className="ml-4">
-            <p className="text-sm font-medium text-gray-500">Active</p>
-            <p className="text-2xl font-semibold text-gray-900">{stats.active_employees || 0}</p>
-          </div>
-        </div>
-      </div>
-      
-      <div className="bg-white p-6 rounded-lg border border-gray-200">
-        <div className="flex items-center">
-          <div className="flex-shrink-0">
-            <div className="w-8 h-8 bg-yellow-100 rounded-md flex items-center justify-center">
-              <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-          </div>
-          <div className="ml-4">
-            <p className="text-sm font-medium text-gray-500">On Leave</p>
-            <p className="text-2xl font-semibold text-gray-900">{stats.on_leave_employees || 0}</p>
-          </div>
-        </div>
-      </div>
-      
-      <div className="bg-white p-6 rounded-lg border border-gray-200">
-        <div className="flex items-center">
-          <div className="flex-shrink-0">
-            <div className="w-8 h-8 bg-purple-100 rounded-md flex items-center justify-center">
-              <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-              </svg>
-            </div>
-          </div>
-          <div className="ml-4">
-            <p className="text-sm font-medium text-gray-500">Departments</p>
-            <p className="text-2xl font-semibold text-gray-900">{stats.total_departments || 0}</p>
-          </div>
-        </div>
-      </div>
+      ))}
     </div>
   );
 };
 
 const EmployeeList = ({ 
-  onAddEmployee, 
-  onEditEmployee, 
+  onEditEmployee,
+  onBulkImport,
+  onBulkUpdate,
   refreshTrigger,
   showFilters = true,
   showStats = true 
@@ -389,7 +424,6 @@ const EmployeeList = ({
   const [stats, setStats] = useState(null);
 
   // Permission-based capabilities
-  const canCreateEmployee = hasPermission(PERMISSIONS.EMPLOYEE_CREATE_ROUTE_CREATE);
   const canUpdateEmployee = hasPermission(PERMISSIONS.EMPLOYEE_EDIT);
   const canDeleteEmployee = hasPermission(PERMISSIONS.EMPLOYEE_DELETE_ROUTE_DELETE);
   const canExportEmployees = hasPermission(PERMISSIONS.EMPLOYEE_EXPORT_CREATE);
@@ -492,13 +526,15 @@ const EmployeeList = ({
 
   // Clear all filters
   const handleClearFilters = () => {
-    setFilters({
+    console.log('🧹 Clearing all filters');
+    const clearedFilters = {
       department: '',
       designation: '',
       status: '',
       employment_type: '',
       search: ''
-    });
+    };
+    setFilters(clearedFilters);
     setPagination(prev => ({ ...prev, page: 1 }));
   };
 
@@ -604,50 +640,48 @@ const EmployeeList = ({
         />
       )}
 
-      {/* Action buttons */}
-      <div className="flex justify-between items-center">
-        <div className="flex items-center space-x-4">
-          <h2 className="text-lg font-medium text-gray-900">
-            Employees 
-          </h2>
+      {/* Employee Table */}
+      <div className="bg-white rounded-xl border border-secondary-200 shadow-soft overflow-hidden">
+        <div className="p-6 border-b border-secondary-200 bg-secondary-50/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="flex items-center gap-4">
+            <h2 className="text-xl font-bold text-secondary-900">Employees List</h2>
+          </div>
           
-          {selectedEmployees.length > 0 && (canExportEmployees || canDeleteEmployee) && (
-            <div className="flex gap-2">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            {selectedEmployees.length > 0 && (canExportEmployees || canDeleteEmployee) && (
+              <div className="flex gap-2">
+                <button
+                  onClick={handleExport}
+                  className="bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2 text-sm font-medium"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Export ({selectedEmployees.length})</span>
+                </button>
+              </div>
+            )}
+            
+            {onBulkImport && (
               <button
-                onClick={handleExport}
-                className="px-4 py-2 text-sm text-green-600 border border-green-600 rounded-md hover:bg-green-50 transition-colors flex items-center gap-2"
+                onClick={onBulkImport}
+                className="bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2 text-sm font-medium flex-1 sm:flex-none"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
-                Export Selected ({selectedEmployees.length})
+                <Upload className="w-4 h-4" />
+                <span>Bulk Import</span>
               </button>
+            )}
+            
+            {onBulkUpdate && (
               <button
-                onClick={handleBulkDelete}
-                className="px-4 py-2 text-sm text-red-600 border border-red-600 rounded-md hover:bg-red-50 transition-colors"
-                disabled={deleteLoading}
+                onClick={onBulkUpdate}
+                className="bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 text-sm font-medium flex-1 sm:flex-none"
               >
-                Delete Selected ({selectedEmployees.length})
+                <Edit className="w-4 h-4" />
+                <span>Bulk Update</span>
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
         
-        {canCreateEmployee && (
-          <button
-            onClick={onAddEmployee}
-            className="px-4 py-2 text-sm text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors flex items-center gap-2"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
-            Add Employee
-          </button>
-        )}
-      </div>
-
-      {/* Employee Table */}
-      <div className="bg-white rounded-lg border border-gray-200">
         <EmployeeTable
           employees={employees}
           onEdit={onEditEmployee}
@@ -661,9 +695,9 @@ const EmployeeList = ({
         
         {/* Pagination */}
         {!loading && pagination.totalPages > 1 && (
-          <div className="px-6 py-4 border-t border-gray-200">
+          <div className="px-6 py-4 border-t border-secondary-200 bg-secondary-50/30">
             <div className="flex items-center justify-between">
-              <div className="text-sm text-gray-500">
+              <div className="text-sm text-secondary-500 font-medium">
                 Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} results
               </div>
               
@@ -671,19 +705,19 @@ const EmployeeList = ({
                 <button
                   onClick={() => handlePageChange(pagination.page - 1)}
                   disabled={pagination.page <= 1}
-                  className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="btn-secondary py-1 px-3 text-xs"
                 >
                   Previous
                 </button>
                 
-                <span className="px-3 py-1 text-sm">
+                <span className="px-3 py-1 text-sm font-bold text-secondary-700">
                   Page {pagination.page} of {pagination.totalPages}
                 </span>
                 
                 <button
                   onClick={() => handlePageChange(pagination.page + 1)}
                   disabled={pagination.page >= pagination.totalPages}
-                  className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="btn-secondary py-1 px-3 text-xs"
                 >
                   Next
                 </button>

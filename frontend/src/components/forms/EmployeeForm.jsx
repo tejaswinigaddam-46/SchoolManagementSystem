@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
+import { Edit, Plus } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import LoadingSpinner from '../ui/LoadingSpinner';
 import PhoneInput from '../ui/PhoneInput';
+import RequiredAsterisk from '../ui/RequiredAsterisk';
 import employeeService from '../../services/employeeService';
 
 // Input field component
@@ -24,7 +26,7 @@ const InputField = ({
 }) => (
   <div className={`${className}`}>
     <label className="block text-sm font-medium text-gray-700 mb-1">
-      {label} {required && <span className="text-red-500">*</span>}
+      {label} {required && <RequiredAsterisk />}
     </label>
     
     {type === 'select' ? (
@@ -94,52 +96,52 @@ const EmployeeForm = ({
   const { getCampusId } = useAuth();
   const [formData, setFormData] = useState({
     // User details - maps to users table
-    first_name: 'John',
-    middle_name: 'Michael',
-    last_name: 'Smith',
-    date_of_birth: '1985-06-15',
-    phone_number: '+1234567890',
+    first_name: '',
+    middle_name: '',
+    last_name: '',
+    date_of_birth: '',
+    phone_number: '',
     role: 'Employee',
     
     // Contact details - maps to user_contact_details table
-    email: 'john.smith@school.edu',
-    phone: '+1234567890',
-    alt_phone: '+9087654321',
-    emergency_contact_name: 'Jane Smith',
-    emergency_contact_phone: '+1234567891',
-    emergency_contact_relation: 'Spouse',
-    current_address: '123 Main Street, Downtown Area, Near City Center',
-    city: 'New York',
-    state: 'New York',
-    pincode: '10001',
-    country: 'USA',
-    permanent_address: '123 Main Street, Downtown Area, Near City Center',
+    email: '',
+    phone: '',
+    alt_phone: '',
+    emergency_contact_name: '',
+    emergency_contact_phone: '',
+    emergency_contact_relation: '',
+    current_address: '',
+    city: '',
+    state: '',
+    pincode: '',
+    country: '',
+    permanent_address: '',
     
     // Employment details - maps to employment_details table
-    employee_id: 'EMP001',
-    designation: 'Senior Teacher',
-    department: 'Mathematics',
-    joining_date: '2023-08-15',
-    salary: '55000',
+    employee_id: '',
+    designation: '',
+    department: '',
+    joining_date: '',
+    salary: '',
     employment_type: 'Full-time',
     status: 'Active',
-    transport_details: 'Staff Bus Route 5',
-    hostel_details: 'Staff Quarters, Room 10B',
+    transport_details: '',
+    hostel_details: '',
     
     // Personal details - maps to user_personal_details table
-    gender: 'Male',
+    gender: '',
     marital_status: 'Single',
-    nationality: 'American',
-    religion: 'Christian',
-    caste: 'General',
-    category: 'General',
-    blood_group: 'O+',
-    height_cm: '175',
-    weight_kg: '70.5',
-    medical_conditions: 'None',
-    allergies: 'None',
-    occupation: 'Teacher',
-    income: '55000'
+    nationality: '',
+    religion: '',
+    caste: '',
+    category: '',
+    blood_group: '',
+    height_cm: '',
+    weight_kg: '',
+    medical_conditions: '',
+    allergies: '',
+    occupation: '',
+    income: ''
   });
 
   const [formErrors, setFormErrors] = useState({});
@@ -375,7 +377,7 @@ const EmployeeForm = ({
     }
 
     setFormErrors(errors);
-    return Object.keys(errors).length === 0 ? errors : errors;
+    return errors;
   };
 
   const handleSubmit = async (e) => {
@@ -465,16 +467,14 @@ const EmployeeForm = ({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
-      {/* User Details Section */}
-      <div className="bg-white p-6 rounded-lg border border-gray-200">
-        <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
-          <svg className="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-          </svg>
+      {/* Section 1: User Information */}
+      <div className="border-b pb-6">
+        <h3 className="text-sm font-bold text-gray-800 mb-6 flex items-center gap-2">
+          <span className="bg-primary-100 text-primary-700 w-6 h-6 rounded-full flex items-center justify-center text-xs">1</span>
           User Information
         </h3>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-8 gap-x-4 gap-y-6">
           <InputField
             label="First Name"
             name="first_name"
@@ -482,6 +482,7 @@ const EmployeeForm = ({
             formData={formData}
             handleInputChange={handleInputChange}
             error={formErrors.first_name}
+            className="md:col-span-2"
           />
           
           <InputField
@@ -489,6 +490,7 @@ const EmployeeForm = ({
             name="middle_name"
             formData={formData}
             handleInputChange={handleInputChange}
+            className="md:col-span-2"
           />
           
           <InputField
@@ -498,6 +500,7 @@ const EmployeeForm = ({
             formData={formData}
             handleInputChange={handleInputChange}
             error={formErrors.last_name}
+            className="md:col-span-2"
           />
           
           <InputField
@@ -508,15 +511,7 @@ const EmployeeForm = ({
             formData={formData}
             handleInputChange={handleInputChange}
             error={formErrors.date_of_birth}
-          />
-          
-          <PhoneInput
-            label="Phone Number"
-            name="phone_number"
-            required
-            value={formData.phone_number}
-            onChange={handleInputChange}
-            error={formErrors.phone_number}
+            className="md:col-span-2"
           />
           
           <InputField
@@ -528,6 +523,7 @@ const EmployeeForm = ({
             formData={formData}
             handleInputChange={handleInputChange}
             error={formErrors.gender}
+            className="md:col-span-2"
           />
           
           <InputField
@@ -542,20 +538,30 @@ const EmployeeForm = ({
             formData={formData}
             handleInputChange={handleInputChange}
             error={formErrors.role}
+            className="md:col-span-2"
+          />
+
+                    <PhoneInput
+            label="Phone Number"
+            name="phone_number"
+            required
+            value={formData.phone_number}
+            onChange={handleInputChange}
+            error={formErrors.phone_number}
+            className="md:col-span-3"
           />
         </div>
       </div>
 
-      {/* Contact Details Section */}
-      <div className="bg-white p-6 rounded-lg border border-gray-200">
-        <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
-          <svg className="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-          </svg>
+      {/* Section 2: Contact Information */}
+      <div className="border-b pb-6">
+        <h3 className="text-sm font-bold text-gray-800 mb-6 flex items-center gap-2">
+          <span className="bg-primary-100 text-primary-700 w-6 h-6 rounded-full flex items-center justify-center text-xs">2</span>
           Contact Information
         </h3>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-8 gap-x-4 gap-y-6">
+          {/* Row 1: Email, Phone, Alt Phone (1:1.5:1.5 ratio) */}
           <InputField
             label="Email Address"
             name="email"
@@ -564,6 +570,7 @@ const EmployeeForm = ({
             formData={formData}
             handleInputChange={handleInputChange}
             error={formErrors.email}
+            className="md:col-span-2"
           />
           
           <PhoneInput
@@ -573,6 +580,7 @@ const EmployeeForm = ({
             value={formData.phone}
             onChange={handleInputChange}
             error={formErrors.phone}
+            className="md:col-span-3"
           />
           
           <PhoneInput
@@ -580,14 +588,17 @@ const EmployeeForm = ({
             name="alt_phone"
             value={formData.alt_phone}
             onChange={handleInputChange}
+            className="md:col-span-3"
           />
           
+          {/* Row 2: Emergency Details (1:2:1 ratio) */}
           <InputField
             label="Emergency Contact Name"
             name="emergency_contact_name"
             formData={formData}
             handleInputChange={handleInputChange}
-            helperText="Optional - Emergency contact person name"
+            helperText="Optional - Contact person name"
+            className="md:col-span-2"
           />
           
           <PhoneInput
@@ -595,11 +606,12 @@ const EmployeeForm = ({
             name="emergency_contact_phone"
             value={formData.emergency_contact_phone}
             onChange={handleInputChange}
-            helperText="Optional - Emergency contact phone number"
+            helperText="Optional - Contact phone number"
+            className="md:col-span-3"
           />
           
           <InputField
-            label="Emergency Contact Relation"
+            label="Emergency Contacat Relation"
             name="emergency_contact_relation"
             type="select"
             required
@@ -612,19 +624,10 @@ const EmployeeForm = ({
             formData={formData}
             handleInputChange={handleInputChange}
             error={formErrors.emergency_contact_relation}
+            className="md:col-span-3"
           />
           
-          <InputField
-            label="Current Address"
-            name="current_address"
-            type="textarea"
-            required
-            formData={formData}
-            handleInputChange={handleInputChange}
-            error={formErrors.current_address}
-            className="md:col-span-2"
-          />
-          
+          {/* Row 3: Location Details */}
           <InputField
             label="City"
             name="city"
@@ -632,6 +635,7 @@ const EmployeeForm = ({
             formData={formData}
             handleInputChange={handleInputChange}
             error={formErrors.city}
+            className="md:col-span-2"
           />
           
           <InputField
@@ -641,6 +645,7 @@ const EmployeeForm = ({
             formData={formData}
             handleInputChange={handleInputChange}
             error={formErrors.state}
+            className="md:col-span-2"
           />
           
           <InputField
@@ -650,6 +655,7 @@ const EmployeeForm = ({
             formData={formData}
             handleInputChange={handleInputChange}
             error={formErrors.pincode}
+            className="md:col-span-2"
           />
           
           <InputField
@@ -659,6 +665,19 @@ const EmployeeForm = ({
             formData={formData}
             handleInputChange={handleInputChange}
             error={formErrors.country}
+            className="md:col-span-2"
+          />
+          
+          {/* Row 4: Addresses */}
+          <InputField
+            label="Current Address"
+            name="current_address"
+            type="textarea"
+            required
+            formData={formData}
+            handleInputChange={handleInputChange}
+            error={formErrors.current_address}
+            className="md:col-span-4"
           />
           
           <InputField
@@ -667,21 +686,19 @@ const EmployeeForm = ({
             type="textarea"
             formData={formData}
             handleInputChange={handleInputChange}
-            className="md:col-span-2"
+            className="md:col-span-4"
           />
         </div>
       </div>
 
-      {/* Employment Details Section */}
-      <div className="bg-white p-6 rounded-lg border border-gray-200">
-        <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
-          <svg className="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2-2v2m8 0V6a2 2 0 012 2v6a2 2 0 01-2 2H8a2 2 0 01-2-2V8a2 2 0 012-2V6" />
-          </svg>
+      {/* Section 3: Employment Details */}
+      <div className="border-b pb-6">
+        <h3 className="text-sm font-bold text-gray-800 mb-6 flex items-center gap-2">
+          <span className="bg-primary-100 text-primary-700 w-6 h-6 rounded-full flex items-center justify-center text-xs">3</span>
           Employment Details
         </h3>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-8 gap-x-4 gap-y-6">
           <InputField
             label="Employee ID"
             name="employee_id"
@@ -689,7 +706,8 @@ const EmployeeForm = ({
             formData={formData}
             handleInputChange={handleInputChange}
             error={formErrors.employee_id}
-            helperText={checkingEmployeeId ? 'Checking availability...' : 'Must be unique within campus'}
+            helperText={checkingEmployeeId ? 'Checking availability...' : 'Must be unique'}
+            className="md:col-span-2"
           />
           
           <InputField
@@ -701,6 +719,7 @@ const EmployeeForm = ({
             formData={formData}
             handleInputChange={handleInputChange}
             error={formErrors.designation}
+            className="md:col-span-2"
           />
           
           <InputField
@@ -712,6 +731,7 @@ const EmployeeForm = ({
             formData={formData}
             handleInputChange={handleInputChange}
             error={formErrors.department}
+            className="md:col-span-2"
           />
           
           <InputField
@@ -722,6 +742,7 @@ const EmployeeForm = ({
             formData={formData}
             handleInputChange={handleInputChange}
             error={formErrors.joining_date}
+            className="md:col-span-2"
           />
           
           <InputField
@@ -733,6 +754,7 @@ const EmployeeForm = ({
             handleInputChange={handleInputChange}
             error={formErrors.salary}
             placeholder="0.00"
+            className="md:col-span-2"
           />
           
           <InputField
@@ -744,6 +766,7 @@ const EmployeeForm = ({
             formData={formData}
             handleInputChange={handleInputChange}
             error={formErrors.employment_type}
+            className="md:col-span-2"
           />
           
           <InputField
@@ -755,6 +778,7 @@ const EmployeeForm = ({
             formData={formData}
             handleInputChange={handleInputChange}
             error={formErrors.status}
+            className="md:col-span-2"
           />
           
           <InputField
@@ -763,6 +787,7 @@ const EmployeeForm = ({
             formData={formData}
             handleInputChange={handleInputChange}
             placeholder="e.g., Staff Bus Route 5"
+            className="md:col-span-2"
           />
           
           <InputField
@@ -771,31 +796,84 @@ const EmployeeForm = ({
             formData={formData}
             handleInputChange={handleInputChange}
             placeholder="e.g., Staff Quarters, Room 10B"
+            className="md:col-span-3"
           />
         </div>
       </div>
 
-      {/* Personal Details Section */}
-      <div className="bg-white p-6 rounded-lg border border-gray-200">
-        <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
-          <svg className="w-5 h-5 mr-2 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
+      {/* Section 4: Personal Details */}
+      <div className="border-b pb-6">
+        <h3 className="text-sm font-bold text-gray-800 mb-6 flex items-center gap-2">
+          <span className="bg-primary-100 text-primary-700 w-6 h-6 rounded-full flex items-center justify-center text-xs">4</span>
           Personal Details
         </h3>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <InputField
-            label="Gender"
-            name="gender"
-            type="select"
+        <div className="grid grid-cols-1 md:grid-cols-8 gap-x-4 gap-y-6">
+           <InputField
+            label="Nationality"
+            name="nationality"
             required
-            options={enumOptions.genders}
             formData={formData}
             handleInputChange={handleInputChange}
-            error={formErrors.gender}
+            error={formErrors.nationality}
+            className="md:col-span-2"
           />
           
+          <InputField
+            label="Religion"
+            name="religion"
+            formData={formData}
+            handleInputChange={handleInputChange}
+            className="md:col-span-2"
+          />
+          
+          <InputField
+            label="Caste"
+            name="caste"
+            formData={formData}
+            handleInputChange={handleInputChange}
+            className="md:col-span-2"
+          />
+          
+          <InputField
+            label="Category"
+            name="category"
+            type="select"
+            options={enumOptions.categories}
+            formData={formData}
+            handleInputChange={handleInputChange}
+            className="md:col-span-2"
+          />
+          
+          <InputField
+            label="Blood Group"
+            name="blood_group"
+            type="select"
+            options={enumOptions.blood_groups}
+            formData={formData}
+            handleInputChange={handleInputChange}
+            className="md:col-span-2"
+          />
+          
+          <InputField
+            label="Height (cm)"
+            name="height_cm"
+            type="number"
+            formData={formData}
+            handleInputChange={handleInputChange}
+            placeholder="e.g., 175"
+            className="md:col-span-2"
+          />
+          
+          <InputField
+            label="Weight (kg)"
+            name="weight_kg"
+            type="number"
+            formData={formData}
+            handleInputChange={handleInputChange}
+            placeholder="e.g., 70.5"
+            className="md:col-span-2"
+          />
           <InputField
             label="Marital Status"
             name="marital_status"
@@ -808,91 +886,16 @@ const EmployeeForm = ({
             ]}
             formData={formData}
             handleInputChange={handleInputChange}
-          />
-          
-          <InputField
-            label="Nationality"
-            name="nationality"
-            required
-            formData={formData}
-            handleInputChange={handleInputChange}
-            error={formErrors.nationality}
-          />
-          
-          <InputField
-            label="Religion"
-            name="religion"
-            formData={formData}
-            handleInputChange={handleInputChange}
-          />
-          
-          <InputField
-            label="Caste"
-            name="caste"
-            formData={formData}
-            handleInputChange={handleInputChange}
-          />
-          
-          <InputField
-            label="Category"
-            name="category"
-            type="select"
-            options={enumOptions.categories}
-            formData={formData}
-            handleInputChange={handleInputChange}
-          />
-          
-          <InputField
-            label="Blood Group"
-            name="blood_group"
-            type="select"
-            options={enumOptions.blood_groups}
-            formData={formData}
-            handleInputChange={handleInputChange}
-          />
-          
-          <InputField
-            label="Height (cm)"
-            name="height_cm"
-            type="number"
-            formData={formData}
-            handleInputChange={handleInputChange}
-            placeholder="e.g., 175"
-          />
-          
-          <InputField
-            label="Weight (kg)"
-            name="weight_kg"
-            type="number"
-            formData={formData}
-            handleInputChange={handleInputChange}
-            placeholder="e.g., 70.5"
-          />
-          
-          <InputField
-            label="Medical Conditions"
-            name="medical_conditions"
-            type="textarea"
-            formData={formData}
-            handleInputChange={handleInputChange}
             className="md:col-span-2"
           />
-          
-          <InputField
-            label="Allergies"
-            name="allergies"
-            type="textarea"
-            formData={formData}
-            handleInputChange={handleInputChange}
-            className="md:col-span-2"
-          />
-          
+
           <InputField
             label="Occupation"
             name="occupation"
             formData={formData}
             handleInputChange={handleInputChange}
             placeholder="e.g., Teacher"
+            className="md:col-span-4"
           />
           
           <InputField
@@ -902,16 +905,35 @@ const EmployeeForm = ({
             formData={formData}
             handleInputChange={handleInputChange}
             placeholder="e.g., 55000"
+            className="md:col-span-4"
+          />
+          
+          <InputField
+            label="Medical Conditions"
+            name="medical_conditions"
+            type="textarea"
+            formData={formData}
+            handleInputChange={handleInputChange}
+            className="md:col-span-4"
+          />
+          
+          <InputField
+            label="Allergies"
+            name="allergies"
+            type="textarea"
+            formData={formData}
+            handleInputChange={handleInputChange}
+            className="md:col-span-4"
           />
         </div>
       </div>
 
       {/* Form Actions */}
-      <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200">
+      <div className="flex justify-end space-x-4 pt-6 border-t border-secondary-200">
         <button
           type="button"
           onClick={onCancel}
-          className="px-6 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+          className="btn-secondary"
           disabled={isLoading}
         >
           Cancel
@@ -919,15 +941,15 @@ const EmployeeForm = ({
         
         <button
           type="submit"
-          className={`px-6 py-2 text-white rounded-md transition-colors flex items-center gap-2 ${
-            isLoading
-              ? 'bg-gray-400 cursor-not-allowed'
-              : 'bg-blue-600 hover:bg-blue-700'
-          }`}
+          className="btn-primary flex items-center gap-2"
           disabled={isLoading}
         >
-          {isLoading && <LoadingSpinner className="w-4 h-4" />}
-          {mode === 'create' ? 'Create Employee' : 'Update Employee'}
+          {isLoading ? (
+            <LoadingSpinner className="w-4 h-4" />
+          ) : (
+            mode === 'create' ? <Plus className="w-4 h-4" /> : <Edit className="w-4 h-4" />
+          )}
+          {mode === 'create' ? 'Add Employee' : 'Update Employee'}
         </button>
       </div>
     </form>

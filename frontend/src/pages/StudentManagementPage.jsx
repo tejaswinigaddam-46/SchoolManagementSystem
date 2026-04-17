@@ -913,48 +913,6 @@ const StudentManagement = () => {
     console.log('Student clicked:', student);
   };
 
-  const handleFilterChange = (e) => {
-    const { name, value } = e.target;
-    setFilters(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  const handleGetStudents = () => {
-    setPagination(prev => ({ ...prev, current_page: 1 }));
-    fetchStudents();
-  };
-
-  // Custom instructions for students
-  const studentInstructions = (
-    <div className="mb-6">
-      <Card>
-        <div className="p-4 bg-blue-50 border-l-4 border-blue-400">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-blue-800">Instructions</h3>
-              <div className="mt-2 text-sm text-blue-700">
-                <ul className="list-disc list-inside space-y-1">
-                  <li><strong>Adding Students:</strong> Academic Year (Year, Curriculum, Medium) and Class are required fields</li>
-                  <li><strong>Academic Year Selection:</strong> Choose the academic year, curriculum, and medium. The system will validate this combination.</li>
-                  <li><strong>Student Information:</strong> Complete all required fields including personal details, contact information, and parent details</li>
-                  <li><strong>Parent Information:</strong> At least one parent is recommended with emergency contact details</li>
-                  <li><strong>Permissions:</strong> Users with student_update permission can create, edit, or delete students. All users can view students</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </div>
-      </Card>
-    </div>
-  );
-
   // Handle filter changes from OneAcademicYearPage
   const handleFiltersChange = (newFilters) => {
     // Reset pagination when filters change
@@ -965,12 +923,24 @@ const StudentManagement = () => {
 
   if (showAddForm || showEditForm || showBulkImport || showBulkUpdate) {
     return (
-      <div className="space-y-6">
+      <div className="p-4 sm:p-6 space-y-6">
         <div className="max-w-4xl mx-auto">
           {showBulkImport ? (
             <div className="mb-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold">Bulk Import Students</h2>
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+                <h2 className="text-xl font-bold text-secondary-900">Bulk Import Students</h2>
+                <button
+                  onClick={() => {
+                    setShowBulkImport(false);
+                    fetchStudents();
+                  }}
+                  className="btn-secondary flex items-center gap-2 w-full sm:w-auto justify-center"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                  </svg>
+                  Back to List
+                </button>
               </div>
               <StudentBulkImport 
                 onImportSuccess={handleBulkImportSuccess}
@@ -983,8 +953,20 @@ const StudentManagement = () => {
             </div>
           ) : showBulkUpdate ? (
             <div className="mb-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold">Bulk Update Students</h2>
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+                <h2 className="text-xl font-bold text-secondary-900">Bulk Update Students</h2>
+                <button
+                  onClick={() => {
+                    setShowBulkUpdate(false);
+                    fetchStudents();
+                  }}
+                  className="btn-secondary flex items-center gap-2 w-full sm:w-auto justify-center"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                  </svg>
+                  Back to List
+                </button>
               </div>
               <StudentBulkUpdate 
                 onUpdateSuccess={() => {
@@ -1000,9 +982,18 @@ const StudentManagement = () => {
             </div>
           ) : (
             <Card>
-              <div className="p-6">
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-xl font-semibold">{showEditForm ? 'Edit Student' : 'Add Student'}</h2>
+              <div className="p-4 sm:p-6">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                  <h2 className="text-xl font-bold text-secondary-900">{showEditForm ? 'Edit Student' : 'Add New Student'}</h2>
+                  <button
+                    onClick={handleCancel}
+                    className="btn-secondary flex items-center gap-2 w-full sm:w-auto justify-center"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                    Back to List
+                  </button>
                 </div>
                 <form onSubmit={handleSubmit}>
                 <div className="space-y-6">
@@ -1014,7 +1005,7 @@ const StudentManagement = () => {
                     </h3>
                     
                     {/* Academic Year Selector */}
-                    <div className="mb-4">
+                    <div className="mb-6">
                       <AcademicYearSelector
                         campusId={getCampusId()}
                         value={formData.academicYearData}
@@ -1023,11 +1014,11 @@ const StudentManagement = () => {
                         name="academicYearData"
                         label="Academic Year Selection"
                         required={true}
-                        className="border rounded-lg p-4 bg-gray-50"
+                        className="border rounded-xl p-4 sm:p-6 bg-gray-50/50"
                       />
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                       <InputField label="Admission Number" name="admissionNumber" required formData={formData} handleInputChange={handleInputChange} isModified={modifiedFields.has('admissionNumber')} originalValue={originalStudentData?.admissionNumber} showEditMode={showEditForm} />
                      <InputField label="Admission Date" name="admissionDate" type="date" required formData={formData} handleInputChange={handleInputChange} isModified={modifiedFields.has('admissionDate')} originalValue={originalStudentData?.admissionDate} showEditMode={showEditForm} />
                       
@@ -1041,7 +1032,7 @@ const StudentManagement = () => {
                       <InputField label="Gender" name="gender" type="select" options={['Male', 'Female', 'Other']} required formData={formData} handleInputChange={handleInputChange} isModified={modifiedFields.has('gender')} originalValue={originalStudentData?.gender} showEditMode={showEditForm} />
                       <InputField label="Class" name="class" type="select" options={filterOptions.classes ? filterOptions.classes.map(cls => cls.class_name || cls.name || cls) : []} required formData={formData} handleInputChange={handleInputChange} isModified={modifiedFields.has('class')} originalValue={originalStudentData?.class} showEditMode={showEditForm} />
                       
-                      <InputField label="Previous School" name="previousSchool" className="md:col-span-2" formData={formData} handleInputChange={handleInputChange} isModified={modifiedFields.has('previousSchool')} originalValue={originalStudentData?.previousSchool} showEditMode={showEditForm} />
+                      <InputField label="Previous School" name="previousSchool" className="sm:col-span-2" formData={formData} handleInputChange={handleInputChange} isModified={modifiedFields.has('previousSchool')} originalValue={originalStudentData?.previousSchool} showEditMode={showEditForm} />
                       
                       <InputField label="TC Number" name="transferCertificateNumber" formData={formData} handleInputChange={handleInputChange} isModified={modifiedFields.has('transferCertificateNumber')} originalValue={originalStudentData?.transferCertificateNumber} showEditMode={showEditForm} />
                       <InputField label="Transport Mode" name="transportMode" type="select" options={['School Bus', 'Private Vehicle', 'Walking', 'Public Transport']} formData={formData} handleInputChange={handleInputChange} isModified={modifiedFields.has('transportMode')} originalValue={originalStudentData?.transportMode} showEditMode={showEditForm} />
@@ -1055,7 +1046,7 @@ const StudentManagement = () => {
                       <span className="bg-primary-100 text-primary-700 w-6 h-6 rounded-full flex items-center justify-center text-xs">2</span>
                       Personal Details
                     </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                       <InputField label="Nationality" name="nationality" required formData={formData} handleInputChange={handleInputChange} isModified={modifiedFields.has('nationality')} originalValue={originalStudentData?.nationality} showEditMode={showEditForm} />
                       <InputField label="Religion" name="religion" formData={formData} handleInputChange={handleInputChange} isModified={modifiedFields.has('religion')} originalValue={originalStudentData?.religion} showEditMode={showEditForm} />
                       <InputField label="Caste" name="caste" formData={formData} handleInputChange={handleInputChange} isModified={modifiedFields.has('caste')} originalValue={originalStudentData?.caste} showEditMode={showEditForm} />
@@ -1066,8 +1057,8 @@ const StudentManagement = () => {
                       <InputField label="Weight (kg)" name="weight" type="number" formData={formData} handleInputChange={handleInputChange} isModified={modifiedFields.has('weight')} originalValue={originalStudentData?.weight} showEditMode={showEditForm} />
                       <InputField label="Scholarship Applied" name="scholarshipApplied" type="select" options={['Yes', 'No']} formData={formData} handleInputChange={handleInputChange} isModified={modifiedFields.has('scholarshipApplied')} originalValue={originalStudentData?.scholarshipApplied} showEditMode={showEditForm} />
                       
-                      <InputField label="Medical Conditions" name="medicalConditions" className="md:col-span-2" formData={formData} handleInputChange={handleInputChange} isModified={modifiedFields.has('medicalConditions')} originalValue={originalStudentData?.medicalConditions} showEditMode={showEditForm} />
-                      <InputField label="Allergies" name="allergies" className="md:col-span-2" formData={formData} handleInputChange={handleInputChange} isModified={modifiedFields.has('allergies')} originalValue={originalStudentData?.allergies} showEditMode={showEditForm} />
+                      <InputField label="Medical Conditions" name="medicalConditions" className="sm:col-span-2" formData={formData} handleInputChange={handleInputChange} isModified={modifiedFields.has('medicalConditions')} originalValue={originalStudentData?.medicalConditions} showEditMode={showEditForm} />
+                      <InputField label="Allergies" name="allergies" className="sm:col-span-2" formData={formData} handleInputChange={handleInputChange} isModified={modifiedFields.has('allergies')} originalValue={originalStudentData?.allergies} showEditMode={showEditForm} />
                     </div>
                   </div>
 
@@ -1077,9 +1068,9 @@ const StudentManagement = () => {
                       <span className="bg-primary-100 text-primary-700 w-6 h-6 rounded-full flex items-center justify-center text-xs">3</span>
                       Contact Information
                     </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <InputField label="Email" name="email" type="email" className="md:col-span-1" formData={formData} handleInputChange={handleInputChange} isModified={modifiedFields.has('email')} originalValue={originalStudentData?.email} showEditMode={showEditForm} />
-                      <div className="md:col-span-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <InputField label="Email" name="email" type="email" className="sm:col-span-1" formData={formData} handleInputChange={handleInputChange} isModified={modifiedFields.has('email')} originalValue={originalStudentData?.email} showEditMode={showEditForm} />
+                      <div className="sm:col-span-1">
                         <PhoneInput 
                           label={
                             <span>
@@ -1096,13 +1087,8 @@ const StudentManagement = () => {
                             <span className="font-medium">Original:</span> {originalStudentData.phoneNumber || <em>(empty)</em>}
                           </div>
                         )}
-                        <p className="text-[10px] text-gray-500 mt-1">
-                          {!formData.phoneNumber?.trim() && formData.parents && formData.parents.find(parent => parent.isEmergency)?.phone?.trim() 
-                            ? `Will use emergency contact: ${formData.parents.find(parent => parent.isEmergency).phone}` 
-                            : 'Optional - fallback to emergency contact'}
-                        </p>
                       </div>
-                      <div className="md:col-span-1">
+                      <div className="sm:col-span-1">
                         <PhoneInput 
                           label={
                             <span>
@@ -1121,20 +1107,20 @@ const StudentManagement = () => {
                         )}
                       </div>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
                       <InputField label="City" name="city" required formData={formData} handleInputChange={handleInputChange} isModified={modifiedFields.has('city')} originalValue={originalStudentData?.city} showEditMode={showEditForm} />
                       <InputField label="State" name="state" required formData={formData} handleInputChange={handleInputChange} isModified={modifiedFields.has('state')} originalValue={originalStudentData?.state} showEditMode={showEditForm} />
                       
                       <InputField label="Pincode" name="pincode" formData={formData} handleInputChange={handleInputChange} isModified={modifiedFields.has('pincode')} originalValue={originalStudentData?.pincode} showEditMode={showEditForm} />
                       <InputField label="Country" name="country" formData={formData} handleInputChange={handleInputChange} isModified={modifiedFields.has('country')} originalValue={originalStudentData?.country} showEditMode={showEditForm} />
-                      <InputField label="Current Address" name="currentAddress" type="textarea" className="md:col-span-2" formData={formData} handleInputChange={handleInputChange} isModified={modifiedFields.has('currentAddress')} originalValue={originalStudentData?.currentAddress} showEditMode={showEditForm} />
-                      <InputField label="Permanent Address" name="permanentAddress" type="textarea" className="md:col-span-2" formData={formData} handleInputChange={handleInputChange} isModified={modifiedFields.has('permanentAddress')} originalValue={originalStudentData?.permanentAddress} showEditMode={showEditForm} />
+                      <InputField label="Current Address" name="currentAddress" type="textarea" className="sm:col-span-2" formData={formData} handleInputChange={handleInputChange} isModified={modifiedFields.has('currentAddress')} originalValue={originalStudentData?.currentAddress} showEditMode={showEditForm} />
+                      <InputField label="Permanent Address" name="permanentAddress" type="textarea" className="sm:col-span-2" formData={formData} handleInputChange={handleInputChange} isModified={modifiedFields.has('permanentAddress')} originalValue={originalStudentData?.permanentAddress} showEditMode={showEditForm} />
                     </div>
                   </div>
 
                   {/* Section 5: Parent Information */}
                   <div>
-                    <div className="flex justify-between items-center mb-4">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
                       <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">
                         <span className="bg-primary-100 text-primary-700 w-6 h-6 rounded-full flex items-center justify-center text-xs">4</span>
                         Parent(s) Information
@@ -1144,7 +1130,7 @@ const StudentManagement = () => {
                       </h3>
                       <button
                         type="button"
-                        className="bg-primary-600 text-white px-3 py-1.5 rounded-lg hover:bg-primary-700 transition-colors text-xs font-medium flex items-center gap-2"
+                        className="bg-primary-600 text-white px-3 py-1.5 rounded-lg hover:bg-primary-700 transition-colors text-xs font-medium flex items-center gap-2 w-full sm:w-auto justify-center"
                         onClick={handleAddParent}
                       >
                         <Plus className="h-4 w-4" />
@@ -1198,8 +1184,8 @@ const StudentManagement = () => {
                       </div>
                     )}
                     {showParentForm && (
-                      <div className={`p-4 rounded-lg mb-4 ${modifiedFields.has('parents') && showEditForm ? 'bg-blue-50 border border-blue-200' : 'bg-gray-50 border border-gray-200'}`}>
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                      <div className={`p-4 rounded-xl mb-6 ${modifiedFields.has('parents') && showEditForm ? 'bg-blue-50 border border-blue-200' : 'bg-gray-50 border border-gray-200'}`}>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                           <InputField 
                             label="Relation" 
                             name="relation" 
@@ -1243,21 +1229,19 @@ const StudentManagement = () => {
                             showEditMode={showEditForm && editingParentIndex !== null}
                           />
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-                          <div className="md:col-span-2">
-                            <InputField 
-                              label="Email" 
-                              name="email" 
-                              type="email" 
-                              required 
-                              formData={parentForm} 
-                              handleInputChange={handleParentInputChange}
-                              isModified={modifiedParentFields.has('email')}
-                              originalValue={originalParentData?.email}
-                              showEditMode={showEditForm && editingParentIndex !== null}
-                            />
-                          </div>
-                          <div className="md:col-span-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                          <InputField 
+                            label="Email" 
+                            name="email" 
+                            type="email" 
+                            required 
+                            formData={parentForm} 
+                            handleInputChange={handleParentInputChange}
+                            isModified={modifiedParentFields.has('email')}
+                            originalValue={originalParentData?.email}
+                            showEditMode={showEditForm && editingParentIndex !== null}
+                          />
+                          <div>
                             <PhoneInput 
                               label={
                                 <span>
@@ -1277,7 +1261,7 @@ const StudentManagement = () => {
                             )}
                           </div>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
                           <InputField 
                             label="Occupation" 
                             name="occupation" 
@@ -1297,20 +1281,8 @@ const StudentManagement = () => {
                             originalValue={originalParentData?.income}
                             showEditMode={showEditForm && editingParentIndex !== null}
                           />
-                          <InputField 
-                            label="Relation" 
-                            name="relation" 
-                            type="select" 
-                            options={["Father","Mother","Guardian","Other"]} 
-                            required 
-                            formData={parentForm} 
-                            handleInputChange={handleParentInputChange}
-                            isModified={modifiedParentFields.has('relation')}
-                            originalValue={originalParentData?.relation}
-                            showEditMode={showEditForm && editingParentIndex !== null}
-                          />
                         </div>
-                        <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-200">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mt-4 pt-4 border-t border-gray-200">
                           <div className="flex items-center">
                             <input 
                               type="checkbox" 
@@ -1329,17 +1301,17 @@ const StudentManagement = () => {
                               </div>
                             )}
                           </div>
-                          <div className="flex space-x-3">
+                          <div className="flex space-x-3 w-full sm:w-auto">
                             <button 
                               type="button" 
-                              className="px-4 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors" 
+                              className="flex-1 sm:flex-none px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors" 
                               onClick={handleCancelParentForm}
                             >
                               Cancel
                             </button>
                             <button 
                               type="button" 
-                              className="bg-primary-600 text-white px-4 py-1.5 rounded-lg hover:bg-primary-700 transition-colors text-sm font-medium" 
+                              className="flex-1 sm:flex-none bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors text-sm font-medium" 
                               onClick={handleSaveParent}
                             >
                               {editingParentIndex !== null ? 'Update Parent' : 'Save Parent'}
@@ -1352,20 +1324,20 @@ const StudentManagement = () => {
                 </div>
 
                 {/* Form Actions */}
-                <div className="flex justify-end space-x-4 mt-6 pt-4 border-t">
+                <div className="flex flex-col sm:flex-row justify-end gap-3 mt-8 pt-6 border-t">
                   <button
                     type="button"
                     onClick={handleCancel}
-                    className="px-6 py-2 text-gray-600 border border-gray-300 rounded hover:bg-gray-50"
+                    className="order-2 sm:order-1 px-6 py-2.5 text-gray-700 font-medium border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                     disabled={loading}
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className={`px-6 py-2 text-white rounded transition-colors flex items-center gap-2 ${
+                    className={`order-1 sm:order-2 px-8 py-2.5 text-white font-medium rounded-lg transition-all flex items-center justify-center gap-2 shadow-sm ${
                       academicYearValidation.isValid 
-                        ? 'bg-primary-600 hover:bg-primary-700' 
+                        ? 'bg-primary-600 hover:bg-primary-700 hover:shadow-md' 
                         : 'bg-gray-400 cursor-not-allowed'
                     }`}
                     disabled={loading || !academicYearValidation.isValid}
@@ -1392,7 +1364,6 @@ const StudentManagement = () => {
       onFiltersChange={handleFiltersChange}
       showClassFilter={true}
       showSearchFilter={true}
-      instructions={studentInstructions}
       addButtonText="Add Student"
       onAddClick={handleAddStudent}
       canAdd={canCreateStudent}
