@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { format, parseISO } from 'date-fns';
 import { useAuth } from '../contexts/AuthContext';
 import { academicService } from '../services/academicService';
@@ -6,20 +6,69 @@ import { holidayService } from '../services/holidayService';
 import { specialWorkingDayService } from '../services/specialWorkingDayService';
 import Card from '../components/ui/Card';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
-import AcademicYearSelector from '../components/forms/AcademicYearSelector';
-import ConfirmationDialog from '../components/ui/ConfirmationDialog';
-import { Edit2, Trash2, Check, Calendar } from 'lucide-react';
+import OneAcademicYearPage from '../components/layout/OneAcademicYearPage.jsx';
+import Modal from '../components/ui/Modal.jsx';
+import RequiredAsterisk from '../components/ui/RequiredAsterisk.jsx';
+import { EditButton, DeleteButton, ActionButtonGroup } from '../components/ui/ActionButtons.jsx';
 import { toast } from 'react-hot-toast';
 import { PERMISSIONS } from '../config/permissions';
+import { Calendar, Check } from 'lucide-react';
+
+const InputField = ({ label, name, type = 'text', required = false, options = null, className = '', formData, handleInputChange, ...props }) => (
+  <div className={`${className}`}>
+    <label className={`block text-xs font-medium mb-1 ${type === 'date' ? 'text-blue-700' : 'text-gray-700'}`}>
+      {label} {required && <RequiredAsterisk />}
+    </label>
+    {type === 'select' ? (
+      <select
+        name={name}
+        value={formData[name] || ''}
+        onChange={handleInputChange}
+        className={`w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 ${
+          type === 'date' ? 'border-blue-300 bg-blue-50' : 'border-gray-300 bg-white'
+        } ${type === 'date' ? 'h-10' : 'h-9'}`}
+        required={required}
+        {...props}
+      >
+        <option value="">Select</option>
+        {options && options.map((option, index) => (
+          <option key={`${name}-${index}`} value={option.value || option}>
+            {option.label || option}
+          </option>
+        ))}
+      </select>
+    ) : type === 'textarea' ? (
+      <textarea
+        name={name}
+        value={formData[name] || ''}
+        onChange={handleInputChange}
+        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none h-20 transition-all duration-200"
+        required={required}
+        {...props}
+      />
+    ) : (
+      <input
+        type={type}
+        name={name}
+        value={formData[name] || ''}
+        onChange={handleInputChange}
+        className={`w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 transition-all duration-200 ${
+          type === 'date' 
+            ? 'border-blue-400 bg-blue-50 focus:ring-blue-300 focus:border-blue-500 shadow-sm' 
+            : 'border-gray-300 bg-white focus:ring-blue-500 focus:border-blue-500'
+        } ${type === 'date' ? 'h-10 font-mono' : 'h-9'}`}
+        required={required}
+        {...props}
+      />
+    )}
+  </div>
+);
 
 const HolidayPage = () => {
-  const { user, hasPermission, getCampusId, getDefaultAcademicYearId } = useAuth();
-  const canCreateOrUpdateHoliday =
-    hasPermission && hasPermission(PERMISSIONS.HOLIDAY_CREATE);
-  const canEditHoliday =
-    hasPermission && hasPermission(PERMISSIONS.HOLIDAY_EDIT);
-  const canDeleteHoliday =
-    hasPermission && hasPermission(PERMISSIONS.HOLIDAY_DELETE);
+  const { hasPermission, getCampusId, getDefaultAcademicYearId } = useAuth();
+  const canCreateOrUpdateHoliday = hasPermission && hasPermission(PERMISSIONS.HOLIDAY_CREATE);
+  const canEditHoliday = hasPermission && hasPermission(PERMISSIONS.HOLIDAY_EDIT);
+  const canDeleteHoliday = hasPermission && hasPermission(PERMISSIONS.HOLIDAY_DELETE);
   const campusId = getCampusId();
   const defaultAcademicYearId = getDefaultAcademicYearId();
   
@@ -28,105 +77,73 @@ const HolidayPage = () => {
   const [saving, setSaving] = useState(false);
   const [allAcademicYears, setAllAcademicYears] = useState([]);
   const [holidays, setHolidays] = useState([]);
-  const [uniqueYearNames, setUniqueYearNames] = useState([]);
-  
+  const [hasFetchedHolidays, setHasFetchedHolidays] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+
   // Filter State
+  const [filters, setFilters] = useState({
+    academic_year_id: defaultAcademicYearId || '',
+    search: ''
+  });
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
 
   // Form State
-  const [selectedYearName, setSelectedYearName] = useState('');
   const [formData, setFormData] = useState({
     title: '',
     startDate: '',
     endDate: '',
-    duration: 'full_day', // Default to full_day
-    description: '',
-    // selectedCurriculumIds removed
+    duration: 'full_day',
+    description: 'General',
+    academic_year_id: ''
   });
-  
-  // New state for Academic Year Selection
-  const [selectedAcademicYearId, setSelectedAcademicYearId] = useState(null);
-  const [academicYearSelectorValue, setAcademicYearSelectorValue] = useState({});
 
-  const [message, setMessage] = useState({ type: '', text: '' });
-  const [editingId, setEditingId] = useState(null);
-  const formRef = useRef(null);
-
-  // Duplicate Warning State
-  const [warningDialog, setWarningDialog] = useState({
-    isOpen: false,
-    payload: null,
-    isEdit: false
+  const [filterOptions, setFilterOptions] = useState({
+    academic_years: [],
+    classes: []
   });
+
+  // Duplicate Warning State (kept for future re-enabling ConfirmationDialog)
+
+  const getUtcDateInputString = (date) => date.toISOString().slice(0, 10);
 
   // Initial Data Fetching
   useEffect(() => {
     const fetchData = async () => {
       if (!campusId) return;
-      
       try {
         setLoading(true);
-        
-        // Load Academic Years
         const yearsRes = await academicService.getAllAcademicYears(campusId);
         const years = yearsRes.data || yearsRes || [];
         setAllAcademicYears(years);
+        setFilterOptions(prev => ({ ...prev, academic_years: years }));
         
-        // Initialize date range
         const now = new Date();
-        const start = new Date(now.getFullYear(), 0, 1).toISOString().split('T')[0];
-        const end = new Date(now.getFullYear(), 11, 31).toISOString().split('T')[0];
-        
-        if (defaultAcademicYearId) {
-          const currentYear = years.find(
-            (y) => y.academic_year_id === parseInt(defaultAcademicYearId)
-          );
-          if (currentYear) {
-            setDateRange({
-              start: currentYear.start_date.split('T')[0],
-              end: currentYear.end_date.split('T')[0]
-            });
-            await fetchHolidays(
-              currentYear.start_date.split('T')[0],
-              currentYear.end_date.split('T')[0]
-            );
-          } else {
-            setDateRange({ start, end });
-            await fetchHolidays(start, end);
-          }
-        } else {
-          setDateRange({ start, end });
-          await fetchHolidays(start, end);
-        }
-        
+        const utcToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+        const utcMonthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+        const start = getUtcDateInputString(utcMonthStart);
+        const end = getUtcDateInputString(utcToday);
+
+        setDateRange({ start, end });
       } catch (error) {
         console.error("Error fetching initial data:", error);
       } finally {
         setLoading(false);
       }
     };
-
     fetchData();
   }, [campusId, defaultAcademicYearId]);
 
-  // Fetch holidays removed
-  
   const fetchHolidays = async (startDate, endDate) => {
     try {
       setLoading(true);
-      const filters = {};
-      if (startDate && endDate) {
-          filters.startDate = startDate;
-          filters.endDate = endDate;
-      }
-      
-      const res = await holidayService.getHolidays(campusId, filters);
-      const events = res.data || res || []; 
-      setHolidays(events);
+      const res = await holidayService.getHolidays(campusId, { startDate, endDate });
+      setHolidays(res.data || res || []);
     } catch (error) {
       console.error("Error fetching holidays:", error);
+      toast.error("Failed to load holidays");
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
   };
 
@@ -135,96 +152,45 @@ const HolidayPage = () => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleAcademicYearChange = (e, validation) => {
-    setAcademicYearSelectorValue(e.target.value);
-    if (validation && validation.isValid && validation.academicYearId) {
-      setSelectedAcademicYearId(validation.academicYearId);
-    } else {
-      setSelectedAcademicYearId(null);
-    }
-  };
-
   const handleDateRangeChange = (e) => {
-      const { name, value } = e.target;
-      setDateRange(prev => ({ ...prev, [name]: value }));
+    const { name, value } = e.target;
+    setDateRange(prev => ({ ...prev, [name]: value }));
+    setHolidays([]);
+    setHasFetchedHolidays(false);
   };
 
-  const handleFilterSubmit = (e) => {
-      e.preventDefault();
-      fetchHolidays(dateRange.start, dateRange.end);
+  const resetForm = () => {
+    setFormData({
+      title: '',
+      startDate: '',
+      endDate: '',
+      duration: 'full_day',
+      description: 'General',
+      academic_year_id: filters.academic_year_id || ''
+    });
+    setEditingId(null);
+  };
+
+  const handleAddClick = () => {
+    resetForm();
+    setShowModal(true);
   };
 
   const proceedWithSave = async (payload, isEdit) => {
     try {
+      setSaving(true);
       if (isEdit) {
         await holidayService.updateHoliday(campusId, editingId, payload);
-        setMessage({ type: 'success', text: 'Holiday updated successfully!' });
         toast.success('Holiday updated successfully');
       } else {
         await holidayService.createHoliday(campusId, payload);
-        setMessage({ type: 'success', text: 'Holiday created successfully!' });
         toast.success('Holiday created successfully');
-
-        // Check if new holiday is within current view
-        const newStart = payload.start_date;
-        const newEnd = payload.end_date || payload.start_date;
-        
-        if (newStart < dateRange.start || newEnd > dateRange.end) {
-            // Expand range to include new holiday
-            const updatedStart = newStart < dateRange.start ? newStart : dateRange.start;
-            const updatedEnd = newEnd > dateRange.end ? newEnd : dateRange.end;
-            
-            setDateRange({ start: updatedStart, end: updatedEnd });
-            fetchHolidays(updatedStart, updatedEnd);
-            
-            // Reset form
-            setFormData({
-              title: '',
-              startDate: '',
-              endDate: '',
-              duration: 'full_day',
-              description: '',
-            });
-            setAcademicYearSelectorValue({});
-            setSelectedAcademicYearId(null);
-            setWarningDialog({ isOpen: false, payload: null, isEdit: false });
-            return;
-        }
       }
-
-      // Refresh list
+      setShowModal(false);
+      resetForm();
       fetchHolidays(dateRange.start, dateRange.end);
-      
-      // Reset form if creating
-      if (!isEdit) {
-        setFormData({
-          title: '',
-          startDate: '',
-          endDate: '',
-          duration: 'full_day',
-          description: '',
-        });
-        setAcademicYearSelectorValue({});
-        setSelectedAcademicYearId(null);
-      } else {
-          // If editing, exit edit mode
-          setEditingId(null);
-          setFormData({
-              title: '',
-              startDate: '',
-              endDate: '',
-              duration: 'full_day',
-              description: '',
-          });
-          setAcademicYearSelectorValue({});
-          setSelectedAcademicYearId(null);
-      }
-      
-      setWarningDialog({ isOpen: false, payload: null, isEdit: false });
-
     } catch (error) {
       console.error("Error saving holiday:", error);
-      setMessage({ type: 'error', text: error.message || 'Failed to save holiday' });
       toast.error(error.message || 'Failed to save holiday');
     } finally {
       setSaving(false);
@@ -234,12 +200,9 @@ const HolidayPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.title || !formData.startDate) {
-        setMessage({ type: 'error', text: 'Please fill all required fields.' });
-        return;
+      toast.error('Please fill all required fields.');
+      return;
     }
-
-    setSaving(true);
-    setMessage({ type: '', text: '' });
 
     const payload = {
       holiday_name: formData.title,
@@ -247,137 +210,77 @@ const HolidayPage = () => {
       end_date: formData.endDate || formData.startDate,
       duration_category: formData.duration,
       holiday_type: formData.description,
-      academic_year_ids: selectedAcademicYearId ? [selectedAcademicYearId] : [], // Send array
+      academic_year_ids: formData.academic_year_id ? [parseInt(formData.academic_year_id)] : [],
       is_paid: true 
     };
 
     try {
-        // 1. Check for Special Working Day conflict (Reject)
-        const specialDaysRes = await specialWorkingDayService.getAll(campusId);
-        const specialDays = specialDaysRes.data || specialDaysRes || [];
+      setSaving(true);
+      // 1. Check for Special Working Day conflict
+      const specialDaysRes = await specialWorkingDayService.getAll(campusId);
+      const specialDays = specialDaysRes.data || specialDaysRes || [];
+      const hasSpecialDayConflict = specialDays.some(sd => {
+        const sdDate = new Date(sd.work_date).setHours(0,0,0,0);
+        const hStart = new Date(payload.start_date).setHours(0,0,0,0);
+        const hEnd = new Date(payload.end_date).setHours(0,0,0,0);
+        if (sdDate < hStart || sdDate > hEnd) return false;
+        const sdAcademicYears = sd.academic_year_ids || [];
+        if (payload.academic_year_ids.length === 0) return true; 
+        return sdAcademicYears.some(id => payload.academic_year_ids.includes(id));
+      });
 
-        const hasSpecialDayConflict = specialDays.some(sd => {
-            const sdDate = new Date(sd.work_date).setHours(0,0,0,0);
-            const hStart = new Date(payload.start_date).setHours(0,0,0,0);
-            const hEnd = new Date(payload.end_date).setHours(0,0,0,0);
-
-            if (sdDate < hStart || sdDate > hEnd) return false;
-
-            // Check Academic Year Overlap
-            const sdAcademicYears = sd.academic_year_ids || [];
-            const isGlobalHoliday = payload.academic_year_ids.length === 0;
-            if (isGlobalHoliday) return true; 
-
-            // If holiday has specific year, check if special day shares it
-            return sdAcademicYears.some(id => payload.academic_year_ids.includes(id));
-        });
-
-        if (hasSpecialDayConflict) {
-            setSaving(false);
-            setMessage({ type: 'error', text: 'We cannot add holiday as it is special working day. Delete working day to add holiday.' });
-            toast.error('We cannot add holiday as it is special working day. Delete working day to add holiday.');
-            return;
-        }
-
-        // 2. Check for Duplicate Holiday (Warning)
-        const existingHolidaysRes = await holidayService.getHolidays(campusId, { 
-            startDate: payload.start_date, 
-            endDate: payload.end_date 
-        });
-        const existingHolidays = existingHolidaysRes.data || existingHolidaysRes || [];
-
-        const hasDuplicateHoliday = existingHolidays.some(h => {
-            if (editingId && h.id === editingId) return false; // Ignore self when editing
-
-            const hStart = new Date(h.start_date).setHours(0,0,0,0);
-            const hEnd = new Date(h.end_date || h.start_date).setHours(0,0,0,0);
-            const newStart = new Date(payload.start_date).setHours(0,0,0,0);
-            const newEnd = new Date(payload.end_date).setHours(0,0,0,0);
-
-            // Check overlap
-            if (newEnd < hStart || newStart > hEnd) return false;
-
-            // Check Academic Year
-            const hYears = h.academic_year_ids || [];
-            const newYears = payload.academic_year_ids;
-
-            // Global vs Global -> Conflict
-            if (hYears.length === 0 && newYears.length === 0) return true;
-            // Global vs Specific -> Conflict
-            if (hYears.length === 0 || newYears.length === 0) return true;
-            
-            // Specific vs Specific -> Check intersection
-            return hYears.some(id => newYears.includes(id));
-        });
-
-        if (hasDuplicateHoliday) {
-             setWarningDialog({
-                 isOpen: true,
-                 payload,
-                 isEdit: !!editingId
-             });
-             setSaving(false);
-             return;
-        }
-
-        // No conflicts
-        proceedWithSave(payload, !!editingId);
-
-    } catch (err) {
-        console.error("Error checking conflicts:", err);
-        toast.error("Failed to validate conflicts");
+      if (hasSpecialDayConflict) {
+        toast.error('Cannot add holiday on a special working day. Delete working day first.');
         setSaving(false);
+        return;
+      }
+
+      // 2. Check for Duplicate Holiday
+      const existingHolidaysRes = await holidayService.getHolidays(campusId, { 
+        startDate: payload.start_date, 
+        endDate: payload.end_date 
+      });
+      const existingHolidays = existingHolidaysRes.data || existingHolidaysRes || [];
+      const hasDuplicateHoliday = existingHolidays.some(h => {
+        if (editingId && h.id === editingId) return false;
+        const hStart = new Date(h.start_date).setHours(0,0,0,0);
+        const hEnd = new Date(h.end_date || h.start_date).setHours(0,0,0,0);
+        const newStart = new Date(payload.start_date).setHours(0,0,0,0);
+        const newEnd = new Date(payload.end_date).setHours(0,0,0,0);
+        if (newEnd < hStart || newStart > hEnd) return false;
+        const hYears = h.academic_year_ids || [];
+        const newYears = payload.academic_year_ids;
+        if (hYears.length === 0 && newYears.length === 0) return true;
+        if (hYears.length === 0 || newYears.length === 0) return true;
+        return hYears.some(id => newYears.includes(id));
+      });
+
+      if (hasDuplicateHoliday) {
+        toast('Duplicate holiday exists for this date range/academic year. Saving anyway.', { icon: 'ℹ️' });
+      }
+
+      proceedWithSave(payload, !!editingId);
+    } catch (err) {
+      console.error("Error checking conflicts:", err);
+      toast.error("Failed to validate conflicts");
+      setSaving(false);
     }
   };
 
-  const handleEdit = async (holiday) => {
+  const handleEdit = (holiday) => {
     setEditingId(holiday.id);
     setFormData({
       title: holiday.holiday_name || '',
       startDate: holiday.start_date ? holiday.start_date.split('T')[0] : '',
       endDate: holiday.end_date ? holiday.end_date.split('T')[0] : '',
       duration: holiday.duration_category || 'full_day',
-      description: holiday.holiday_type || 'Holiday',
+      description: holiday.holiday_type || 'General',
+      academic_year_id: holiday.academic_year_ids && holiday.academic_year_ids.length > 0 ? holiday.academic_year_ids[0].toString() : ''
     });
-
-    // Handle Academic Year Selector Population
-    if (holiday.academic_year_ids && holiday.academic_year_ids.length > 0) {
-        // Use the first one
-        const ayId = holiday.academic_year_ids[0];
-        try {
-            // Check if we already have it in allAcademicYears
-            let ay = allAcademicYears.find(y => y.academic_year_id === ayId);
-            if (!ay) {
-                const res = await academicService.getAcademicYearById(campusId, ayId);
-                ay = res.data || res;
-            }
-            
-            if (ay) {
-                setAcademicYearSelectorValue({
-                    year_name: ay.year_name,
-                    year_type: ay.year_type,
-                    curriculum_id: ay.curriculum_id,
-                    medium: ay.medium,
-                    academic_year_id: ay.academic_year_id
-                });
-                setSelectedAcademicYearId(ay.academic_year_id);
-            }
-        } catch (err) {
-            console.error("Error fetching academic year details for edit:", err);
-        }
-    } else {
-        setAcademicYearSelectorValue({});
-        setSelectedAcademicYearId(null);
-    }
-
-    if (formRef.current) {
-      formRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+    setShowModal(true);
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this holiday?')) return;
-    
     try {
       await holidayService.deleteHoliday(campusId, id);
       setHolidays(prev => prev.filter(h => h.id !== id));
@@ -388,287 +291,246 @@ const HolidayPage = () => {
     }
   };
 
-  const formatDuration = (category) => {
-      if (category === 'half_day') return 'Half Day';
-      return 'Full Day';
-  };
-
   const getAcademicYearNames = (ids) => {
-      if (!ids || !Array.isArray(ids) || ids.length === 0) return 'Global (All)';
-      
-      // If we have names loaded, use them
-      if (allAcademicYears.length > 0) {
-          return ids.map(id => {
-              const y = allAcademicYears.find(ay => ay.academic_year_id === id);
-              // Format: Year (Type) - Curriculum - Medium
-              return y ? `${y.year_name} (${y.year_type}) - ${y.curriculum_name || y.curriculum_code || 'N/A'} - ${y.medium}` : id;
-          }).join(', ');
-      }
-      return ids.join(', ');
+    if (!ids || !Array.isArray(ids) || ids.length === 0) return 'Global (All)';
+    return ids.map(id => {
+      const y = allAcademicYears.find(ay => ay.academic_year_id === id);
+      return y ? `${y.year_name} (${y.year_type}) - ${y.curriculum_code || 'N/A'}` : id;
+    }).join(', ');
   };
 
-  if (loading && !holidays.length) {
-    return <div className="flex justify-center p-8"><LoadingSpinner /></div>;
-  }
+  const customFilters = (
+    <div className="md:col-span-2">
+      <div className="flex flex-col sm:flex-row gap-4 items-end justify-end">
+        <InputField
+          label="Start Date"
+          name="start"
+          type="date"
+          formData={dateRange}
+          handleInputChange={handleDateRangeChange}
+          className="flex-1 min-w-[160px]"
+        />
+        <InputField
+          label="End Date"
+          name="end"
+          type="date"
+          formData={dateRange}
+          handleInputChange={handleDateRangeChange}
+          className="flex-1 min-w-[160px]"
+        />
+        <button
+          type="button"
+          onClick={() => {
+            fetchHolidays(dateRange.start, dateRange.end);
+            setHasFetchedHolidays(true);
+          }}
+          className="btn-primary whitespace-nowrap h-10 px-6 w-full sm:w-auto"
+          disabled={loading}
+        >
+          {loading ? 'Loading...' : 'Get Holidays'}
+        </button>
+      </div>
+    </div>
+  );
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-800">Holidays</h1>
+    <OneAcademicYearPage
+      title="Manage Holidays"
+      filterOptions={filterOptions}
+      filters={filters}
+      setFilters={setFilters}
+      onFiltersChange={(newFilters) => {
+        setFilters(newFilters);
+        setHolidays([]);
+        setHasFetchedHolidays(false);
+      }}
+      showClassFilter={false}
+      showSearchFilter={false}
+      customFilters={customFilters}
+      addButtonText="Add Holiday"
+      onAddClick={handleAddClick}
+      canAdd={canCreateOrUpdateHoliday}
+    >
+      <div className="space-y-6">
+        <Card className="p-6">
+          {loading ? (
+            <div className="flex justify-center py-12"><LoadingSpinner /></div>
+          ) : !hasFetchedHolidays ? (
+            <div className="text-center py-12 text-gray-500 bg-gray-50 rounded-xl border border-dashed border-gray-300">
+              Select filters and click Get Holidays to view results.
+            </div>
+          ) : holidays.length === 0 ? (
+            <div className="text-center py-12 text-gray-500 bg-gray-50 rounded-xl border border-dashed border-gray-300">
+              No holidays found for the selected range.
+            </div>
+          ) : (
+            <div className="overflow-x-auto border border-secondary-200 rounded-xl">
+              <table className="min-w-full divide-y divide-secondary-200">
+                <thead className="bg-secondary-50">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-secondary-600 uppercase tracking-wider">Date</th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-secondary-600 uppercase tracking-wider">Holiday Name</th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-secondary-600 uppercase tracking-wider">Duration</th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-secondary-600 uppercase tracking-wider">Applicable To</th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-secondary-600 uppercase tracking-wider text-center">Type</th>
+                    <th className="px-6 py-4 text-right text-xs font-bold text-secondary-600 uppercase tracking-wider">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-secondary-100">
+                  {holidays.map((holiday) => (
+                    <tr key={holiday.id} className="hover:bg-secondary-50/50 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-900 font-medium">
+                        {format(parseISO(holiday.start_date), 'MMM d, yyyy')}
+                        {holiday.start_date !== holiday.end_date && (
+                          <span className="text-secondary-400 font-normal"> - {format(parseISO(holiday.end_date), 'MMM d, yyyy')}</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-secondary-900 font-bold">
+                        {holiday.holiday_name}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-600">
+                        <span className={`px-2 py-1 rounded-md text-xs font-medium ${holiday.duration_category === 'full_day' ? 'bg-blue-50 text-blue-700' : 'bg-orange-50 text-orange-700'}`}>
+                          {holiday.duration_category === 'full_day' ? 'Full Day' : 'Half Day'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-secondary-600 italic">
+                        {getAcademicYearNames(holiday.academic_year_ids)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        <span className="px-3 py-1 text-xs font-bold rounded-full bg-secondary-100 text-secondary-700 uppercase tracking-wider">
+                          {holiday.holiday_type || 'General'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <ActionButtonGroup className="justify-end">
+                          {canEditHoliday && (
+                            <EditButton onClick={() => handleEdit(holiday)} title="Edit holiday" />
+                          )}
+                          {canDeleteHoliday && (
+                            <DeleteButton 
+                              onClick={() => handleDelete(holiday.id)} 
+                              title="Delete holiday"
+                              confirmMessage={`Are you sure you want to delete "${holiday.holiday_name}"?`}
+                            />
+                          )}
+                        </ActionButtonGroup>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
       </div>
 
-      <ConfirmationDialog
+      {/* Add/Edit Modal */}
+      <Modal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        title={editingId ? 'Edit Holiday' : 'Add New Holiday'}
+        size="lg"
+      >
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <InputField
+              label="Holiday Title"
+              name="title"
+              required
+              formData={formData}
+              handleInputChange={handleInputChange}
+              placeholder="e.g. Independence Day"
+              className="md:col-span-1"
+            />
+            <InputField
+              label="Type"
+              name="description"
+              type="select"
+              options={[
+                { label: 'General Holiday', value: 'General' },
+                { label: 'Restricted Holiday', value: 'Restricted' },
+                { label: 'Observance', value: 'Observance' },
+                { label: 'Season Break', value: 'Season' }
+              ]}
+              formData={formData}
+              handleInputChange={handleInputChange}
+              className="md:col-span-1"
+            />
+            
+            <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4">
+              <InputField
+                label="Start Date"
+                name="startDate"
+                type="date"
+                required
+                formData={formData}
+                handleInputChange={handleInputChange}
+              />
+              <InputField
+                label="End Date"
+                name="endDate"
+                type="date"
+                formData={formData}
+                handleInputChange={handleInputChange}
+              />
+              <InputField
+                label="Duration"
+                name="duration"
+                type="select"
+                options={[
+                  { label: 'Full Day', value: 'full_day' },
+                  { label: 'Half Day', value: 'half_day' }
+                ]}
+                formData={formData}
+                handleInputChange={handleInputChange}
+              />
+            </div>
+
+            <InputField
+              label="Academic Year"
+              name="academic_year_id"
+              type="select"
+              options={allAcademicYears.map(y => ({
+                label: `${y.year_name} - ${(y.curriculum_code || y.curriculum_name || 'N/A')} - ${y.medium || 'N/A'}`,
+                value: y.academic_year_id
+              }))}
+              formData={formData}
+              handleInputChange={handleInputChange}
+              className="md:col-span-2"
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 pt-6 border-t border-secondary-100">
+            <button
+              type="button"
+              onClick={() => setShowModal(false)}
+              className="px-6 py-2.5 text-secondary-600 font-medium border border-secondary-300 rounded-xl hover:bg-secondary-50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-8 py-2.5 bg-primary-600 text-white font-medium rounded-xl hover:bg-primary-700 transition-all flex items-center gap-2 shadow-lg shadow-primary-200 disabled:opacity-50"
+            >
+              {saving ? <LoadingSpinner size="sm" color="white" /> : (editingId ? <Check size={18} /> : <Calendar size={18} />)}
+              {editingId ? 'Update Holiday' : 'Save Holiday'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* <ConfirmationDialog
         isOpen={warningDialog.isOpen}
         onClose={() => setWarningDialog({ isOpen: false, payload: null, isEdit: false })}
         onConfirm={() => proceedWithSave(warningDialog.payload, warningDialog.isEdit)}
         title="Duplicate Holiday Warning"
-        message="It is holiday for same day and same academic year do you still need to add it anyways?"
+        message="A holiday already exists for this date range and academic year. Do you still want to add it?"
         confirmText="Yes, Add Anyway"
         cancelText="Cancel"
         variant="warning"
-      />
-
-      {message.text && (
-        <div className={`p-4 rounded-md ${message.type === 'error' ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
-          {message.text}
-        </div>
-      )}
-
-      {canCreateOrUpdateHoliday && (
-        <Card className="p-6">
-          <h2 className="text-lg font-semibold mb-4">{editingId ? 'Edit Holiday' : 'Add New Holiday'}</h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
-            {/* Year Filter removed */}
-          </div>
-
-          <form ref={formRef} onSubmit={handleSubmit} className="space-y-4 border-t pt-4">
-            
-            {/* Academic Year Selector */}
-            <div className="mb-4">
-                <AcademicYearSelector 
-                    campusId={campusId}
-                    value={academicYearSelectorValue}
-                    onChange={handleAcademicYearChange}
-                    required={false} // Maybe optional implies Global? Let's keep it optional but encourage selection
-                    label="Applicable Academic Year"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                    Select an academic year to apply this holiday to. Leave empty for Global holiday (applies to all).
-                </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Holiday Title *</label>
-                <input
-                  type="text"
-                  name="title"
-                  value={formData.title}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="e.g. Independence Day"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
-                 <select
-                  name="description"
-                  value={formData.description}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="General">General Holiday</option>
-                  <option value="Restricted">Restricted Holiday</option>
-                  <option value="Observance">Observance</option>
-                  <option value="Season">Season Break</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Start Date *</label>
-                <input
-                  type="date"
-                  name="startDate"
-                  value={formData.startDate}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
-                <input
-                  type="date"
-                  name="endDate"
-                  value={formData.endDate}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Same as start date if empty"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Duration</label>
-                <select
-                  name="duration"
-                  value={formData.duration}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="full_day">Full Day</option>
-                  <option value="half_day">Half Day</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-3 pt-2">
-              {editingId && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditingId(null);
-                    setFormData({
-                      title: '',
-                      startDate: '',
-                      endDate: '',
-                      duration: 'full_day',
-                      description: '',
-                    });
-                    setAcademicYearSelectorValue({});
-                    setSelectedAcademicYearId(null);
-                  }}
-                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-                >
-                  Cancel Edit
-                </button>
-              )}
-              <button
-                type="submit"
-                disabled={saving}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
-              >
-                {saving ? <LoadingSpinner size="sm" color="white" /> : (editingId ? <Check size={16} /> : <Calendar size={16} />)}
-                {editingId ? 'Update Holiday' : 'Add Holiday'}
-              </button>
-            </div>
-          </form>
-        </Card>
-      )}
-
-      {/* FILTER SECTION */}
-      <Card className="p-6">
-        <h2 className="text-lg font-semibold mb-4">View Holidays</h2>
-        <form onSubmit={handleFilterSubmit} className="flex flex-col md:flex-row gap-4 items-end">
-            <div className="flex-1 w-full">
-                <label className="block text-sm font-medium text-gray-700 mb-1">From Date</label>
-                <input 
-                    type="date" 
-                    name="start"
-                    value={dateRange.start} 
-                    onChange={handleDateRangeChange}
-                    className="px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 w-full"
-                />
-            </div>
-            <div className="flex items-center gap-2 w-full md:w-auto">
-                <span className="text-sm text-gray-500">To:</span>
-                <input 
-                    type="date" 
-                    name="end"
-                    value={dateRange.end} 
-                    onChange={handleDateRangeChange}
-                    className="px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 w-full"
-                />
-            </div>
-            <button 
-                type="submit" 
-                className="bg-gray-100 text-gray-700 px-3 py-1 rounded-md text-sm hover:bg-gray-200 border border-gray-300 w-full md:w-auto"
-            >
-                Filter
-            </button>
-        </form>
-        
-        {loading ? (
-             <div className="flex justify-center py-8"><LoadingSpinner /></div>
-        ) : holidays.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-                No holidays found.
-            </div>
-        ) : (
-            <div className="overflow-x-auto mt-4">
-                <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                        <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Holiday</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Applicable To</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                            {(canEditHoliday || canDeleteHoliday) && (
-                              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Actions
-                              </th>
-                            )}
-                        </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                        {holidays.map((holiday, index) => (
-                            <tr key={index}>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                    {format(parseISO(holiday.start_date), 'MMM d, yyyy')}
-                                    {holiday.start_date !== holiday.end_date && (
-                                        <> - {format(parseISO(holiday.end_date), 'MMM d, yyyy')}</>
-                                    )}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                    {holiday.holiday_name}
-                                </td>
-                                <td className="px-6 py-4 text-sm text-gray-500">
-                                    {formatDuration(holiday.duration_category)}
-                                </td>
-                                <td className="px-6 py-4 text-sm text-gray-500">
-                                    {getAcademicYearNames(holiday.academic_year_ids)}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                                        {holiday.holiday_type || 'Holiday'}
-                                    </span>
-                                </td>
-                                {(canEditHoliday || canDeleteHoliday) && (
-                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                        <div className="flex justify-end gap-2">
-                                            {canEditHoliday && (
-                                              <button
-                                                  onClick={() => handleEdit(holiday)}
-                                                  className="text-blue-600 hover:text-blue-900"
-                                                  title="Edit"
-                                              >
-                                                  <Edit2 size={16} />
-                                              </button>
-                                            )}
-                                            {canDeleteHoliday && (
-                                              <button
-                                                  onClick={() => handleDelete(holiday.id)}
-                                                  className="text-red-600 hover:text-red-900"
-                                                  title="Delete"
-                                              >
-                                                  <Trash2 size={16} />
-                                              </button>
-                                            )}
-                                        </div>
-                                    </td>
-                                )}
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-        )}
-      </Card>
-    </div>
+      /> */}
+    </OneAcademicYearPage>
   );
 };
 
