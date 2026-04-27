@@ -1,11 +1,8 @@
-/* UNUSED CODE - Badge component not being imported or used anywhere in the codebase
-// The badge styling is being done through CSS classes instead of this component
-
 /**
  * Professional Badge Component
  * Reusable badge with multiple variants and colors
  */
-/*
+
 export default function Badge({ 
   children, 
   variant = 'default', 
@@ -16,42 +13,56 @@ export default function Badge({
   const baseClasses = 'inline-flex items-center font-medium rounded-full'
   
   const sizeClasses = {
-    sm: 'px-2 py-1 text-xs',
-    default: 'px-3 py-1 text-sm',
-    lg: 'px-4 py-2 text-base'
+    sm: 'px-2 py-0.5 text-[10px]',
+    default: 'px-2.5 py-0.5 text-xs',
+    lg: 'px-3 py-1 text-sm'
   }
 
-  const variantClasses = {
-    default: {
-      primary: 'bg-primary-100 text-primary-800',
-      secondary: 'bg-secondary-100 text-secondary-800',
-      success: 'bg-success-100 text-success-800',
-      warning: 'bg-warning-100 text-warning-800',
-      error: 'bg-error-100 text-error-800',
-      accent: 'bg-accent-100 text-accent-800',
-      pink: 'bg-pink-100 text-pink-800'
+  // Define colors for each variant
+  const colorMap = {
+    primary: {
+      default: 'bg-primary-100 text-primary-800',
+      soft: 'bg-primary-50 text-primary-700 border border-primary-100',
+      solid: 'bg-primary-600 text-white',
+      outline: 'border border-primary-300 text-primary-700'
     },
-    solid: {
-      primary: 'bg-primary-600 text-white',
-      secondary: 'bg-secondary-600 text-white',
-      success: 'bg-success-600 text-white',
-      warning: 'bg-warning-600 text-white',
-      error: 'bg-error-600 text-white',
-      accent: 'bg-accent-600 text-white',
-      pink: 'bg-pink-600 text-white'
+    secondary: {
+      default: 'bg-secondary-100 text-secondary-800',
+      soft: 'bg-secondary-50 text-secondary-700 border border-secondary-100',
+      solid: 'bg-secondary-600 text-white',
+      outline: 'border border-secondary-300 text-secondary-700'
     },
-    outline: {
-      primary: 'border border-primary-300 text-primary-700',
-      secondary: 'border border-secondary-300 text-secondary-700',
-      success: 'border border-success-300 text-success-700',
-      warning: 'border border-warning-300 text-warning-700',
-      error: 'border border-error-300 text-error-700',
-      accent: 'border border-accent-300 text-accent-700',
-      pink: 'border border-pink-300 text-pink-700'
+    success: {
+      default: 'bg-success-100 text-success-800',
+      soft: 'bg-success-50 text-success-700 border border-success-100',
+      solid: 'bg-success-600 text-white',
+      outline: 'border border-success-300 text-success-700'
+    },
+    warning: {
+      default: 'bg-warning-100 text-warning-800',
+      soft: 'bg-warning-50 text-warning-700 border border-warning-100',
+      solid: 'bg-warning-600 text-white',
+      outline: 'border border-warning-300 text-warning-700'
+    },
+    error: {
+      default: 'bg-error-100 text-error-800',
+      soft: 'bg-error-50 text-error-700 border border-error-100',
+      solid: 'bg-error-600 text-white',
+      outline: 'border border-error-300 text-error-700'
+    },
+    accent: {
+      default: 'bg-accent-100 text-accent-800',
+      soft: 'bg-accent-50 text-accent-700 border border-accent-100',
+      solid: 'bg-accent-600 text-white',
+      outline: 'border border-accent-300 text-accent-700'
     }
   }
 
-  const classes = `${baseClasses} ${sizeClasses[size]} ${variantClasses[variant][color]} ${className}`
+  // Fallback if variant or color is missing
+  const selectedColor = colorMap[color] || colorMap.secondary;
+  const variantClass = selectedColor[variant] || selectedColor.default;
+
+  const classes = `${baseClasses} ${sizeClasses[size] || sizeClasses.default} ${variantClass} ${className}`
 
   return (
     <span className={classes}>
@@ -59,5 +70,3 @@ export default function Badge({
     </span>
   )
 }
-*/
-

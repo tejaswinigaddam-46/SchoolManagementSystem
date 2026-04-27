@@ -12,6 +12,7 @@ const env = {
   environment: import.meta.env.VITE_ENVIRONMENT || 'development',
   googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
   analyticsId: import.meta.env.VITE_ANALYTICS_ID,
+  aiApiUrl: import.meta.env.VITE_API_AI_URL,
   isDev: import.meta.env.DEV,
   isProd: import.meta.env.PROD,
 };
@@ -21,7 +22,8 @@ const validateEnv = (config) => {
   const requiredVars = [
     'apiBaseUrl',
     'appName',
-    'environment'
+    'environment',
+    'aiApiUrl'
   ];
 
   const missing = requiredVars.filter(key => !config[key]);
@@ -35,7 +37,6 @@ const validateEnv = (config) => {
       throw new Error(errorMsg);
     }
   }
-
   // URL validation for API
   try {
     if (config.apiBaseUrl) {
@@ -43,6 +44,15 @@ const validateEnv = (config) => {
     }
   } catch (e) {
     console.error(`❌ Invalid VITE_API_BASE_URL: ${config.apiBaseUrl}`);
+  }
+
+  // URL validation for API
+  try {
+    if (config.aiApiUrl) {
+      new URL(config.aiApiUrl);
+    }
+  } catch (e) {
+    console.error(`❌ Invalid  AI API URL configuration`);
   }
 
   return config;

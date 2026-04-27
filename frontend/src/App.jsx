@@ -51,6 +51,7 @@ import ProfilePage from './pages/ProfilePage';
 import MyAttendancePage from './pages/MyAttendancePage';
 import MyPayrollPage from './pages/MyPayrollPage';
 import PayrollDashboardPage from './pages/PayrollDashboardPage';
+import AIChatPage from './pages/AIChatPage';
 
 // Landing Page
 import LandingPage from './components/landing/LandingPage';
@@ -144,6 +145,7 @@ function App() {
             >
               {/* Child routes that will render inside Layout's <Outlet /> */}
               <Route path="home" element={<Home />} />
+              <Route path="ai-chat" element={<AIChatPage />} />
               <Route path="profile" element={<ProfilePage />} />
               <Route path="dashboard" element={<Dashboard />} />
               <Route

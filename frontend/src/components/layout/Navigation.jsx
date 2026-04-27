@@ -12,7 +12,8 @@ import {
   BookOpen,
   ClipboardList,
   CreditCard,
-  FileText
+  FileText,
+  Sparkles
 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { PERMISSIONS } from '../../config/permissions'
@@ -32,6 +33,13 @@ export default function Navigation({ onItemClick }) {
       href: '/home',
       icon: Home,
       description: 'All navigation icons',
+      feature: null
+    },
+    {
+      name: 'AI Assistant',
+      href: '/ai-chat',
+      icon: Sparkles,
+      description: 'AI powered help',
       feature: null
     },
     {

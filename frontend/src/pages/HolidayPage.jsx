@@ -356,7 +356,7 @@ const HolidayPage = () => {
           {loading ? (
             <div className="flex justify-center py-12"><LoadingSpinner /></div>
           ) : !hasFetchedHolidays ? (
-            <div className="text-center py-12 text-gray-500 bg-gray-50 rounded-xl border border-dashed border-gray-300">
+            <div className="text-center py-12 text-gray-500 bg-gray-50 rounded-xl border border border-gray-300">
               Select filters and click Get Holidays to view results.
             </div>
           ) : holidays.length === 0 ? (
@@ -371,7 +371,6 @@ const HolidayPage = () => {
                     <th className="px-6 py-4 text-left text-xs font-bold text-secondary-600 uppercase tracking-wider">Date</th>
                     <th className="px-6 py-4 text-left text-xs font-bold text-secondary-600 uppercase tracking-wider">Holiday Name</th>
                     <th className="px-6 py-4 text-left text-xs font-bold text-secondary-600 uppercase tracking-wider">Duration</th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-secondary-600 uppercase tracking-wider">Applicable To</th>
                     <th className="px-6 py-4 text-left text-xs font-bold text-secondary-600 uppercase tracking-wider text-center">Type</th>
                     <th className="px-6 py-4 text-right text-xs font-bold text-secondary-600 uppercase tracking-wider">Actions</th>
                   </tr>
@@ -392,9 +391,6 @@ const HolidayPage = () => {
                         <span className={`px-2 py-1 rounded-md text-xs font-medium ${holiday.duration_category === 'full_day' ? 'bg-blue-50 text-blue-700' : 'bg-orange-50 text-orange-700'}`}>
                           {holiday.duration_category === 'full_day' ? 'Full Day' : 'Half Day'}
                         </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-secondary-600 italic">
-                        {getAcademicYearNames(holiday.academic_year_ids)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
                         <span className="px-3 py-1 text-xs font-bold rounded-full bg-secondary-100 text-secondary-700 uppercase tracking-wider">
@@ -513,7 +509,7 @@ const HolidayPage = () => {
               disabled={saving}
               className="px-8 py-2.5 bg-primary-600 text-white font-medium rounded-xl hover:bg-primary-700 transition-all flex items-center gap-2 shadow-lg shadow-primary-200 disabled:opacity-50"
             >
-              {saving ? <LoadingSpinner size="sm" color="white" /> : (editingId ? <Check size={18} /> : <Calendar size={18} />)}
+              {saving ? <LoadingSpinner size="sm" color="white" /> : (editingId ? <Calendar size={18} /> : <Calendar size={18} />)}
               {editingId ? 'Update Holiday' : 'Save Holiday'}
             </button>
           </div>
