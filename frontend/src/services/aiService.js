@@ -8,9 +8,10 @@ export const aiService = {
   /**
    * Send a query to the AI backend
    * @param {string} query - The user's question
+   * @param {string} subject - The selected curriculum book subject (mandatory)
    * @returns {Promise<any>} - The response from the AI
    */
-  query: async (query) => {
+  query: async (query, subject) => {
     const token = sessionStorage.getItem('accessToken')
     
     // Extract tenant ID from token if possible, similar to apiClient.js
@@ -49,7 +50,8 @@ export const aiService = {
     }
 
     const response = await axios.post(`${config.aiApiUrl}/ai/query`, {
-      question: query
+      question: query,
+      subject: subject
     }, {
       headers
     })

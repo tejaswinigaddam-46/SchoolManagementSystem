@@ -492,7 +492,7 @@ const AIChatPage = () => {
     setLoadingStatus('Fetching API...');
 
     try {
-      const response = await aiService.query(input);
+      const response = await aiService.query(input, selectedCurriculum);
       console.log('Raw AI Response:', response);
       
       setLoadingStatus('Generating markdown...');
