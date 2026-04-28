@@ -1,14 +1,21 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   Send, Bot, User, Sparkles, BookOpen, Lightbulb, 
-  Brain, HelpCircle, ClipboardList, ArrowRight, 
-  ChevronRight, CheckCircle2, XCircle, Info
+  Brain, Menu, ClipboardList, ArrowRight, 
+  ChevronRight, CheckCircle2, XCircle, Info,
+  History, Book, ChevronDown
 } from 'lucide-react';
 import Card from '../components/ui/Card';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import Badge from '../components/ui/Badge';
 import aiService from '../services/aiService';
 import { toast } from 'react-hot-toast';
+
+const CURRICULUM_BOOKS = [
+  { value: 'GOV_SSC_ENGLISH', label: 'SSC English' },
+  { value: 'GOV_SSC_PHYSICS', label: 'SSC Physics' },
+  { value: 'GOV_SSC_CHEMISTRY', label: 'SSC Chemistry' }
+];
 
 const MarkdownFallback = ({ text }) => {
   if (!text) return null;
@@ -447,7 +454,17 @@ const AIChatPage = () => {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStatus, setLoadingStatus] = useState('');
+  const [selectedCurriculum, setSelectedCurriculum] = useState('');
+  const [selectedRecentChat, setSelectedRecentChat] = useState('');
+  const [isChatSidebarOpen, setIsChatSidebarOpen] = useState(false);
   const messagesEndRef = useRef(null);
+
+  // Mock recent chats - in a real app these would come from an API
+  const recentChats = [
+    { id: '1', title: 'Newton\'s Laws of Motion' },
+    { id: '2', title: 'Chemical Bonding' },
+    { id: '3', title: 'English Grammar Basics' },
+  ];
 
   // Auto-scroll to bottom of messages
   const scrollToBottom = () => {
@@ -619,140 +636,241 @@ const AIChatPage = () => {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-120px)] max-w-5xl mx-auto px-4 py-6">
-      {/* Header */}
-      <div className="mb-6 flex items-center gap-3">
-        <div className="p-2 bg-primary-100 rounded-lg text-primary-600">
-          <Sparkles className="w-6 h-6" />
+    <div className="relative flex h-[calc(100vh-180px)] bg-secondary-50 overflow-hidden rounded-2xl border border-secondary-200 shadow-sm">
+      {/* Sidebar - Mobile Overlay Backdrop */}
+      {isChatSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/60 z-[60] md:hidden backdrop-blur-sm"
+          onClick={() => setIsChatSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <div className={`
+        fixed inset-y-0 left-0 z-[70] w-[280px] bg-white border-r border-secondary-200 flex flex-col shadow-2xl transform transition-transform duration-300 ease-in-out
+        md:relative md:translate-x-0 md:shadow-sm md:w-72 md:z-30
+        ${isChatSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+      `}>
+        {/* Sidebar Header */}
+        <div className="p-4 md:p-6 border-b border-secondary-100 flex items-center justify-between bg-white sticky top-0 z-10">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-primary-600 rounded-lg text-white shadow-soft">
+              <Bot className="w-5 h-5 md:w-6 md:h-6" />
+            </div>
+            <div>
+              <h2 className="text-lg md:text-xl font-bold text-secondary-900 leading-none">AI Assistant</h2>
+              <div className="flex items-center gap-1.5 mt-1">
+                <div className="w-1.5 h-1.5 rounded-full bg-success-500 animate-pulse" />
+                <span className="text-[10px] text-success-600 font-bold uppercase tracking-widest">Online</span>
+              </div>
+            </div>
+          </div>
+          <button 
+            className="md:hidden p-2 text-secondary-400 hover:text-secondary-600 hover:bg-secondary-50 rounded-full transition-colors"
+            onClick={() => setIsChatSidebarOpen(false)}
+          >
+            <XCircle className="w-6 h-6" />
+          </button>
         </div>
-        <div>
-          <h1 className="text-2xl font-bold text-secondary-900">AI Assistant</h1>
-          <p className="text-sm text-secondary-500">Ask me anything about your school management</p>
+
+        {/* Sidebar Content (Scrollable Area for future items) */}
+        <div className="flex-1 overflow-y-auto p-4">
+          <div className="text-[10px] font-bold text-secondary-400 uppercase tracking-widest px-2 mb-4">
+            Navigation
+          </div>
+          <button className="w-full flex items-center gap-3 px-3 py-2 text-sm text-primary-600 bg-primary-50 rounded-lg font-medium transition-colors">
+            <Sparkles className="w-4 h-4" />
+            New Learning Session
+          </button>
+        </div>
+
+        {/* Sidebar Bottom (Dropdowns) */}
+        <div className="p-4 border-t border-secondary-100 space-y-4 bg-secondary-50/50">
+          <div>
+            <label className="flex items-center gap-2 text-[10px] font-bold text-secondary-500 mb-2 uppercase tracking-widest">
+              <Book className="w-3 h-3" />
+              Curriculum Book
+            </label>
+            <div className="relative">
+              <select 
+                value={selectedCurriculum}
+                onChange={(e) => {
+                  setSelectedCurriculum(e.target.value);
+                  if (window.innerWidth < 768) setIsChatSidebarOpen(false);
+                }}
+                className="w-full pl-3 pr-10 py-2.5 bg-white border border-secondary-200 rounded-xl text-sm text-secondary-700 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none appearance-none transition-all cursor-pointer hover:border-primary-300"
+              >
+                <option value="">Select Book</option>
+                {CURRICULUM_BOOKS.map(book => (
+                  <option key={book.value} value={book.value}>{book.label}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary-400 pointer-events-none" />
+            </div>
+          </div>
+
+          <div>
+            <label className="flex items-center gap-2 text-[10px] font-bold text-secondary-500 mb-2 uppercase tracking-widest">
+              <History className="w-3 h-3" />
+              Recent Chats
+            </label>
+            <div className="relative">
+              <select 
+                value={selectedRecentChat}
+                onChange={(e) => {
+                  setSelectedRecentChat(e.target.value);
+                  if (window.innerWidth < 768) setIsChatSidebarOpen(false);
+                }}
+                className="w-full pl-3 pr-10 py-2.5 bg-white border border-secondary-200 rounded-xl text-sm text-secondary-700 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none appearance-none transition-all cursor-pointer hover:border-primary-300"
+              >
+                <option value="">Select a recent chat</option>
+                {recentChats.map(chat => (
+                  <option key={chat.id} value={chat.id}>{chat.title}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary-400 pointer-events-none" />
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Chat Messages Area */}
-      <Card className="flex-1 flex flex-col overflow-hidden bg-secondary-50/30 border-secondary-200">
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {messages.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-center p-8 space-y-4">
-              <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-soft border border-secondary-100 text-primary-500">
-                <Bot className="w-10 h-10" />
+      {/* Main Chat Area */}
+      <div className="flex-1 flex flex-col min-w-0 bg-white relative">
+        <div className="flex-1 flex flex-col max-w-5xl mx-auto w-full p-2 md:p-4 lg:p-6 overflow-hidden">
+          {/* Header */}
+          <div className="mb-2 md:mb-4 flex items-center justify-between px-2">
+            <div className="flex items-center gap-2 md:gap-3">
+              <button 
+                className="md:hidden p-2.5 bg-secondary-100 rounded-xl text-secondary-600 hover:bg-secondary-200 transition-colors"
+                onClick={() => setIsChatSidebarOpen(true)}
+              >
+                <Menu className="w-5 h-5" />
+              </button>
+              <div className="p-2 bg-primary-50 rounded-lg text-primary-600 hidden xs:block">
+                <Sparkles className="w-4 h-4 md:w-5 md:h-5" />
               </div>
-              <div className="max-w-md">
-                <h3 className="text-lg font-semibold text-secondary-800">Welcome to AI Assistant</h3>
-                <p className="text-secondary-500 mt-2">
-                  Try asking something like "How to balance a chemical equation?"
-                </p>
+              <div>
+                <h1 className="text-base md:text-xl font-bold text-secondary-900 line-clamp-1">
+                  {selectedCurriculum 
+                    ? `${CURRICULUM_BOOKS.find(b => b.value === selectedCurriculum)?.label}`
+                    : 'AI Learning Assistant'}
+                </h1>
+                <p className="text-[10px] md:text-xs text-secondary-500 font-medium">Master your subjects with AI</p>
               </div>
             </div>
-          ) : (
-            messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
-                <div
-                  className={`flex gap-3 ${
-                    msg.sender === 'user' ? 'flex-row-reverse max-w-[80%]' : 'flex-row max-w-[90%]'
-                  }`}
-                >
-                  <div
-                    className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white ${
-                      msg.sender === 'user' ? 'bg-primary-500' : msg.isError ? 'bg-error-500' : 'bg-secondary-600'
-                    }`}
-                  >
-                    {msg.sender === 'user' ? <User className="w-5 h-5" /> : <Bot className="w-5 h-5" />}
+          </div>
+
+          {/* Chat Messages Area */}
+          <Card className="flex-1 flex flex-col overflow-hidden bg-secondary-50/30 border-secondary-200 rounded-xl md:rounded-2xl shadow-inner">
+            <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-4">
+              {messages.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-center p-4 md:p-8 space-y-4">
+                  <div className="w-12 h-12 md:w-16 md:h-16 bg-white rounded-full flex items-center justify-center shadow-soft border border-secondary-100 text-primary-500">
+                    <Bot className="w-8 h-8 md:w-10 md:h-10" />
                   </div>
-                  <div
-                    className={`p-4 rounded-2xl shadow-sm text-sm ${
-                      msg.sender === 'user'
-                        ? 'bg-primary-600 text-white rounded-tr-none'
-                        : 'bg-white border border-secondary-100 text-secondary-800 rounded-tl-none w-full'
-                    }`}
-                  >
-                    {/* {msg.sender === 'ai' && (
-                      <div className="mb-4 pb-4 border-b border-secondary-100">
-                        <div className="flex items-center gap-2 mb-2 text-[10px] font-bold uppercase tracking-widest text-secondary-400">
-                          <Info className="w-3 h-3" />
-                          Raw Response (Before)
-                        </div>
-                        <pre className="p-3 bg-secondary-900 text-secondary-100 rounded-lg text-[11px] overflow-x-auto whitespace-pre-wrap font-mono max-h-40">
-                          {msg.rawResponse || msg.text}
-                        </pre>
-                      </div>
-                    )} */}
-
-                    {/* {msg.sender === 'ai' && (
-                      <div className="flex items-center gap-2 mb-2 text-[10px] font-bold uppercase tracking-widest text-primary-500">
-                        <Sparkles className="w-3 h-3" />
-                        Rendered Output (After)
-                      </div>
-                    )} */}
-
-                    {msg.structuredData ? (
-                      <StructuredAIResponse data={msg.structuredData} fallbackText={msg.text} />
-                    ) : msg.sender === 'ai' ? (
-                      <MarkdownFallback text={msg.text} />
-                    ) : (
-                      <p className="whitespace-pre-wrap">{msg.text}</p>
+                  <div className="max-w-md">
+                    <h3 className="text-base md:text-lg font-semibold text-secondary-800">
+                      {selectedCurriculum 
+                        ? `Ask me anything about ${CURRICULUM_BOOKS.find(b => b.value === selectedCurriculum)?.label}`
+                        : "Welcome to AI Assistant"}
+                    </h3>
+                    {!selectedCurriculum && (
+                      <p className="text-sm text-secondary-500 mt-2">
+                        Please select a book to start new chat or select recent chat to view past chats
+                      </p>
                     )}
-                    <span
-                      className={`text-[10px] mt-2 block opacity-60 ${
-                        msg.sender === 'user' ? 'text-right' : 'text-left'
+                  </div>
+                </div>
+              ) : (
+                messages.map((msg) => (
+                  <div
+                    key={msg.id}
+                    className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div
+                      className={`flex gap-2 md:gap-3 ${
+                        msg.sender === 'user' ? 'flex-row-reverse max-w-[90%] md:max-w-[80%]' : 'flex-row max-w-[95%] md:max-w-[90%]'
                       }`}
                     >
-                      {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
+                      <div
+                        className={`flex-shrink-0 w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center text-white ${
+                          msg.sender === 'user' ? 'bg-primary-500' : msg.isError ? 'bg-error-500' : 'bg-secondary-600'
+                        }`}
+                      >
+                        {msg.sender === 'user' ? <User className="w-4 h-4 md:w-5 md:h-5" /> : <Bot className="w-4 h-4 md:w-5 md:h-5" />}
+                      </div>
+                      <div
+                        className={`p-3 md:p-4 rounded-xl md:rounded-2xl shadow-sm text-xs md:text-sm ${
+                          msg.sender === 'user'
+                            ? 'bg-primary-600 text-white rounded-tr-none'
+                            : 'bg-white border border-secondary-100 text-secondary-800 rounded-tl-none w-full'
+                        }`}
+                      >
+                        {msg.structuredData ? (
+                          <StructuredAIResponse data={msg.structuredData} fallbackText={msg.text} />
+                        ) : msg.sender === 'ai' ? (
+                          <MarkdownFallback text={msg.text} />
+                        ) : (
+                          <p className="whitespace-pre-wrap">{msg.text}</p>
+                        )}
+                        <span
+                          className={`text-[9px] md:text-[10px] mt-2 block opacity-60 ${
+                            msg.sender === 'user' ? 'text-right' : 'text-left'
+                          }`}
+                        >
+                          {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+              {isLoading && (
+                <div className="flex justify-start">
+                  <div className="flex max-w-[90%] md:max-w-[80%] gap-3">
+                    <div className="flex-shrink-0 w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center bg-secondary-600 text-white">
+                      <Bot className="w-4 h-4 md:w-5 md:h-5" />
+                    </div>
+                    <div className="bg-white border border-secondary-100 p-3 md:p-4 rounded-xl md:rounded-2xl rounded-tl-none shadow-sm flex items-center gap-3">
+                      <LoadingSpinner size="sm" color="primary" />
+                      <span className="text-xs text-secondary-500 animate-pulse">{loadingStatus}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))
-          )}
-          {isLoading && (
-            <div className="flex justify-start">
-              <div className="flex max-w-[80%] gap-3">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-secondary-600 text-white">
-                  <Bot className="w-5 h-5" />
-                </div>
-                <div className="bg-white border border-secondary-100 p-4 rounded-2xl rounded-tl-none shadow-sm flex items-center gap-3">
-                  <LoadingSpinner size="sm" color="primary" />
-                  <span className="text-xs text-secondary-500 animate-pulse">{loadingStatus}</span>
-                </div>
-              </div>
+              )}
+              <div ref={messagesEndRef} />
             </div>
-          )}
-          <div ref={messagesEndRef} />
-        </div>
 
-        {/* Input Area */}
-        <div className="p-4 bg-white border-t border-secondary-100">
-          <form onSubmit={handleSubmit} className="relative">
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Type your message here..."
-              className="w-full pl-4 pr-12 py-3 bg-secondary-100 border border-secondary-400 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all text-secondary-800"
-              disabled={isLoading}
-            />
-            <button
-              type="submit"
-              disabled={!input.trim() || isLoading}
-              className={`absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg transition-all ${
-                !input.trim() || isLoading
-                  ? 'text-secondary-400 cursor-not-allowed'
-                  : 'text-primary-600 hover:bg-primary-50'
-              }`}
-            >
-              <Send className="w-5 h-5" />
-            </button>
-          </form>
-          <p className="text-[10px] text-secondary-400 mt-2 text-center">
-            AI can make mistakes. Verify important information.
-          </p>
+            {/* Input Area */}
+            <div className="p-3 md:p-4 bg-white border-t border-secondary-100">
+              <form onSubmit={handleSubmit} className="relative">
+                <input
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder={selectedCurriculum ? "Type your message here..." : "Select a book to start chatting"}
+                  className="w-full pl-4 pr-12 py-2.5 md:py-3 bg-secondary-100 border border-secondary-400 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all text-sm md:text-base text-secondary-800 disabled:opacity-60 disabled:cursor-not-allowed"
+                  disabled={isLoading || !selectedCurriculum}
+                />
+                <button
+                  type="submit"
+                  disabled={!input.trim() || isLoading || !selectedCurriculum}
+                  className={`absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg transition-all ${
+                    !input.trim() || isLoading || !selectedCurriculum
+                      ? 'text-secondary-400 cursor-not-allowed'
+                      : 'text-primary-600 hover:bg-primary-50'
+                  }`}
+                >
+                  <Send className="w-5 h-5" />
+                </button>
+              </form>
+              <p className="text-[9px] md:text-[10px] text-secondary-400 mt-2 text-center">
+                AI can make mistakes. Verify important information.
+              </p>
+            </div>
+          </Card>
         </div>
-      </Card>
+      </div>
     </div>
   );
 };

@@ -562,6 +562,8 @@ export default function ExamsPage() {
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider text-center">Total</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider text-center">Passing</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Obtained Score</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">To be improved Concepts</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider text-center">Result</th>
                 </tr>
               </thead>
@@ -623,6 +625,16 @@ export default function ExamsPage() {
                             {scoreErrors[studentId] && (
                               <span className="text-red-600 text-[10px] font-bold uppercase">{scoreErrors[studentId]}</span>
                             )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
+                          <div className="flex items-center gap-2">
+                            <textarea className="w-66 px-3 py-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 transition-all"></textarea>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
+                          <div className="flex items-center gap-2">
+                            <textarea className="w-66 px-3 py-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 transition-all"></textarea>
                           </div>
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap text-center">
