@@ -3,12 +3,13 @@ import {
   Send, Bot, User, Sparkles, BookOpen, Lightbulb, 
   Brain, Menu, ClipboardList, ArrowRight, 
   ChevronRight, CheckCircle2, XCircle, Info,
-  History, Book, ChevronDown
+  History, Book, ChevronDown, Trash2
 } from 'lucide-react';
 import Card from '../components/ui/Card';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import Badge from '../components/ui/Badge';
 import aiService from '../services/aiService';
+import conversationService from '../services/conversationService';
 import { toast } from 'react-hot-toast';
 
 const CURRICULUM_BOOKS = [
@@ -456,15 +457,25 @@ const AIChatPage = () => {
   const [loadingStatus, setLoadingStatus] = useState('');
   const [selectedCurriculum, setSelectedCurriculum] = useState('');
   const [selectedRecentChat, setSelectedRecentChat] = useState('');
+  const [recentChats, setRecentChats] = useState([]);
+  const [currentConversationId, setCurrentConversationId] = useState(null);
   const [isChatSidebarOpen, setIsChatSidebarOpen] = useState(false);
   const messagesEndRef = useRef(null);
 
-  // Mock recent chats - in a real app these would come from an API
-  const recentChats = [
-    { id: '1', title: 'Newton\'s Laws of Motion' },
-    { id: '2', title: 'Chemical Bonding' },
-    { id: '3', title: 'English Grammar Basics' },
-  ];
+  // Fetch recent chats on mount
+  useEffect(() => {
+    fetchRecentChats();
+  }, []);
+
+  const fetchRecentChats = async () => {
+    try {
+      const chats = await conversationService.listConversations();
+      setRecentChats(chats);
+    } catch (error) {
+      console.error('Error fetching recent chats:', error);
+      // Don't show toast on initial load to avoid noise
+    }
+  };
 
   // Auto-scroll to bottom of messages
   const scrollToBottom = () => {
@@ -475,13 +486,147 @@ const AIChatPage = () => {
     scrollToBottom();
   }, [messages]);
 
+  const handleRecentChatChange = async (convId) => {
+    if (!convId) {
+      setSelectedRecentChat('');
+      setCurrentConversationId(null);
+      setMessages([]);
+      return;
+    }
+
+    setSelectedRecentChat(convId);
+    setCurrentConversationId(convId);
+    setIsLoading(true);
+    setLoadingStatus('Loading conversation...');
+
+    try {
+      const chatMessages = await conversationService.getMessages(convId);
+      
+      // Transform API messages to UI format
+      const formattedMessages = chatMessages.map(msg => ({
+        id: msg.id,
+        text: msg.content,
+        sender: msg.role === 'user' ? 'user' : 'ai',
+        timestamp: new Date(msg.created_at || Date.now()),
+        // Try to find structured data if it's an AI message
+        structuredData: msg.role === 'assistant' ? findStructuredData(msg.content) : null
+      }));
+
+      setMessages(formattedMessages);
+      
+      // Also set the curriculum if possible
+      if (chatMessages.length > 0 && chatMessages[0].curriculum_book_name) {
+        setSelectedCurriculum(chatMessages[0].curriculum_book_name);
+      }
+    } catch (error) {
+      console.error('Error loading conversation:', error);
+      toast.error('Failed to load conversation history');
+    } finally {
+      setIsLoading(false);
+      setLoadingStatus('');
+    }
+  };
+
+  // Helper function to find structured data in text (moved inside component or made accessible)
+  const findStructuredData = (obj, depth = 0) => {
+    if (!obj || depth > 5) return null; 
+    
+    if (typeof obj === 'string') {
+      const trimmed = obj.trim();
+      try {
+        const direct = JSON.parse(trimmed);
+        const result = findStructuredData(direct, depth + 1);
+        if (result) return result;
+      } catch (e) {}
+
+      try {
+        const jsonMatches = trimmed.match(/\{[\s\S]*?\}/g);
+        if (jsonMatches) {
+          for (const candidate of jsonMatches) {
+            try {
+              const parsed = JSON.parse(candidate);
+              const result = findStructuredData(parsed, depth + 1);
+              if (result) return result;
+            } catch (e) {}
+          }
+        }
+      } catch (e) {}
+      return null;
+    }
+
+    if (typeof obj === 'object' && obj !== null) {
+      if (Array.isArray(obj)) {
+        for (const item of obj) {
+          const result = findStructuredData(item, depth + 1);
+          if (result) return result;
+        }
+        return null;
+      }
+
+      const targetFields = ['status', 'practice', 'topic_breakdown', 'textbook_points', 'current_subtopic', 'simple_explanation'];
+      const hasTargetField = targetFields.some(field => obj[field] !== undefined);
+      
+      if (hasTargetField) return obj;
+      
+      for (const key in obj) {
+        if (obj.hasOwnProperty(key)) {
+          const val = obj[key];
+          if (val && (typeof val === 'object' || (typeof val === 'string' && val.includes('{')))) {
+            const result = findStructuredData(val, depth + 1);
+            if (result) return result;
+          }
+        }
+      }
+    }
+    return null;
+  };
+
+  const handleDeleteConversation = async (convId) => {
+    if (!convId || !window.confirm('Are you sure you want to delete this conversation?')) return;
+
+    try {
+      await conversationService.deleteConversation(convId);
+      toast.success('Conversation deleted');
+      
+      // If we're deleting the current conversation, reset state
+      if (convId === currentConversationId) {
+        setCurrentConversationId(null);
+        setSelectedRecentChat('');
+        setMessages([]);
+      }
+      
+      // Refresh the list
+      fetchRecentChats();
+    } catch (error) {
+      console.error('Error deleting conversation:', error);
+      toast.error('Failed to delete conversation');
+    }
+  };
+
+  const handleDeleteMessage = async (messageId) => {
+    if (!messageId || !window.confirm('Delete this message?')) return;
+
+    try {
+      await conversationService.deleteMessage(messageId);
+      toast.success('Message deleted');
+      
+      // Remove from local state
+      setMessages(prev => prev.filter(m => m.id !== messageId));
+    } catch (error) {
+      console.error('Error deleting message:', error);
+      toast.error('Failed to delete message');
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
 
+    const userMessageText = input;
+    const userMessageId = Date.now();
     const userMessage = {
-      id: Date.now(),
-      text: input,
+      id: userMessageId,
+      text: userMessageText,
       sender: 'user',
       timestamp: new Date(),
     };
@@ -489,86 +634,42 @@ const AIChatPage = () => {
     setMessages((prev) => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
-    setLoadingStatus('Fetching API...');
+    setLoadingStatus('Saving message...');
 
     try {
-      const response = await aiService.query(input, selectedCurriculum);
+      if (!selectedCurriculum) {
+        toast.error('Please select a curriculum book first');
+        setIsLoading(false);
+        setLoadingStatus('');
+        return;
+      }
+
+      // 1. Save user message to database
+      const userMsgResponse = await conversationService.createMessage({
+        content: userMessageText,
+        role: 'user',
+        conversation_id: currentConversationId,
+        curriculum_book_name: selectedCurriculum,
+        title: userMessageText.substring(0, 30)
+      });
+
+      // Update conversation ID if it was a new conversation
+      if (!currentConversationId && userMsgResponse.conversation_id) {
+        setCurrentConversationId(userMsgResponse.conversation_id);
+        setSelectedRecentChat(userMsgResponse.conversation_id);
+        fetchRecentChats(); // Refresh sidebar list
+      }
+
+      setLoadingStatus('Fetching AI response...');
+      
+      // 2. Get AI response
+      const response = await aiService.query(userMessageText, selectedCurriculum);
       console.log('Raw AI Response:', response);
       
-      setLoadingStatus('Generating markdown...');
+      setLoadingStatus('Saving AI response...');
       
-      let structuredData = null;
+      let structuredData = findStructuredData(response);
       let textContent = '';
-
-      // HELPER: Deep search for a structured object in the response
-      const findStructuredData = (obj, depth = 0) => {
-        if (!obj || depth > 5) return null; // Prevent infinite recursion
-        
-        // If it's a string, try to extract JSON
-        if (typeof obj === 'string') {
-          const trimmed = obj.trim();
-          
-          // 1. Try direct parse
-          try {
-            const direct = JSON.parse(trimmed);
-            const result = findStructuredData(direct, depth + 1);
-            if (result) return result;
-          } catch (e) {}
-
-          // 2. Try extracting from markdown or text using regex
-          try {
-            // Find all potential JSON objects in the string
-            const jsonMatches = trimmed.match(/\{[\s\S]*?\}/g);
-            if (jsonMatches) {
-              for (const candidate of jsonMatches) {
-                try {
-                  const parsed = JSON.parse(candidate);
-                  const result = findStructuredData(parsed, depth + 1);
-                  if (result) return result;
-                } catch (e) {}
-              }
-            }
-          } catch (e) {}
-          
-          return null;
-        }
-
-        // If it's an object, check if it's our target structure
-        if (typeof obj === 'object' && obj !== null) {
-          // If it's an array, check each element
-          if (Array.isArray(obj)) {
-            for (const item of obj) {
-              const result = findStructuredData(item, depth + 1);
-              if (result) return result;
-            }
-            return null;
-          }
-
-          // Target fields that identify our structured data
-          const targetFields = ['status', 'practice', 'topic_breakdown', 'textbook_points', 'current_subtopic', 'simple_explanation'];
-          const hasTargetField = targetFields.some(field => obj[field] !== undefined);
-          
-          if (hasTargetField) {
-            // If it has at least one major target field, we consider it our data
-            return obj;
-          }
-          
-          // Recursively search ALL keys in the object
-          for (const key in obj) {
-            if (obj.hasOwnProperty(key)) {
-              const val = obj[key];
-              if (val && (typeof val === 'object' || (typeof val === 'string' && val.includes('{')))) {
-                const result = findStructuredData(val, depth + 1);
-                if (result) return result;
-              }
-            }
-          }
-        }
-
-        return null;
-      };
-
-      structuredData = findStructuredData(response);
 
       // Handle the specific "Response: status=..." string format if it's not caught by findStructuredData
       if (!structuredData && typeof response === 'string' && response.includes('status="refused"')) {
@@ -579,7 +680,6 @@ const AIChatPage = () => {
         };
       }
 
-      // Always try to get a textual message for fallback/accessibility
       if (typeof response === 'string') {
         const trimmed = response.trim();
         if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
@@ -594,18 +694,21 @@ const AIChatPage = () => {
         textContent = response.message || response.answer || response.response || response.text || '';
       }
 
-      if (structuredData) {
-        console.log('Successfully identified structured data:', structuredData);
-        // If we found structured data but still have no text content, use a generic success message
-        if (!textContent) {
-          textContent = structuredData.message || structuredData.answer || "Here's your lesson breakdown:";
-        }
-      } else {
-        // Fallback to plain text - strictly avoid showing raw JSON
-        if (!textContent) {
-          textContent = "I processed your request but couldn't format the response properly.";
-        }
+      if (structuredData && !textContent) {
+        textContent = structuredData.message || structuredData.answer || "Here's your lesson breakdown:";
       }
+
+      if (!textContent) {
+        textContent = typeof response === 'string' ? response : "I processed your request but couldn't format the response properly.";
+      }
+
+      // 3. Save AI response to database
+      await conversationService.createMessage({
+        content: typeof response === 'object' ? JSON.stringify(response) : response,
+        role: 'assistant',
+        conversation_id: currentConversationId || userMsgResponse.conversation_id,
+        curriculum_book_name: selectedCurriculum
+      });
 
       const assistantMessage = {
         id: Date.now() + 1,
@@ -678,7 +781,15 @@ const AIChatPage = () => {
           <div className="text-[10px] font-bold text-secondary-400 uppercase tracking-widest px-2 mb-4">
             Navigation
           </div>
-          <button className="w-full flex items-center gap-3 px-3 py-2 text-sm text-primary-600 bg-primary-50 rounded-lg font-medium transition-colors">
+          <button 
+            onClick={() => {
+              setCurrentConversationId(null);
+              setSelectedRecentChat('');
+              setMessages([]);
+              if (window.innerWidth < 768) setIsChatSidebarOpen(false);
+            }}
+            className="w-full flex items-center gap-3 px-3 py-2 text-sm text-primary-600 bg-primary-50 rounded-lg font-medium transition-colors hover:bg-primary-100"
+          >
             <Sparkles className="w-4 h-4" />
             New Learning Session
           </button>
@@ -710,22 +821,33 @@ const AIChatPage = () => {
           </div>
 
           <div>
-            <label className="flex items-center gap-2 text-[10px] font-bold text-secondary-500 mb-2 uppercase tracking-widest">
-              <History className="w-3 h-3" />
-              Recent Chats
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="flex items-center gap-2 text-[10px] font-bold text-secondary-500 uppercase tracking-widest">
+                <History className="w-3 h-3" />
+                Recent Chats
+              </label>
+              {selectedRecentChat && (
+                <button 
+                  onClick={() => handleDeleteConversation(selectedRecentChat)}
+                  className="text-error-500 hover:text-error-600 p-1 rounded-md hover:bg-error-50 transition-colors"
+                  title="Delete this conversation"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
             <div className="relative">
               <select 
                 value={selectedRecentChat}
                 onChange={(e) => {
-                  setSelectedRecentChat(e.target.value);
+                  handleRecentChatChange(e.target.value);
                   if (window.innerWidth < 768) setIsChatSidebarOpen(false);
                 }}
                 className="w-full pl-3 pr-10 py-2.5 bg-white border border-secondary-200 rounded-xl text-sm text-secondary-700 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none appearance-none transition-all cursor-pointer hover:border-primary-300"
               >
                 <option value="">Select a recent chat</option>
                 {recentChats.map(chat => (
-                  <option key={chat.id} value={chat.id}>{chat.title}</option>
+                  <option key={chat.id} value={chat.id}>{chat.title || 'Untitled Chat'}</option>
                 ))}
               </select>
               <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary-400 pointer-events-none" />
@@ -800,12 +922,23 @@ const AIChatPage = () => {
                         {msg.sender === 'user' ? <User className="w-4 h-4 md:w-5 md:h-5" /> : <Bot className="w-4 h-4 md:w-5 md:h-5" />}
                       </div>
                       <div
-                        className={`p-3 md:p-4 rounded-xl md:rounded-2xl shadow-sm text-xs md:text-sm ${
+                        className={`p-3 md:p-4 rounded-xl md:rounded-2xl shadow-sm text-xs md:text-sm relative group ${
                           msg.sender === 'user'
                             ? 'bg-primary-600 text-white rounded-tr-none'
                             : 'bg-white border border-secondary-100 text-secondary-800 rounded-tl-none w-full'
                         }`}
                       >
+                        {/* Delete Message Button */}
+                        <button
+                          onClick={() => handleDeleteMessage(msg.id)}
+                          className={`absolute top-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-black/5 ${
+                            msg.sender === 'user' ? '-left-8 text-secondary-400' : '-right-8 text-secondary-400'
+                          }`}
+                          title="Delete message"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+
                         {msg.structuredData ? (
                           <StructuredAIResponse data={msg.structuredData} fallbackText={msg.text} />
                         ) : msg.sender === 'ai' ? (
