@@ -470,7 +470,16 @@ const AIChatPage = () => {
   const fetchRecentChats = async () => {
     try {
       const chats = await conversationService.listConversations();
+      console.log('Recent chats titles:', chats.map(chat => chat.title || 'Untitled Chat'));
       setRecentChats(chats);
+      
+      // Check if the currently selected chat still exists in the updated list
+      if (selectedRecentChat) {
+        const chatStillExists = chats.some(chat => chat.id === selectedRecentChat);
+        if (!chatStillExists) {
+          setSelectedRecentChat('');
+        }
+      }
     } catch (error) {
       console.error('Error fetching recent chats:', error);
       // Don't show toast on initial load to avoid noise
@@ -702,12 +711,23 @@ const AIChatPage = () => {
         textContent = typeof response === 'string' ? response : "I processed your request but couldn't format the response properly.";
       }
 
+      // Extract summary and title from structured data
+      let aiSummary = '';
+      let aiTitle = '';
+      
+      if (structuredData) {
+        aiSummary = structuredData.message || structuredData.answer || structuredData.simple_explanation || '';
+        aiTitle = structuredData.current_subtopic || 'AI Response';
+      }
+      
       // 3. Save AI response to database
       await conversationService.createMessage({
         content: typeof response === 'object' ? JSON.stringify(response) : response,
         role: 'assistant',
         conversation_id: currentConversationId || userMsgResponse.conversation_id,
-        curriculum_book_name: selectedCurriculum
+        curriculum_book_name: selectedCurriculum,
+        summary: aiSummary.substring(0, 200),
+        title: aiTitle.substring(0, 50)
       });
 
       const assistantMessage = {

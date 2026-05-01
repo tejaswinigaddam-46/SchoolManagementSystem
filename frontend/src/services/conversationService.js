@@ -21,6 +21,9 @@ const getHeaders = () => {
   const headers = {
     'Content-Type': 'application/json',
     'Authorization': token ? `Bearer ${token}` : '',
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'Pragma': 'no-cache',
+    'Expires': '0',
   };
 
   if (tenantId) {
@@ -64,7 +67,10 @@ const conversationService = {
    */
   listConversations: async () => {
     const response = await axios.get(`${config.aiApiUrl}/conversations`, {
-      headers: getHeaders()
+      headers: getHeaders(),
+      params: {
+        _t: Date.now()
+      }
     });
     return response.data;
   },
@@ -74,7 +80,10 @@ const conversationService = {
    */
   getMessages: async (conversationId) => {
     const response = await axios.get(`${config.aiApiUrl}/conversations/${conversationId}/messages`, {
-      headers: getHeaders()
+      headers: getHeaders(),
+      params: {
+        _t: Date.now()
+      }
     });
     return response.data;
   },
