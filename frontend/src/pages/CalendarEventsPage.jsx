@@ -13,7 +13,14 @@ import { classService } from '../services/classService'
 import { eventService } from '../services/eventService'
 import sectionService from '../services/sectionService'
 import {roomService} from '../services/roomService'
+import { subjectService } from '../services/subjectService'
 import { PERMISSIONS } from '../config/permissions'
+
+const CURRICULUM_BOOKS = [
+  { value: 'GOV_SSC_ENGLISH', label: 'SSC English' },
+  { value: 'GOV_SSC_PHYSICS', label: 'SSC Physics' },
+  { value: 'GOV_SSC_CHEMISTRY', label: 'SSC Chemistry' }
+];
 
 const EVENT_TYPES = [
   'Test',
@@ -46,6 +53,7 @@ export default function CalendarEventsPage() {
   const [rooms, setRooms] = useState([]);
   const [academicYears, setAcademicYears] = useState([]);
   const [events, setEvents] = useState([]);
+  const [subjects, setSubjects] = useState([]);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(null);
@@ -116,6 +124,7 @@ export default function CalendarEventsPage() {
     notifyTeachers: false,
     event_status: EVENT_STATUSES[0],
     subject_name: '',
+    curriculum_book_name: '',
     total_score: 100,
     passing_score: 35
   });
@@ -138,6 +147,7 @@ export default function CalendarEventsPage() {
     repeat: 'no',
     frequency: [],
     subject_name: '',
+    curriculum_book_name: '',
     total_score: 100,
     passing_score: 35
   });
@@ -351,6 +361,7 @@ export default function CalendarEventsPage() {
       repeat: parsed.repeat,
       frequency: parsed.frequency,
       subject_name: ev.subject_name || '',
+      curriculum_book_name: ev.curriculum_book_name || '',
       total_score: ev.total_score || 100,
       passing_score: ev.passing_score || 35
     }
@@ -408,10 +419,21 @@ export default function CalendarEventsPage() {
       } catch (err) {
         setRooms([]);
       }
-    }
+    };
+    const fetchSubjects = async () => {
+      try {
+        const response = await subjectService.getAllSubjects(getCampusId());
+        const data = (response?.data?.subjects || []).map(sub => ({ id: sub.subject_id, name: sub.subject_name }));
+        setSubjects(data);
+      } catch (error) {
+        console.error('Failed to fetch subjects:', error);
+        setSubjects([]);
+      }
+    };
 
     fetchClasses();
     fetchRooms();
+    fetchSubjects();
   }, [getCampusId]);
 
   useEffect(() => {
@@ -540,6 +562,8 @@ export default function CalendarEventsPage() {
               notifyParents,
               notifyTeachers,
               allDay: event.is_all_day,
+              subject_name: event.subject_name,
+              curriculum_book_name: event.curriculum_book,
             };
           });
           setEvents(formattedEvents);
@@ -599,6 +623,10 @@ export default function CalendarEventsPage() {
     if (!(form.title && baseStart && baseEnd && baseEnd >= baseStart)) return
     if (form.eventType === 'Test' && !String(form.subject_name || '').trim()) {
       toast.error('Subject Name is required for Test events')
+      return
+    }
+    if (form.eventType === 'Test' && !String(form.curriculum_book_name || '').trim()) {
+      toast.error('Curriculum Book Name is required for Test events')
       return
     }
 
@@ -684,6 +712,7 @@ export default function CalendarEventsPage() {
     recurrence_rule: buildWeeklyRRule(form.repeat, form.frequency),
     audience_target: buildAudienceTarget(),
     subject_name: form.eventType === 'Test' ? form.subject_name : undefined,
+    curriculum_book: form.eventType === 'Test' ? form.curriculum_book_name : undefined,
     total_score: form.eventType === 'Test' ? form.total_score : undefined
   }
 
@@ -766,11 +795,13 @@ export default function CalendarEventsPage() {
           notifyParents,
           notifyTeachers,
           allDay: event.is_all_day,
+          subject_name: event.subject_name,
+          curriculum_book_name: event.curriculum_book,
         };
       });
       setEvents(formattedEvents);
       setIsAddOpen(false)
-      setForm({ title: '', description: '', start: new Date(), end: new Date(), allDay: false, academic_year_id: academicYearValidation.academicYearId, repeat: 'no', frequency: [], eventType: EVENT_TYPES[0], selectedAudiences: ['all'], selectedClasses: [], selectedSections: [], notifyParents: false, notifyTeachers: false, event_status: EVENT_STATUSES[0], subject_name: '', total_score: 100, passing_score: 35 })
+      setForm({ title: '', description: '', start: new Date(), end: new Date(), allDay: false, academic_year_id: academicYearValidation.academicYearId, repeat: 'no', frequency: [], eventType: EVENT_TYPES[0], selectedAudiences: ['all'], selectedClasses: [], selectedSections: [], notifyParents: false, notifyTeachers: false, event_status: EVENT_STATUSES[0], subject_name: '', curriculum_book_name: '', total_score: 100, passing_score: 35 })
     } catch (error) {
       console.error('Failed to create events:', error);
     }
@@ -780,6 +811,10 @@ export default function CalendarEventsPage() {
     if (selectedIndex === null && !targetEvent) return;
     if (editForm.eventType === 'Test' && !String(editForm.subject_name || '').trim()) {
       toast.error('Subject Name is required for Test events')
+      return
+    }
+    if (editForm.eventType === 'Test' && !String(editForm.curriculum_book_name || '').trim()) {
+      toast.error('Curriculum Book Name is required for Test events')
       return
     }
 
@@ -864,6 +899,7 @@ export default function CalendarEventsPage() {
     recurrence_rule: buildWeeklyRRule(),
     academic_year_id: academicYearValidation.academicYearId,
     subject_name: editForm.eventType === 'Test' ? editForm.subject_name : undefined,
+    curriculum_book: editForm.eventType === 'Test' ? editForm.curriculum_book_name : undefined,
     total_score: editForm.eventType === 'Test' ? editForm.total_score : undefined
   };
 
@@ -1223,13 +1259,29 @@ export default function CalendarEventsPage() {
                   <label className="block text-sm font-medium text-secondary-700 mb-2">
                     Subject Name <RequiredAsterisk />
                   </label>
-                  <input
+                  <select
                     className="input"
-                    type="text"
                     value={form.subject_name}
                     onChange={(e) => setForm(prev => ({ ...prev, subject_name: e.target.value }))}
                     required
-                  />
+                  >
+                    <option value="">Select a subject</option>
+                    {subjects.map(sub => <option key={sub.id} value={sub.name}>{sub.name}</option>)}
+                  </select>
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-secondary-700 mb-2">
+                    Curriculum Book Name <RequiredAsterisk />
+                  </label>
+                  <select
+                    className="input"
+                    value={form.curriculum_book_name}
+                    onChange={(e) => setForm(prev => ({ ...prev, curriculum_book_name: e.target.value }))}
+                    required
+                  >
+                    <option value="">Select a curriculum book</option>
+                    {CURRICULUM_BOOKS.map(book => <option key={book.value} value={book.value}>{book.label}</option>)}
+                  </select>
                 </div>
                 <div className="md:col-span-1">
                   <label className="block text-sm font-medium text-secondary-700 mb-2">Total Score</label>
@@ -1643,13 +1695,29 @@ export default function CalendarEventsPage() {
                   <label className="block text-sm font-medium text-secondary-700 mb-2">
                     Subject Name <RequiredAsterisk />
                   </label>
-                  <input
+                  <select
                     className="input"
-                    type="text"
                     value={editForm.subject_name}
                     onChange={(e) => setEditForm(prev => ({ ...prev, subject_name: e.target.value }))}
                     required
-                  />
+                  >
+                    <option value="">Select a subject</option>
+                    {subjects.map(sub => <option key={sub.id} value={sub.name}>{sub.name}</option>)}
+                  </select>
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-secondary-700 mb-2">
+                    Curriculum Book Name <RequiredAsterisk />
+                  </label>
+                  <select
+                    className="input"
+                    value={editForm.curriculum_book_name}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, curriculum_book_name: e.target.value }))}
+                    required
+                  >
+                    <option value="">Select a curriculum book</option>
+                    {CURRICULUM_BOOKS.map(book => <option key={book.value} value={book.value}>{book.label}</option>)}
+                  </select>
                 </div>
                 <div className="md:col-span-1">
                   <label className="block text-sm font-medium text-secondary-700 mb-2">Total Score</label>
