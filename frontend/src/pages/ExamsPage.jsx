@@ -8,6 +8,7 @@ import { sectionService } from '../services/sectionService';
 import { studentService } from '../services/studentService';
 import ExamService from '../services/examService';
 import ExamResultService from '../services/examResultService';
+import questionService from '../services/questionService';
 import { attendanceService } from '../services/attendanceService';
 import { PERMISSIONS } from '../config/permissions';
 import OneAcademicYearPage from '../components/layout/OneAcademicYearPage.jsx';
@@ -48,6 +49,9 @@ export default function ExamsPage() {
   const [examResults, setExamResults] = useState({}); // studentId -> result
   const [attendanceMap, setAttendanceMap] = useState({}); // studentId -> status
   const [scoreErrors, setScoreErrors] = useState({}); // studentId -> error message
+  const [toBeImprovedConcepts, setToBeImprovedConcepts] = useState({}); // studentId -> array of { question: string, status: string }
+  const [questionAssignments, setQuestionAssignments] = useState({}); // studentId -> array of question assignments
+  const [studentNotes, setStudentNotes] = useState({}); // studentId -> notes
 
   const isStudentRole = isStudent();
   const isParentRole = isParent();
@@ -238,6 +242,7 @@ export default function ExamsPage() {
 
       let studentsForView = [...audienceStudents];
       let finalResultsMap = {};
+      let initialNotesMap = {};
 
       const resultsResponse = await ExamResultService.getResultsByExamId(selectedExamId);
       if (resultsResponse.success && Array.isArray(resultsResponse.data)) {
@@ -265,6 +270,9 @@ export default function ExamsPage() {
               ...result,
               marks_obtained: result.obtained_score !== null ? parseFloat(result.obtained_score) : null
             };
+            if (result.notes) {
+              initialNotesMap[sId] = result.notes;
+            }
           }
         }
 
@@ -280,6 +288,8 @@ export default function ExamsPage() {
           });
         }
       }
+      
+      setStudentNotes(initialNotesMap);
 
       const currentExam = exams.find(e => e.exam_id === selectedExamId);
       if (currentExam) {
@@ -321,6 +331,46 @@ export default function ExamsPage() {
       
       setStudents(studentsForView);
       setExamResults(finalResultsMap);
+      
+      const assignmentsMap = {};
+      const initialConceptsMap = {};
+      for (const student of studentsForView) {
+        const studentUsername = student.username;
+        const studentId = student.student_id || student.userId || student.id || student.user_id;
+        if (studentUsername) {
+          try {
+            const assignments = await questionService.getQuestionAssignments(studentUsername);
+            assignmentsMap[studentId] = assignments;
+            
+            // Initialize concepts with assignments first, then add empty slots
+            const concepts = [];
+            assignments.forEach(assignment => {
+              concepts.push({
+                question: assignment.question_name || '',
+                status: 'yet_to_start',
+                isExisting: true
+              });
+            });
+            // Add empty slots up to 5
+            while (concepts.length < 5) {
+              concepts.push({ question: '', status: 'yet_to_start', isExisting: false });
+            }
+            initialConceptsMap[studentId] = concepts;
+          } catch (err) {
+            console.error('Error fetching question assignments for student:', studentUsername, err);
+            // If error, set defaults
+            initialConceptsMap[studentId] = [
+              { question: '', status: 'yet_to_start', isExisting: false },
+              { question: '', status: 'yet_to_start', isExisting: false },
+              { question: '', status: 'yet_to_start', isExisting: false },
+              { question: '', status: 'yet_to_start', isExisting: false },
+              { question: '', status: 'yet_to_start', isExisting: false }
+            ];
+          }
+        }
+      }
+      setQuestionAssignments(assignmentsMap);
+      setToBeImprovedConcepts(initialConceptsMap);
     } catch (error) {
       console.error('Failed to load exam details', error);
     } finally {
@@ -384,7 +434,8 @@ export default function ExamsPage() {
                 exam_id: selectedExamId,
                 student_username: studentUsername,
                 obtained_score: marksToSave,
-                attendance_status: attendanceStatus
+                attendance_status: attendanceStatus,
+                notes: studentNotes[studentId] || ''
             };
         }).filter(Boolean);
 
@@ -401,8 +452,41 @@ export default function ExamsPage() {
         }
 
         const response = await ExamResultService.createBulkResults(resultsToSave);
+        console.log('ExamResultService.createBulkResults response:', response);
         if (response.success || (Array.isArray(response) && response.length > 0) || (response.data && Array.isArray(response.data))) {
             toast.success('All scores saved successfully');
+            
+            console.log('Starting to create question assignments...');
+            console.log('toBeImprovedConcepts:', toBeImprovedConcepts);
+            console.log('students:', students);
+            
+            for (const student of students) {
+                const studentId = student.student_id || student.userId || student.id || student.user_id;
+                const studentUsername = student.username;
+                const concepts = toBeImprovedConcepts[studentId] || [];
+                
+                console.log(`Processing student ${studentId} (${studentUsername}) with concepts:`, concepts);
+                
+                for (const concept of concepts) {
+                    console.log('Checking concept:', concept);
+                    if (concept.question && concept.question.trim()) {
+                        console.log('Creating question assignment for:', concept.question);
+                        try {
+                            const result = await questionService.createQuestionAssignment({
+                                question_name: concept.question,
+                                curriculum_book_name: 'GOV_SSC_PHYSICS',
+                                student_username: studentUsername
+                            });
+                            console.log('Question assignment created successfully:', result);
+                        } catch (err) {
+                            console.error('Error creating question assignment:', err);
+                        }
+                    } else {
+                        console.log('Skipping concept (no question text)');
+                    }
+                }
+            }
+            
             loadExamDetails(); 
         } else {
             toast.error('Failed to save scores');
@@ -413,6 +497,33 @@ export default function ExamsPage() {
     } finally {
         setLoading(false);
     }
+  };
+
+  const handleToBeImprovedChange = (studentId, index, field, value) => {
+    setToBeImprovedConcepts(prev => {
+      const studentConcepts = prev[studentId] || [
+        { question: '', status: 'yet_to_start', isExisting: false },
+        { question: '', status: 'yet_to_start', isExisting: false },
+        { question: '', status: 'yet_to_start', isExisting: false },
+        { question: '', status: 'yet_to_start', isExisting: false },
+        { question: '', status: 'yet_to_start', isExisting: false }
+      ];
+      
+      const updatedConcepts = [...studentConcepts];
+      updatedConcepts[index] = { ...updatedConcepts[index], [field]: value };
+      
+      return {
+        ...prev,
+        [studentId]: updatedConcepts
+      };
+    });
+  };
+
+  const handleNotesChange = (studentId, notes) => {
+    setStudentNotes(prev => ({
+      ...prev,
+      [studentId]: notes
+    }));
   };
 
   const canEditScores = hasAnyPermission([
@@ -557,14 +668,18 @@ export default function ExamsPage() {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student Name</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Roll No</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Attendance</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider text-center">Total</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider text-center">Passing</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Obtained Score</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">To be improved Concepts</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider text-center">Result</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" colSpan="2">To be improved Concepts</th>
+                </tr>
+                <tr>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"></th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"></th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"></th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"></th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Question</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student Status</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -586,14 +701,26 @@ export default function ExamsPage() {
                     
                     const isPass = !isAbsent && effectiveScore !== null && effectiveScore >= passingScore;
                     const isInputDisabled = !canEditScores || isAbsent || isNoAttendance || isNA;
+                    
+                    const concepts = toBeImprovedConcepts[studentId] || [
+                      { question: '', status: 'yet_to_start', isExisting: false },
+                      { question: '', status: 'yet_to_start', isExisting: false },
+                      { question: '', status: 'yet_to_start', isExisting: false },
+                      { question: '', status: 'yet_to_start', isExisting: false },
+                      { question: '', status: 'yet_to_start', isExisting: false }
+                    ];
+                    
+                    const existingAssignments = questionAssignments[studentId] || [];
 
                     return (
                       <tr key={studentId} className="hover:bg-gray-50 transition-colors duration-150">
-                        <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {student.firstName || student.first_name} {student.lastName || student.last_name}
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
-                          {student.rollNumber || student.roll_no || student.roll_number || student.admissionNumber || student.admission_number || '-'}
+                        <td className="px-4 py-4 text-sm">
+                          <div className="font-medium text-gray-900">
+                            {student.firstName || student.first_name} {student.lastName || student.last_name}
+                          </div>
+                          <div className="text-gray-500 text-xs mt-1">
+                            Roll No: {student.rollNumber || student.roll_no || student.roll_number || student.admissionNumber || student.admission_number || '-'}
+                          </div>
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap">
                           <span className={`px-2.5 py-1 rounded-full text-xs font-bold uppercase ${
@@ -604,53 +731,85 @@ export default function ExamsPage() {
                             {attendanceStatus}
                           </span>
                         </td>
-                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-center">{selectedExam.total_score}</td>
-                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-center">{passingScore.toFixed(2)}</td>
                         <td className="px-4 py-4 whitespace-nowrap">
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="number"
-                              min="0"
-                              max={selectedExam.total_score}
-                              step="0.01"
-                              className={`w-24 px-3 py-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 transition-all ${
-                                scoreErrors[studentId] 
-                                  ? 'border-red-500 focus:ring-red-200' 
-                                  : 'border-gray-300 focus:ring-blue-200 focus:border-blue-500'
-                              } disabled:bg-gray-100 disabled:text-gray-500 font-semibold`}
-                              value={effectiveScore !== null ? effectiveScore : ''}
-                              onChange={(e) => handleScoreChange(studentId, e.target.value)}
-                              disabled={isInputDisabled}
-                            />
-                            {scoreErrors[studentId] && (
-                              <span className="text-red-600 text-[10px] font-bold uppercase">{scoreErrors[studentId]}</span>
-                            )}
+                          <div className="flex flex-col gap-2">
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="number"
+                                min="0"
+                                max={selectedExam.total_score}
+                                step="0.01"
+                                className={`w-24 px-3 py-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 transition-all ${
+                                  scoreErrors[studentId] 
+                                    ? 'border-red-500 focus:ring-red-200' 
+                                    : 'border-gray-300 focus:ring-blue-200 focus:border-blue-500'
+                                } disabled:bg-gray-100 disabled:text-gray-500 font-semibold`}
+                                value={effectiveScore !== null ? effectiveScore : ''}
+                                onChange={(e) => handleScoreChange(studentId, e.target.value)}
+                                disabled={isInputDisabled}
+                              />
+                              {scoreErrors[studentId] && (
+                                <span className="text-red-600 text-[10px] font-bold uppercase">{scoreErrors[studentId]}</span>
+                              )}
+                            </div>
+                            <div>
+                              {isNA ? (
+                                <span className="text-gray-400 text-sm font-medium">PENDING</span>
+                              ) : (
+                                effectiveScore !== null ? (
+                                  <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
+                                    isPass ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                  }`}>
+                                    {isPass ? 'PASS' : 'FAIL'}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-500 text-xs font-medium italic">NOT GRADED</span>
+                                )
+                              )}
+                            </div>
                           </div>
                         </td>
-                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
-                          <div className="flex items-center gap-2">
-                            <textarea className="w-66 px-3 py-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 transition-all"></textarea>
+                        <td className="px-4 py-4 text-sm text-gray-600">
+                          <div className="flex flex-col gap-2">
+                            <textarea 
+                              className="w-66 px-3 py-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 transition-all" 
+                              placeholder="Add notes..."
+                              value={studentNotes[studentId] || ''}
+                              onChange={(e) => handleNotesChange(studentId, e.target.value)}
+                            ></textarea>
                           </div>
                         </td>
-                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
-                          <div className="flex items-center gap-2">
-                            <textarea className="w-66 px-3 py-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 transition-all"></textarea>
+
+                        <td className="px-4 py-4 text-sm text-gray-600">
+                          <div className="flex flex-col gap-2">
+                            {concepts.map((concept, index) => (
+                              <input
+                                key={index}
+                                type="text"
+                                className={`w-66 px-3 py-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 transition-all ${concept.isExisting ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
+                                placeholder={`To be Improved question ${index + 1}`}
+                                value={concept.question}
+                                onChange={(e) => handleToBeImprovedChange(studentId, index, 'question', e.target.value)}
+                                disabled={concept.isExisting}
+                              />
+                            ))}
                           </div>
                         </td>
-                        <td className="px-4 py-4 whitespace-nowrap text-center">
-                          {isNA ? (
-                            <span className="text-gray-400 text-sm font-medium">PENDING</span>
-                          ) : (
-                            effectiveScore !== null ? (
-                              <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
-                                isPass ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                              }`}>
-                                {isPass ? 'PASS' : 'FAIL'}
-                              </span>
-                            ) : (
-                              <span className="text-gray-500 text-xs font-medium italic">NOT GRADED</span>
-                            )
-                          )}
+                        <td className="px-4 py-4 text-sm text-gray-600">
+                          <div className="flex flex-col gap-2">
+                            {concepts.map((concept, index) => (
+                              <select
+                                key={index}
+                                className="w-40 px-3 py-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 transition-all"
+                                value={concept.status}
+                                onChange={(e) => handleToBeImprovedChange(studentId, index, 'status', e.target.value)}
+                              >
+                                <option value="yet_to_start">YET TO START</option>
+                                <option value="in_progress">IN PROGRESS</option>
+                                <option value="completed">COMPLETED</option>
+                              </select>
+                            ))}
+                          </div>
                         </td>
                       </tr>
                     );
