@@ -130,7 +130,7 @@ export default function TimetablePage() {
         try {
           const ayId = academicYearValidation.academicYearId
           if (!ayId) { setSelectedClassIds([]); setSelectedSectionIds([]); return }
-          const params = { academic_year_id: ayId, campus_id: getCampusId(), limit: 1000 }
+          const params = { academic_year_id: ayId, campus_id: getCampusId(), limit: 100 }
           Object.keys(params).forEach(k => { if (!params[k]) delete params[k] })
           const res = await sectionService.getAllSections(params)
           const list = res?.data?.sections || []
@@ -180,7 +180,7 @@ export default function TimetablePage() {
           const accum = []
           const newSectionMap = {}
           for (const cid of selectedClassIds) {
-            const res = await sectionService.getAllSections({ academic_year_id: ayId, class_id: parseInt(cid, 10), limit: 1000 })
+            const res = await sectionService.getAllSections({ academic_year_id: ayId, class_id: parseInt(cid, 10), limit: 100 })
             const list = res?.data?.sections || []
             list.forEach(s => {
               if (s.section_id && s.section_name) {
@@ -268,7 +268,8 @@ export default function TimetablePage() {
               end: finalEnd, 
               room_id: roomId,
               attendance_taken: isTaken,
-              is_cancelled: isCancelled
+              is_cancelled: isCancelled,
+              instance_id: instance ? instance.instance_id : null
           })
         }
         continue
@@ -488,6 +489,8 @@ export default function TimetablePage() {
   }, [academicYearValidation.academicYearId, getCampusId, canViewAllEvents, isTeacher, isStudent, isParent, studentContext.classId, studentContext.sectionId, selectedClassIds, selectedSectionIds, view, currentDate])
 
   const handleSelectEvent = (event) => {
+    console.log('Selected event:', event);
+    console.log('event.instance_id:', event.instance_id);
     if (isAttendanceMode) {
       navigate('/attendance/entry', { state: { event } })
     }

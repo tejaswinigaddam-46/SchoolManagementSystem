@@ -9,7 +9,7 @@ const teacherService = {
       // If the backend filters by user role, this is correct.
       const response = await api.get('/employees', {
         params: {
-          limit: 1000
+          limit: 100
         }
       });
 

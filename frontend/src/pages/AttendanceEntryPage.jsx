@@ -182,7 +182,7 @@ export default function AttendanceEntryPage() {
         try {
            const allSectionsRes = await sectionService.getAllSections({
              academic_year_id: event.academic_year_id,
-             limit: 2000
+             limit: 100
            })
            allSections = allSectionsRes.data?.sections || []
         } catch (err) {
@@ -568,17 +568,18 @@ export default function AttendanceEntryPage() {
 
       const payload = {
         eventId: event.event_id,
+        eventInstanceId: event.instance_id,
         academicYearId: event.academic_year_id,
         classId: target.classId || null,
         sectionId: target.sectionId || null,
-        // Use the event's start date if available, otherwise default to today
-        // For recurring events, the 'event' object passed via state typically has the specific occurrence date as 'start' or 'start_date'
-        // We should check what the calendar passed us.
         date: (event.start instanceof Date) 
                 ? event.start.toISOString().split('T')[0] 
                 : (event.start_date || new Date().toISOString().split('T')[0]),
         attendanceData: records
       }
+
+      console.log('AttendanceEntryPage - Saving payload:', payload);
+      console.log('AttendanceEntryPage - event object:', event);
 
       await attendanceService.saveAttendance(payload)
       setModalState({

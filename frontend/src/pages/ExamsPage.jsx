@@ -475,7 +475,8 @@ export default function ExamsPage() {
                             const result = await questionService.createQuestionAssignment({
                                 question_name: concept.question,
                                 curriculum_book_name: 'GOV_SSC_PHYSICS',
-                                student_username: studentUsername
+                                student_username: studentUsername,
+                                exam_id: selectedExamId
                             });
                             console.log('Question assignment created successfully:', result);
                         } catch (err) {

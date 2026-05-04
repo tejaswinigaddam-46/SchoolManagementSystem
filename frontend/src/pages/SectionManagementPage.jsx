@@ -646,7 +646,7 @@ const SectionManagement = () => {
         // Update existing section
         // Prevent duplicate section name for same academic year and class
         try {
-          const dupRes = await sectionService.getAllSections({ academic_year_id: academicYearValidation.academicYearId, class_id: parseInt(formData.class_id), limit: 1000 });
+          const dupRes = await sectionService.getAllSections({ academic_year_id: academicYearValidation.academicYearId, class_id: parseInt(formData.class_id), limit: 100 });
           const list = dupRes?.data?.sections || [];
           const targetName = (formData.section_name || '').trim().toLowerCase();
           const hasDup = list.some(s => s.section_id !== editingSection.section_id && (s.section_name || '').trim().toLowerCase() === targetName);

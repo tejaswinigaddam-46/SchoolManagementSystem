@@ -374,20 +374,20 @@ export default function CalendarEventsPage() {
         const hasClass = Array.isArray(initial.selectedClasses) && initial.selectedClasses.length > 0
         const hasSections = Array.isArray(initial.selectedSections) && initial.selectedSections.length > 0
         if (hasSections && !hasClass) {
-          const res = await sectionService.getAllSections({ academic_year_id: ayId, campus_id: getCampusId(), limit: 1000 })
+          const res = await sectionService.getAllSections({ academic_year_id: ayId, campus_id: getCampusId(), limit: 100 })
           const list = res?.data?.sections || []
           const secIds = new Set(initial.selectedSections.map(String))
           const matched = list.filter(s => secIds.has(String(s.section_id)))
           const classId = matched.length ? String(matched[0].class_id) : null
           if (classId) {
             setEditForm(prev => ({ ...prev, selectedClasses: [classId] }))
-            const res2 = await sectionService.getAllSections({ academic_year_id: ayId, class_id: parseInt(classId, 10), limit: 1000 })
+            const res2 = await sectionService.getAllSections({ academic_year_id: ayId, class_id: parseInt(classId, 10), limit: 100 })
             const secs2 = res2?.data?.sections || []
             setAvailableSections(secs2.map(s => ({ id: s.section_id, name: s.section_name })))
           }
         } else if (hasClass) {
           const cid = String(initial.selectedClasses[0])
-          const res2 = await sectionService.getAllSections({ academic_year_id: ayId, class_id: parseInt(cid, 10), limit: 1000 })
+          const res2 = await sectionService.getAllSections({ academic_year_id: ayId, class_id: parseInt(cid, 10), limit: 100 })
           const secs2 = res2?.data?.sections || []
           setAvailableSections(secs2.map(s => ({ id: s.section_id, name: s.section_name })))
         }
@@ -869,11 +869,10 @@ export default function CalendarEventsPage() {
   };
 
   const baseEvent = targetEvent || events[selectedIndex];
-  const { eventType: _eventType, ...baseEventWithoutEventType } = baseEvent || {};
   const instanceDate = baseEvent?.start ? format(new Date(baseEvent.start), 'yyyy-MM-dd') : null;
 
   const updatedEvent = {
-    ...baseEventWithoutEventType,
+    event_id: baseEvent?.event_id,
     event_name: editForm.title,
     description: editForm.description === '' ? null : editForm.description,
     start_time: new Date(editForm.start).toISOString(),
