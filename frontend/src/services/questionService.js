@@ -6,8 +6,7 @@ const questionService = {
     return response.data;
   },
 
-  getQuestionAssignments: async (studentUsername) => {
-    const params = studentUsername ? { student_username: studentUsername } : {};
+  getQuestionAssignments: async (params = {}) => {
     const response = await aiApi.get('/questions/assignments', { params });
     return response.data;
   }

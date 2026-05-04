@@ -11,6 +11,16 @@ export const attendanceService = {
     }
   },
 
+  // Get attendance by event instance ID
+  getAttendanceByEventInstance: async (eventInstanceId) => {
+    try {
+      const response = await api.get(`/attendance/instance/${eventInstanceId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+
   // Save/Update attendance
   saveAttendance: async (data) => {
     try {

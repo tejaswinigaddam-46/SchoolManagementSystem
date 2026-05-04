@@ -191,6 +191,10 @@ export default function ExamsPage() {
         }
         
         setExams(fetchedExams);
+        console.log('Fetched exams:', fetchedExams);
+        if (fetchedExams.length > 0) {
+            console.log('First exam structure:', fetchedExams[0]);
+        }
         if (fetchedExams.length === 0) {
             toast('No exams found for the selected filters', { icon: 'ℹ️' });
         }
@@ -292,9 +296,13 @@ export default function ExamsPage() {
       setStudentNotes(initialNotesMap);
 
       const currentExam = exams.find(e => e.exam_id === selectedExamId);
+      console.log('Current Exam:', currentExam);
       if (currentExam) {
         let attendanceData = [];
-        if (currentExam.event_id) {
+        if (currentExam.event_instance_id) {
+          const eventRes = await attendanceService.getAttendanceByEventInstance(currentExam.event_instance_id);
+          attendanceData = eventRes.success ? (eventRes.data || []) : (Array.isArray(eventRes) ? eventRes : []);
+        } else if (currentExam.event_id) {
           const eventRes = await attendanceService.getAttendance({ eventId: currentExam.event_id });
           attendanceData = eventRes.success ? (eventRes.data || []) : (Array.isArray(eventRes) ? eventRes : []);
         }
@@ -339,7 +347,11 @@ export default function ExamsPage() {
         const studentId = student.student_id || student.userId || student.id || student.user_id;
         if (studentUsername) {
           try {
-            const assignments = await questionService.getQuestionAssignments(studentUsername);
+            const params = { student_username: studentUsername };
+            if (currentExam?.event_instance_id) {
+              params.event_instance_id = currentExam.event_instance_id;
+            }
+            const assignments = await questionService.getQuestionAssignments(params);
             assignmentsMap[studentId] = assignments;
             
             // Initialize concepts with assignments first, then add empty slots
@@ -411,7 +423,8 @@ export default function ExamsPage() {
   const handleBulkSave = async () => {
     try {
         setLoading(true);
-        const selectedExam = exams.find(e => e.exam_id === selectedExamId);
+        const currentExam = exams.find(e => e.exam_id === selectedExamId);
+        const selectedExam = currentExam;
         const total = selectedExam?.total_score ?? null;
         let invalidCount = 0;
         
@@ -472,12 +485,16 @@ export default function ExamsPage() {
                     if (concept.question && concept.question.trim()) {
                         console.log('Creating question assignment for:', concept.question);
                         try {
-                            const result = await questionService.createQuestionAssignment({
+                            const assignmentData = {
                                 question_name: concept.question,
                                 curriculum_book_name: 'GOV_SSC_PHYSICS',
                                 student_username: studentUsername,
                                 exam_id: selectedExamId
-                            });
+                            };
+                            if (currentExam?.event_instance_id) {
+                                assignmentData.event_instance_id = currentExam.event_instance_id;
+                            }
+                            const result = await questionService.createQuestionAssignment(assignmentData);
                             console.log('Question assignment created successfully:', result);
                         } catch (err) {
                             console.error('Error creating question assignment:', err);
