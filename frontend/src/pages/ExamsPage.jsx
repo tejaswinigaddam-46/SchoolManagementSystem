@@ -342,21 +342,24 @@ export default function ExamsPage() {
       
       const assignmentsMap = {};
       const initialConceptsMap = {};
+
       for (const student of studentsForView) {
         const studentUsername = student.username;
         const studentId = student.student_id || student.userId || student.id || student.user_id;
         if (studentUsername) {
+          let studentAssignments = [];
           try {
-            const params = { student_username: studentUsername };
-            if (currentExam?.event_instance_id) {
-              params.event_instance_id = currentExam.event_instance_id;
-            }
-            const assignments = await questionService.getQuestionAssignments(params);
-            assignmentsMap[studentId] = assignments;
+            const params = {};
+            if (studentUsername) params.student_username = studentUsername;
+            studentAssignments = await questionService.getQuestionAssignmentsByExam(selectedExamId, params);
+          } catch (err) {
+            console.error(`Failed to fetch question assignments for student ${studentUsername}:`, err);
+          }
+          assignmentsMap[studentId] = studentAssignments;
             
             // Initialize concepts with assignments first, then add empty slots
             const concepts = [];
-            assignments.forEach(assignment => {
+            studentAssignments.forEach(assignment => {
               concepts.push({
                 question: assignment.question_name || '',
                 status: 'yet_to_start',
@@ -368,17 +371,6 @@ export default function ExamsPage() {
               concepts.push({ question: '', status: 'yet_to_start', isExisting: false });
             }
             initialConceptsMap[studentId] = concepts;
-          } catch (err) {
-            console.error('Error fetching question assignments for student:', studentUsername, err);
-            // If error, set defaults
-            initialConceptsMap[studentId] = [
-              { question: '', status: 'yet_to_start', isExisting: false },
-              { question: '', status: 'yet_to_start', isExisting: false },
-              { question: '', status: 'yet_to_start', isExisting: false },
-              { question: '', status: 'yet_to_start', isExisting: false },
-              { question: '', status: 'yet_to_start', isExisting: false }
-            ];
-          }
         }
       }
       setQuestionAssignments(assignmentsMap);

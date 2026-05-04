@@ -9,6 +9,11 @@ const questionService = {
   getQuestionAssignments: async (params = {}) => {
     const response = await aiApi.get('/questions/assignments', { params });
     return response.data;
+  },
+
+  getQuestionAssignmentsByExam: async (examId, params) => {
+    const response = await aiApi.get(`/questions/assignments/exam/${examId}`, { params });
+    return response.data;
   }
 };
 
