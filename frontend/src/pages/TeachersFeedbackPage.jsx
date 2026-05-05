@@ -30,12 +30,19 @@ const statusColor = (normalized) => {
   return 'secondary';
 };
 
+const truncateText = (value, maxChars = 20) => {
+  const text = String(value ?? '');
+  if (text.length <= maxChars) return text;
+  return text.slice(0, maxChars);
+};
+
 const TeachersFeedbackPage = ({ selectedBook }) => {
   const { getUserName } = useAuth();
   const studentUsername = String(getUserName?.() || '').trim();
   const [progressRows, setProgressRows] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [errorText, setErrorText] = useState('');
+  const [selectedInProgressTopic, setSelectedInProgressTopic] = useState('');
 
   const grouped = useMemo(() => {
     const groups = { TODO: [], InProgress: [], completed: [], Other: [] };
@@ -90,6 +97,13 @@ const TeachersFeedbackPage = ({ selectedBook }) => {
 
   const canFetch = Boolean(selectedBook && studentUsername);
 
+  useEffect(() => {
+    if (!selectedInProgressTopic) return;
+    const inProgress = grouped?.InProgress || [];
+    const stillExists = inProgress.some((row) => String(row?.question_name || '').trim() === selectedInProgressTopic);
+    if (!stillExists) setSelectedInProgressTopic('');
+  }, [grouped, selectedInProgressTopic]);
+
   const renderGroup = (title, key) => {
     const items = grouped[key] || [];
     return (
@@ -98,6 +112,42 @@ const TeachersFeedbackPage = ({ selectedBook }) => {
           <div className="text-sm font-bold text-secondary-800">{title}</div>
           <Badge color={statusColor(key)} variant="soft" size="sm">{items.length}</Badge>
         </div>
+        {key === 'InProgress' ? (
+          <div className="mb-3 space-y-3">
+            <div className="relative">
+              <select
+                value={selectedInProgressTopic}
+                onChange={(e) => setSelectedInProgressTopic(e.target.value)}
+                className="w-full pl-3 pr-10 py-2.5 bg-white border border-secondary-200 rounded-xl text-sm text-secondary-700 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none appearance-none transition-all cursor-pointer hover:border-primary-300"
+                disabled={items.length === 0}
+              >
+                <option value="">Select Topic</option>
+                {items.map((row) => {
+                  const fullLabel = String(
+                    row?.question_name || (row?.question_id != null ? `Question ${row.question_id}` : '')
+                  ).trim();
+                  const value = fullLabel;
+                  const label = truncateText(fullLabel, 20);
+                  return (
+                    <option key={row?.question_id ?? `${fullLabel}-${row?.status}`} value={value}>
+                      {label}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+
+            {selectedInProgressTopic ? (
+              <button
+                type="button"
+                onClick={() => toast.success(`Start learning: ${selectedInProgressTopic}`)}
+                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all border shadow-sm bg-primary-600 text-white border-primary-600 hover:bg-primary-700"
+              >
+                Start Learning "{selectedInProgressTopic}"
+              </button>
+            ) : null}
+          </div>
+        ) : null}
         {items.length === 0 ? (
           <div className="text-xs text-secondary-500">No items</div>
         ) : (

@@ -695,7 +695,7 @@ const AIChatPage = () => {
 
       setTeacherLoadingStatus('Refreshing progress...')
       await fetchTeacherProgress(teacherSelectedBook)
-      setTeacherFeedbackStatus((prev) => ({ ...prev, todo: '' }))
+      setTeacherFeedbackStatus({ todo: '', inProgress: '', completed: '' })
     } catch (error) {
       console.error('Feedback Overview Error:', error)
       const message =
@@ -1280,7 +1280,7 @@ const AIChatPage = () => {
                             <option value="" disabled>No topics</option>
                           )}
                           {teacherProgressOptions.todo.map(opt => (
-                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                            <option key={opt.value} value={opt.value}>{String(opt.label).slice(0, 20)}</option>
                           ))}
                         </select>
                         <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary-400 pointer-events-none" />
@@ -1304,7 +1304,7 @@ const AIChatPage = () => {
                             <option value="" disabled>No topics</option>
                           )}
                           {teacherProgressOptions.inProgress.map(opt => (
-                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                            <option key={opt.value} value={opt.value}>{String(opt.label).slice(0, 20)}</option>
                           ))}
                         </select>
                         <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary-400 pointer-events-none" />
@@ -1328,7 +1328,7 @@ const AIChatPage = () => {
                             <option value="" disabled>No topics</option>
                           )}
                           {teacherProgressOptions.completed.map(opt => (
-                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                            <option key={opt.value} value={opt.value}>{String(opt.label).slice(0, 20)}</option>
                           ))}
                         </select>
                         <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary-400 pointer-events-none" />
@@ -1419,62 +1419,91 @@ const AIChatPage = () => {
                           </button>
                         </div>
                       )}
+                      {activeView === 'teacher-feedback' && teacherSelectedBook && teacherFeedbackStatus.inProgress && (
+                        <div className="mt-6 p-6 bg-white border border-primary-200 rounded-2xl shadow-sm animate-in zoom-in-95 duration-300 max-w-sm mx-auto">
+                          <p className="text-secondary-700 font-medium mb-4">
+                            Click start to learn about <span className="text-primary-600 font-bold underline decoration-primary-200 underline-offset-4">
+                              {teacherProgressOptions.inProgress.find(o => o.value === teacherFeedbackStatus.inProgress)?.label}
+                            </span>
+                          </p>
+                          <button
+                            onClick={() => handleStartFeedback(teacherProgressOptions.inProgress.find(o => o.value === teacherFeedbackStatus.inProgress)?.label)}
+                            className="w-full py-3 px-6 bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 group"
+                          >
+                            <Sparkles className="w-5 h-5 group-hover:animate-pulse" />
+                            Start Learning "{teacherProgressOptions.inProgress.find(o => o.value === teacherFeedbackStatus.inProgress)?.label}"
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ) : (
-                  messages.map((msg) => (
-                    <div
-                      key={msg.id}
-                      className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-                    >
+                  <>
+                    {activeView === 'teacher-feedback' && teacherSelectedBook && teacherFeedbackStatus.inProgress && (
+                      <div className="p-4 bg-white border border-primary-200 rounded-2xl shadow-sm max-w-sm mx-auto">
+                        <button
+                          onClick={() => handleStartFeedback(teacherProgressOptions.inProgress.find(o => o.value === teacherFeedbackStatus.inProgress)?.label)}
+                          className="w-full py-3 px-6 bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 group"
+                        >
+                          <Sparkles className="w-5 h-5 group-hover:animate-pulse" />
+                          Start Learning "{teacherProgressOptions.inProgress.find(o => o.value === teacherFeedbackStatus.inProgress)?.label}"
+                        </button>
+                      </div>
+                    )}
+                    {messages.map((msg) => (
                       <div
-                        className={`flex gap-2 md:gap-3 ${
-                          msg.sender === 'user' ? 'flex-row-reverse max-w-[90%] md:max-w-[80%]' : 'flex-row max-w-[95%] md:max-w-[90%]'
-                        }`}
+                        key={msg.id}
+                        className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
                       >
                         <div
-                          className={`flex-shrink-0 w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center text-white ${
-                            msg.sender === 'user' ? 'bg-primary-500' : msg.isError ? 'bg-error-500' : 'bg-secondary-600'
+                          className={`flex gap-2 md:gap-3 ${
+                            msg.sender === 'user' ? 'flex-row-reverse max-w-[90%] md:max-w-[80%]' : 'flex-row max-w-[95%] md:max-w-[90%]'
                           }`}
                         >
-                          {msg.sender === 'user' ? <User className="w-4 h-4 md:w-5 md:h-5" /> : <Bot className="w-4 h-4 md:w-5 md:h-5" />}
-                        </div>
-                        <div
-                          className={`p-3 md:p-4 rounded-xl md:rounded-2xl shadow-sm text-xs md:text-sm relative group ${
-                            msg.sender === 'user'
-                              ? 'bg-primary-600 text-white rounded-tr-none'
-                              : 'bg-white border border-secondary-100 text-secondary-800 rounded-tl-none w-full'
-                          }`}
-                        >
-                          {/* Delete Message Button */}
-                          <button
-                            onClick={() => handleDeleteMessage(msg.id)}
-                            className={`absolute top-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-black/5 ${
-                              msg.sender === 'user' ? '-left-8 text-secondary-400' : '-right-8 text-secondary-400'
+                          <div
+                            className={`flex-shrink-0 w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center text-white ${
+                              msg.sender === 'user' ? 'bg-primary-500' : msg.isError ? 'bg-error-500' : 'bg-secondary-600'
                             }`}
-                            title="Delete message"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                            {msg.sender === 'user' ? <User className="w-4 h-4 md:w-5 md:h-5" /> : <Bot className="w-4 h-4 md:w-5 md:h-5" />}
+                          </div>
+                          <div
+                            className={`p-3 md:p-4 rounded-xl md:rounded-2xl shadow-sm text-xs md:text-sm relative group ${
+                              msg.sender === 'user'
+                                ? 'bg-primary-600 text-white rounded-tr-none'
+                                : 'bg-white border border-secondary-100 text-secondary-800 rounded-tl-none w-full'
+                            }`}
+                          >
+                            {/* Delete Message Button */}
+                            <button
+                              onClick={() => handleDeleteMessage(msg.id)}
+                              className={`absolute top-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-black/5 ${
+                                msg.sender === 'user' ? '-left-8 text-secondary-400' : '-right-8 text-secondary-400'
+                              }`}
+                              title="Delete message"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
 
-                          {msg.structuredData ? (
-                            <StructuredAIResponse data={msg.structuredData} fallbackText={msg.text} />
-                          ) : msg.sender === 'ai' ? (
-                            <MarkdownFallback text={msg.text} />
-                          ) : (
-                            <p className="whitespace-pre-wrap">{msg.text}</p>
-                          )}
-                          <span
-                            className={`text-[9px] md:text-[10px] mt-2 block opacity-60 ${
-                              msg.sender === 'user' ? 'text-right' : 'text-left'
-                            }`}
-                          >
-                            {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </span>
+                            {msg.structuredData ? (
+                              <StructuredAIResponse data={msg.structuredData} fallbackText={msg.text} />
+                            ) : msg.sender === 'ai' ? (
+                              <MarkdownFallback text={msg.text} />
+                            ) : (
+                              <p className="whitespace-pre-wrap">{msg.text}</p>
+                            )}
+                            <span
+                              className={`text-[9px] md:text-[10px] mt-2 block opacity-60 ${
+                                msg.sender === 'user' ? 'text-right' : 'text-left'
+                              }`}
+                            >
+                              {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))
+                    ))}
+                  </>
                 )}
                 {isLoading && (
                   <div className="flex justify-start">
