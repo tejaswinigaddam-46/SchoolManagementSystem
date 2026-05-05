@@ -511,7 +511,9 @@ const AIChatPage = () => {
     const raw = String(status || '').trim();
     const compact = raw.replace(/[^a-z0-9]/gi, '').toLowerCase();
     if (compact === 'todo') return 'TODO';
+    if (compact === 'yettostart') return 'TODO';
     if (compact === 'inprogress') return 'InProgress';
+    if (compact === 'learning') return 'InProgress';
     if (compact === 'completed' || compact === 'complete') return 'completed';
     return raw || 'Unknown';
   };
@@ -541,8 +543,17 @@ const AIChatPage = () => {
 
       for (const row of rows) {
         const normalized = normalizeProgressStatus(row?.status);
+        const questionSubtopicsId =
+          row?.question_subtopics_id ??
+          row?.question_subtopic_id ??
+          row?.subtopic_id ??
+          row?.question_subtopic_progress_id ??
+          row?.id ??
+          null
+        const questionId = row?.question_id ?? null
         const option = {
-          value: String(row?.question_id ?? ''),
+          value: String(questionId ?? questionSubtopicsId ?? ''),
+          questionSubtopicsId: String(questionSubtopicsId ?? ''),
           label: String(row?.question_name ?? row?.question_id ?? 'Question')
         };
         if (!option.value) continue;
@@ -718,8 +729,13 @@ const AIChatPage = () => {
     }
   };
 
-  const handleStartInProgressLearning = async (subtopic) => {
-    const raw = String(subtopic || '').trim()
+  const handleStartInProgressLearning = async (subtopicOrOption) => {
+    const option =
+      subtopicOrOption && typeof subtopicOrOption === 'object'
+        ? subtopicOrOption
+        : null
+    const questionSubtopicsId = String(option?.questionSubtopicsId ?? '').trim()
+    const raw = String(option?.label ?? subtopicOrOption ?? '').trim()
     if (!raw) return
     if (!teacherSelectedBook) {
       toast.error('Please select a curriculum book first')
@@ -818,6 +834,24 @@ const AIChatPage = () => {
       }
 
       setTeacherMessages((prev) => [...prev, assistantMessage])
+
+      if (questionSubtopicsId) {
+        try {
+          setTeacherLoadingStatus('Updating progress...')
+          await questionService.updateQuestionSubtopicProgress(questionSubtopicsId, 'learning')
+        } catch (error) {
+          const message =
+            error?.response?.data?.message ||
+            error?.message ||
+            'Failed to update progress'
+          toast.error(message)
+        }
+      } else {
+        toast.error('Subtopic ID not available. Unable to update progress.')
+      }
+
+      setTeacherLoadingStatus('Refreshing progress...')
+      await fetchTeacherProgress(teacherSelectedBook)
     } catch (error) {
       console.error('AI Query Error:', error)
       const isTimeout =
@@ -1555,7 +1589,7 @@ const AIChatPage = () => {
                             </span>
                           </p>
                           <button
-                            onClick={() => handleStartInProgressLearning(teacherProgressOptions.inProgress.find(o => o.value === teacherFeedbackStatus.inProgress)?.label)}
+                            onClick={() => handleStartInProgressLearning(teacherProgressOptions.inProgress.find(o => o.value === teacherFeedbackStatus.inProgress))}
                             className="w-full py-3 px-6 bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 group"
                           >
                             <Sparkles className="w-5 h-5 group-hover:animate-pulse" />
@@ -1570,7 +1604,7 @@ const AIChatPage = () => {
                     {activeView === 'teacher-feedback' && teacherSelectedBook && teacherFeedbackStatus.inProgress && (
                       <div className="p-4 bg-white border border-primary-200 rounded-2xl shadow-sm max-w-sm mx-auto">
                         <button
-                          onClick={() => handleStartInProgressLearning(teacherProgressOptions.inProgress.find(o => o.value === teacherFeedbackStatus.inProgress)?.label)}
+                          onClick={() => handleStartInProgressLearning(teacherProgressOptions.inProgress.find(o => o.value === teacherFeedbackStatus.inProgress))}
                           className="w-full py-3 px-6 bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 group"
                         >
                           <Sparkles className="w-5 h-5 group-hover:animate-pulse" />

@@ -14,6 +14,14 @@ const getAssignmentsProgressPath = () => {
     : '/api/v1/questions/assignments/progress'
 }
 
+const getSubtopicProgressPath = (questionSubtopicsId) => {
+  const baseURL = String(aiApiClient?.defaults?.baseURL || '')
+  const id = encodeURIComponent(String(questionSubtopicsId ?? '').trim())
+  return baseURL.includes('/api/v1')
+    ? `/questions/subtopics/${id}/progress`
+    : `/api/v1/questions/subtopics/${id}/progress`
+}
+
 const questionService = {
   createQuestionAssignment: async (data) => {
     const response = await aiApi.post(getAssignmentsPath(), data);
@@ -33,6 +41,14 @@ const questionService = {
   getQuestionsProgress: async (params = {}) => {
     const response = await aiApi.get(getAssignmentsProgressPath(), { params });
     return response.data;
+  },
+
+  updateQuestionSubtopicProgress: async (questionSubtopicsId, status) => {
+    const response = await aiApi.put(
+      getSubtopicProgressPath(questionSubtopicsId),
+      { status }
+    )
+    return response.data
   }
 };
 
