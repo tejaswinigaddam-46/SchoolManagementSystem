@@ -475,20 +475,26 @@ const AIChatPage = () => {
   const { getCampusId } = useAuth();
   const campusId = getCampusId();
   
-  const [messages, setMessages] = useState([]);
-  const [input, setInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [loadingStatus, setLoadingStatus] = useState('');
+  const [selfMessages, setSelfMessages] = useState([]);
+  const [selfInput, setSelfInput] = useState('');
+  const [selfIsLoading, setSelfIsLoading] = useState(false);
+  const [selfLoadingStatus, setSelfLoadingStatus] = useState('');
   const [selectedCurriculum, setSelectedCurriculum] = useState('');
   const [selectedRecentChat, setSelectedRecentChat] = useState('');
   const [recentChats, setRecentChats] = useState([]);
-  const [currentConversationId, setCurrentConversationId] = useState(null);
+  const [selfConversationId, setSelfConversationId] = useState(null);
   const [isChatSidebarOpen, setIsChatSidebarOpen] = useState(false);
   
   // New states for tabs and teacher feedback
   const [activeView, setActiveView] = useState('self-learning');
   const [subjects, setSubjects] = useState([]);
   const [selectedSubject, setSelectedSubject] = useState('');
+  
+  const [teacherMessages, setTeacherMessages] = useState([]);
+  const [teacherInput, setTeacherInput] = useState('');
+  const [teacherIsLoading, setTeacherIsLoading] = useState(false);
+  const [teacherLoadingStatus, setTeacherLoadingStatus] = useState('');
+  const [teacherConversationId, setTeacherConversationId] = useState(null);
   
   // Store per-subject feedback state
   const [subjectFeedbackStates, setSubjectFeedbackStates] = useState({});
@@ -533,7 +539,7 @@ const AIChatPage = () => {
       todoOptions: newTodoOptions
     });
 
-    setInput(prompt);
+    setTeacherInput(prompt);
     // Auto-submit after a brief delay to allow input state to update
     setTimeout(() => {
       const fakeEvent = { preventDefault: () => {} };
@@ -593,20 +599,20 @@ const AIChatPage = () => {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [activeView, selfMessages, teacherMessages]);
 
   const handleRecentChatChange = async (convId) => {
     if (!convId) {
       setSelectedRecentChat('');
-      setCurrentConversationId(null);
-      setMessages([]);
+      setSelfConversationId(null);
+      setSelfMessages([]);
       return;
     }
 
     setSelectedRecentChat(convId);
-    setCurrentConversationId(convId);
-    setIsLoading(true);
-    setLoadingStatus('Loading conversation...');
+    setSelfConversationId(convId);
+    setSelfIsLoading(true);
+    setSelfLoadingStatus('Loading conversation...');
 
     try {
       const chatMessages = await conversationService.getMessages(convId);
@@ -621,7 +627,7 @@ const AIChatPage = () => {
         structuredData: msg.role === 'assistant' ? findStructuredData(msg.content) : null
       }));
 
-      setMessages(formattedMessages);
+      setSelfMessages(formattedMessages);
       
       // Also set the curriculum if possible
       if (chatMessages.length > 0 && chatMessages[0].curriculum_book_name) {
@@ -631,8 +637,8 @@ const AIChatPage = () => {
       console.error('Error loading conversation:', error);
       toast.error('Failed to load conversation history');
     } finally {
-      setIsLoading(false);
-      setLoadingStatus('');
+      setSelfIsLoading(false);
+      setSelfLoadingStatus('');
     }
   };
 
@@ -698,10 +704,10 @@ const AIChatPage = () => {
       toast.success('Conversation deleted');
       
       // If we're deleting the current conversation, reset state
-      if (convId === currentConversationId) {
-        setCurrentConversationId(null);
+      if (convId === selfConversationId) {
+        setSelfConversationId(null);
         setSelectedRecentChat('');
-        setMessages([]);
+        setSelfMessages([]);
       }
       
       // Refresh the list
@@ -720,7 +726,11 @@ const AIChatPage = () => {
       toast.success('Message deleted');
       
       // Remove from local state
-      setMessages(prev => prev.filter(m => m.id !== messageId));
+      if (activeView === 'self-learning') {
+        setSelfMessages(prev => prev.filter(m => m.id !== messageId));
+      } else {
+        setTeacherMessages(prev => prev.filter(m => m.id !== messageId));
+      }
     } catch (error) {
       console.error('Error deleting message:', error);
       toast.error('Failed to delete message');
@@ -729,8 +739,11 @@ const AIChatPage = () => {
 
   const handleSubmit = async (e, overrideInput) => {
     if (e) e.preventDefault();
-    const queryToUse = overrideInput || input;
-    if (!queryToUse.trim() || isLoading) return;
+    const view = activeView;
+    const queryToUse = overrideInput || (view === 'self-learning' ? selfInput : teacherInput);
+    const viewIsLoading = view === 'self-learning' ? selfIsLoading : teacherIsLoading;
+    const conversationId = view === 'self-learning' ? selfConversationId : teacherConversationId;
+    if (!queryToUse.trim() || viewIsLoading) return;
 
     const userMessageText = queryToUse;
     const userMessageId = Date.now();
@@ -741,26 +754,38 @@ const AIChatPage = () => {
       timestamp: new Date(),
     };
 
-    setMessages((prev) => [...prev, userMessage]);
-    setInput('');
-    setIsLoading(true);
-    setLoadingStatus('Saving message...');
+    if (view === 'self-learning') {
+      setSelfMessages((prev) => [...prev, userMessage]);
+      setSelfInput('');
+      setSelfIsLoading(true);
+      setSelfLoadingStatus('Saving message...');
+    } else {
+      setTeacherMessages((prev) => [...prev, userMessage]);
+      setTeacherInput('');
+      setTeacherIsLoading(true);
+      setTeacherLoadingStatus('Saving message...');
+    }
 
     try {
-      const currentSubject = activeView === 'self-learning' 
+      const currentSubject = view === 'self-learning' 
         ? selectedCurriculum 
         : subjects.find(s => String(s.subject_id) === String(selectedSubject))?.subject_name;
 
       if (!currentSubject) {
-        toast.error(activeView === 'self-learning' ? 'Please select a curriculum book first' : 'Please select a subject first');
-        setIsLoading(false);
-        setLoadingStatus('');
+        toast.error(view === 'self-learning' ? 'Please select a curriculum book first' : 'Please select a subject first');
+        if (view === 'self-learning') {
+          setSelfIsLoading(false);
+          setSelfLoadingStatus('');
+        } else {
+          setTeacherIsLoading(false);
+          setTeacherLoadingStatus('');
+        }
         return;
       }
 
       // Add feedback context if in teacher-feedback mode
       let enhancedQuery = userMessageText;
-      if (activeView === 'teacher-feedback') {
+      if (view === 'teacher-feedback') {
         const statuses = [];
         if (feedbackStatus.todo) statuses.push(`TODO: ${feedbackStatus.todo}`);
         if (feedbackStatus.inProgress) statuses.push(`In Progress: ${feedbackStatus.inProgress}`);
@@ -775,25 +800,37 @@ const AIChatPage = () => {
       const userMsgResponse = await conversationService.createMessage({
         content: userMessageText,
         role: 'user',
-        conversation_id: currentConversationId,
+        conversation_id: conversationId,
         curriculum_book_name: currentSubject,
         title: userMessageText.substring(0, 30)
       });
 
       // Update conversation ID if it was a new conversation
-      if (!currentConversationId && userMsgResponse.conversation_id) {
-        setCurrentConversationId(userMsgResponse.conversation_id);
-        setSelectedRecentChat(userMsgResponse.conversation_id);
-        fetchRecentChats(); // Refresh sidebar list
+      if (!conversationId && userMsgResponse.conversation_id) {
+        if (view === 'self-learning') {
+          setSelfConversationId(userMsgResponse.conversation_id);
+          setSelectedRecentChat(userMsgResponse.conversation_id);
+          fetchRecentChats();
+        } else {
+          setTeacherConversationId(userMsgResponse.conversation_id);
+        }
       }
 
-      setLoadingStatus('Fetching AI response...');
+      if (view === 'self-learning') {
+        setSelfLoadingStatus('Fetching AI response...');
+      } else {
+        setTeacherLoadingStatus('Fetching AI response...');
+      }
       
       // 2. Get AI response
       const response = await aiService.query(enhancedQuery, currentSubject);
       console.log('Raw AI Response:', response);
       
-      setLoadingStatus('Saving AI response...');
+      if (view === 'self-learning') {
+        setSelfLoadingStatus('Saving AI response...');
+      } else {
+        setTeacherLoadingStatus('Saving AI response...');
+      }
       
       let structuredData = findStructuredData(response);
       let textContent = '';
@@ -839,11 +876,12 @@ const AIChatPage = () => {
       }
       
       // 3. Save AI response to database
+      const conversationIdToUse = conversationId || userMsgResponse.conversation_id;
       await conversationService.createMessage({
         content: typeof response === 'object' ? JSON.stringify(response) : response,
         role: 'assistant',
-        conversation_id: currentConversationId || userMsgResponse.conversation_id,
-        curriculum_book_name: selectedCurriculum,
+        conversation_id: conversationIdToUse,
+        curriculum_book_name: currentSubject,
         summary: aiSummary.substring(0, 200),
         title: aiTitle.substring(0, 50)
       });
@@ -857,7 +895,11 @@ const AIChatPage = () => {
         rawResponse: typeof response === 'object' ? JSON.stringify(response, null, 2) : response
       };
 
-      setMessages((prev) => [...prev, assistantMessage]);
+      if (view === 'self-learning') {
+        setSelfMessages((prev) => [...prev, assistantMessage]);
+      } else {
+        setTeacherMessages((prev) => [...prev, assistantMessage]);
+      }
     } catch (error) {
       console.error('AI Query Error:', error);
       toast.error('Failed to get response from AI. Please try again.');
@@ -869,49 +911,51 @@ const AIChatPage = () => {
         isError: true,
         timestamp: new Date(),
       };
-      setMessages((prev) => [...prev, errorMessage]);
+      if (view === 'self-learning') {
+        setSelfMessages((prev) => [...prev, errorMessage]);
+      } else {
+        setTeacherMessages((prev) => [...prev, errorMessage]);
+      }
     } finally {
-      setIsLoading(false);
-      setLoadingStatus('');
+      if (view === 'self-learning') {
+        setSelfIsLoading(false);
+        setSelfLoadingStatus('');
+      } else {
+        setTeacherIsLoading(false);
+        setTeacherLoadingStatus('');
+      }
     }
   };
 
+  const isSelfLearning = activeView === 'self-learning';
+  const messages = isSelfLearning ? selfMessages : teacherMessages;
+  const isLoading = isSelfLearning ? selfIsLoading : teacherIsLoading;
+  const loadingStatus = isSelfLearning ? selfLoadingStatus : teacherLoadingStatus;
+
   return (
-    <div className="space-y-4 h-full flex flex-col">
+    <div className="space-y-4 min-h-screen flex flex-col">
       {/* Tab Navigation - Based on AcademicManagementPage style */}
-      <div className="bg-white rounded-xl border border-secondary-200 shadow-sm overflow-hidden flex-shrink-0">
-        <div className="p-3 bg-secondary-50/30 overflow-x-auto no-scrollbar">
-          <div className="flex flex-nowrap md:w-full gap-4">
-            {tabs.map((tab) => {
-              const Icon = tab.icon
-              const isActive = activeView === tab.id
-              
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveView(tab.id)}
-                  className={`
-                    flex-1 flex flex-col items-center justify-center py-3 px-4 rounded-xl transition-all duration-300 border
-                    ${
-                      isActive
-                        ? 'bg-primary-50 text-primary-700 border-transparent shadow-md'
-                        : 'bg-white border-secondary-300 text-secondary-500 hover:bg-secondary-50 hover:border-secondary-300 hover:text-secondary-700'
-                    }
-                  `}
-                >
-                  <div className="flex items-center space-x-3">
-                    <Icon className={`h-5 w-5 ${isActive ? 'text-primary-600' : 'text-secondary-400'}`} />
-                    <span className={`font-bold text-sm tracking-wide ${isActive ? 'text-primary-900' : ''}`}>
-                      {tab.name}
-                    </span>
-                  </div>
-                  <span className={`text-xs mt-1 font-medium ${isActive ? 'text-primary-600' : 'text-secondary-400'}`}>
-                    {tab.description}
-                  </span>
-                </button>
-              )
-            })}
-          </div>
+      <div className="flex-shrink-0">
+        <div className="grid grid-cols-2 gap-2 w-full">
+          {tabs.map((tab) => {
+            const Icon = tab.icon
+            const isActive = activeView === tab.id
+
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveView(tab.id)}
+                className={`
+                  w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all border shadow-sm
+                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2
+                  ${isActive ? 'bg-primary-600 text-white border-primary-600 shadow-md' : 'bg-white text-secondary-700 border-secondary-300 hover:bg-secondary-50 hover:shadow'}
+                `}
+              >
+                <Icon className={`h-4 w-4 ${isActive ? 'text-white' : 'text-secondary-400'}`} />
+                <span className="whitespace-nowrap">{tab.name}</span>
+              </button>
+            )
+          })}
         </div>
       </div>
 
@@ -961,9 +1005,14 @@ const AIChatPage = () => {
             </div>
             <button 
               onClick={() => {
-                setCurrentConversationId(null);
-                setSelectedRecentChat('');
-                setMessages([]);
+                if (activeView === 'self-learning') {
+                  setSelfConversationId(null);
+                  setSelectedRecentChat('');
+                  setSelfMessages([]);
+                } else {
+                  setTeacherConversationId(null);
+                  setTeacherMessages([]);
+                }
                 if (window.innerWidth < 768) setIsChatSidebarOpen(false);
               }}
               className="w-full flex items-center gap-3 px-3 py-2 text-sm text-primary-600 bg-primary-50 rounded-lg font-medium transition-colors hover:bg-primary-100"
@@ -1288,15 +1337,15 @@ const AIChatPage = () => {
                   <form onSubmit={handleSubmit} className="relative">
                     <input
                       type="text"
-                      value={input}
-                      onChange={(e) => setInput(e.target.value)}
+                      value={selfInput}
+                      onChange={(e) => setSelfInput(e.target.value)}
                       placeholder="Ask about a topic..."
                       className="w-full pl-4 pr-12 py-3 bg-secondary-50 border border-secondary-200 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all"
                       disabled={isLoading || !selectedCurriculum}
                     />
                     <button
                       type="submit"
-                      disabled={isLoading || !input.trim() || !selectedCurriculum}
+                      disabled={isLoading || !selfInput.trim() || !selectedCurriculum}
                       className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                       <Send className="w-4 h-4" />
