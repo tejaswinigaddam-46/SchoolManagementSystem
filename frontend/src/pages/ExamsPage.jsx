@@ -469,16 +469,33 @@ export default function ExamsPage() {
                 const studentId = student.student_id || student.userId || student.id || student.user_id;
                 const studentUsername = student.username;
                 const concepts = toBeImprovedConcepts[studentId] || [];
+                const existingAssignments = questionAssignments[studentId] || [];
+                const existingQuestions = new Set(
+                    existingAssignments
+                        .map(a => (a?.question_name || '').trim().toLowerCase())
+                        .filter(Boolean)
+                );
                 
                 console.log(`Processing student ${studentId} (${studentUsername}) with concepts:`, concepts);
                 
                 for (const concept of concepts) {
                     console.log('Checking concept:', concept);
-                    if (concept.question && concept.question.trim()) {
+                    const questionText = (concept?.question || '').trim();
+                    const normalized = questionText.toLowerCase();
+                    if (concept?.isExisting) {
+                        continue;
+                    }
+                    if (!questionText) {
+                        continue;
+                    }
+                    if (existingQuestions.has(normalized)) {
+                        continue;
+                    }
+                    if (questionText) {
                         console.log('Creating question assignment for:', concept.question);
                         try {
                             const assignmentData = {
-                                question_name: concept.question,
+                                question_name: questionText,
                                 curriculum_book_name: 'GOV_SSC_PHYSICS',
                                 student_username: studentUsername,
                                 exam_id: selectedExamId
@@ -847,4 +864,3 @@ export default function ExamsPage() {
     </OneAcademicYearPage>
   );
 }
-

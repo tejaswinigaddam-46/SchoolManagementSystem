@@ -11,7 +11,7 @@ import LoadingSpinner from '../components/ui/LoadingSpinner';
 import Badge from '../components/ui/Badge';
 import aiService from '../services/aiService';
 import conversationService from '../services/conversationService';
-import { subjectService } from '../services/subjectService';
+import questionService from '../services/questionService';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'react-hot-toast';
 
@@ -19,24 +19,6 @@ const CURRICULUM_BOOKS = [
   { value: 'GOV_SSC_ENGLISH', label: 'SSC English' },
   { value: 'GOV_SSC_PHYSICS', label: 'SSC Physics' },
   { value: 'GOV_SSC_CHEMISTRY', label: 'SSC Chemistry' }
-];
-
-const TODO_OPTIONS = [
-  { value: 'not-started', label: 'Not Started' },
-  { value: 'planning', label: 'Planning' },
-  { value: 'gathering-resources', label: 'Gathering Resources' }
-];
-
-const IN_PROGRESS_OPTIONS = [
-  { value: 'lecturing', label: 'Lecturing' },
-  { value: 'practical-work', label: 'Practical Work' },
-  { value: 'reviewing', label: 'Reviewing' }
-];
-
-const COMPLETED_OPTIONS = [
-  { value: 'assessment-done', label: 'Assessment Done' },
-  { value: 'grades-posted', label: 'Grades Posted' },
-  { value: 'feedback-given', label: 'Feedback Given' }
 ];
 
 const MarkdownFallback = ({ text }) => {
@@ -472,9 +454,9 @@ const StructuredAIResponse = ({ data, fallbackText }) => {
  * Provides a ChatGPT-like interface for interacting with the AI backend.
  */
 const AIChatPage = () => {
-  const { getCampusId } = useAuth();
-  const campusId = getCampusId();
-  
+  const { getUserName } = useAuth();
+  const studentUsername = String(getUserName?.() || '').trim();
+
   const [selfMessages, setSelfMessages] = useState([]);
   const [selfInput, setSelfInput] = useState('');
   const [selfIsLoading, setSelfIsLoading] = useState(false);
@@ -485,77 +467,36 @@ const AIChatPage = () => {
   const [selfConversationId, setSelfConversationId] = useState(null);
   const [isChatSidebarOpen, setIsChatSidebarOpen] = useState(false);
   
-  // New states for tabs and teacher feedback
+  // New states for tabs
   const [activeView, setActiveView] = useState('self-learning');
-  const [subjects, setSubjects] = useState([]);
-  const [selectedSubject, setSelectedSubject] = useState('');
-  
+  const [teacherSelectedBook, setTeacherSelectedBook] = useState('');
+
   const [teacherMessages, setTeacherMessages] = useState([]);
   const [teacherInput, setTeacherInput] = useState('');
   const [teacherIsLoading, setTeacherIsLoading] = useState(false);
   const [teacherLoadingStatus, setTeacherLoadingStatus] = useState('');
   const [teacherConversationId, setTeacherConversationId] = useState(null);
-  
-  // Store per-subject feedback state
-  const [subjectFeedbackStates, setSubjectFeedbackStates] = useState({});
 
-  // Helper to get current subject's state
-  const getCurrentSubjectState = () => {
-    return subjectFeedbackStates[selectedSubject] || {
-      status: { todo: '', inProgress: '', completed: '' },
-      todoOptions: TODO_OPTIONS
-    };
-  };
+  const [teacherFeedbackStatus, setTeacherFeedbackStatus] = useState({
+    todo: '',
+    inProgress: '',
+    completed: ''
+  });
 
-  const currentSubjectState = getCurrentSubjectState();
-  const feedbackStatus = currentSubjectState.status;
-  const todoOptions = currentSubjectState.todoOptions;
-
-  // Helper to update current subject's state
-  const updateCurrentSubjectState = (updates) => {
-    if (!selectedSubject) return;
-    setSubjectFeedbackStates(prev => ({
-      ...prev,
-      [selectedSubject]: {
-        ...getCurrentSubjectState(),
-        ...updates
-      }
-    }));
-  };
-
-  const handleStartFeedback = (topic) => {
-    const prompt = `I want to learn about: ${topic}`;
-    
-    const newTodoOptions = todoOptions.filter(opt => opt.label !== topic);
-    const newStatus = {
-      ...feedbackStatus,
-      todo: '',
-      inProgress: `${topic} Overview`
-    };
-
-    // Update subject-specific state
-    updateCurrentSubjectState({
-      status: newStatus,
-      todoOptions: newTodoOptions
-    });
-
-    setTeacherInput(prompt);
-    // Auto-submit after a brief delay to allow input state to update
-    setTimeout(() => {
-      const fakeEvent = { preventDefault: () => {} };
-      handleSubmit(fakeEvent, prompt);
-    }, 100);
-  };
+  const [teacherProgressOptions, setTeacherProgressOptions] = useState({
+    todo: [],
+    inProgress: [],
+    completed: []
+  });
+  const [teacherProgressLoading, setTeacherProgressLoading] = useState(false);
+  const [teacherProgressError, setTeacherProgressError] = useState('');
 
   const messagesEndRef = useRef(null);
 
-  // Fetch recent chats and subjects on mount
+  // Fetch recent chats on mount
   useEffect(() => {
     fetchRecentChats();
-    if (campusId) {
-      fetchSubjects();
-    }
-  }, [campusId]);
+  }, []);
 
   const fetchRecentChats = async () => {
     try {
@@ -566,16 +507,75 @@ const AIChatPage = () => {
     }
   };
 
-  const fetchSubjects = async () => {
+  const normalizeProgressStatus = (status) => {
+    const raw = String(status || '').trim();
+    const compact = raw.replace(/[^a-z0-9]/gi, '').toLowerCase();
+    if (compact === 'todo') return 'TODO';
+    if (compact === 'inprogress') return 'InProgress';
+    if (compact === 'completed' || compact === 'complete') return 'completed';
+    return raw || 'Unknown';
+  };
+
+  const fetchTeacherProgress = async (book) => {
+    if (!studentUsername || !book) return;
+    setTeacherProgressLoading(true);
+    setTeacherProgressError('');
     try {
-      const response = await subjectService.getAllSubjects(campusId);
-      if (response.success) {
-        setSubjects(response.data.subjects || []);
+      const response = await questionService.getQuestionsProgress({
+        studentusername: studentUsername,
+        book
+      });
+
+      const rows =
+        Array.isArray(response) ? response :
+        Array.isArray(response?.data) ? response.data :
+        Array.isArray(response?.results) ? response.results :
+        Array.isArray(response?.items) ? response.items :
+        Array.isArray(response?.progress) ? response.progress :
+        Array.isArray(response?.data?.data) ? response.data.data :
+        [];
+
+      const todo = [];
+      const inProgress = [];
+      const completed = [];
+
+      for (const row of rows) {
+        const normalized = normalizeProgressStatus(row?.status);
+        const option = {
+          value: String(row?.question_id ?? ''),
+          label: String(row?.question_name ?? row?.question_id ?? 'Question')
+        };
+        if (!option.value) continue;
+
+        if (normalized === 'TODO') todo.push(option);
+        else if (normalized === 'InProgress') inProgress.push(option);
+        else if (normalized === 'completed') completed.push(option);
       }
+
+      setTeacherProgressOptions({ todo, inProgress, completed });
     } catch (error) {
-      console.error('Error fetching subjects:', error);
+      setTeacherProgressOptions({ todo: [], inProgress: [], completed: [] });
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to fetch questions progress';
+      setTeacherProgressError(message);
+      toast.error(message);
+    } finally {
+      setTeacherProgressLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (activeView !== 'teacher-feedback') return;
+    if (!teacherSelectedBook) return;
+    if (!studentUsername) {
+      setTeacherProgressOptions({ todo: [], inProgress: [], completed: [] });
+      setTeacherProgressError('Username not available in session');
+      return;
+    }
+    fetchTeacherProgress(teacherSelectedBook);
+  }, [activeView, teacherSelectedBook, studentUsername]);
 
   const tabs = [
     {
@@ -600,6 +600,17 @@ const AIChatPage = () => {
   useEffect(() => {
     scrollToBottom();
   }, [activeView, selfMessages, teacherMessages]);
+
+  const handleStartFeedback = (topic) => {
+    const safeTopic = String(topic || '').trim();
+    if (!safeTopic) return;
+    const prompt = `I want to learn about: ${safeTopic}`;
+    setTeacherInput(prompt);
+    setTimeout(() => {
+      const fakeEvent = { preventDefault: () => {} };
+      handleSubmit(fakeEvent, prompt);
+    }, 100);
+  };
 
   const handleRecentChatChange = async (convId) => {
     if (!convId) {
@@ -767,12 +778,10 @@ const AIChatPage = () => {
     }
 
     try {
-      const currentSubject = view === 'self-learning' 
-        ? selectedCurriculum 
-        : subjects.find(s => String(s.subject_id) === String(selectedSubject))?.subject_name;
+      const currentSubject = view === 'self-learning' ? selectedCurriculum : teacherSelectedBook;
 
       if (!currentSubject) {
-        toast.error(view === 'self-learning' ? 'Please select a curriculum book first' : 'Please select a subject first');
+        toast.error('Please select a curriculum book first');
         if (view === 'self-learning') {
           setSelfIsLoading(false);
           setSelfLoadingStatus('');
@@ -783,16 +792,25 @@ const AIChatPage = () => {
         return;
       }
 
-      // Add feedback context if in teacher-feedback mode
       let enhancedQuery = userMessageText;
       if (view === 'teacher-feedback') {
         const statuses = [];
-        if (feedbackStatus.todo) statuses.push(`TODO: ${feedbackStatus.todo}`);
-        if (feedbackStatus.inProgress) statuses.push(`In Progress: ${feedbackStatus.inProgress}`);
-        if (feedbackStatus.completed) statuses.push(`Completed: ${feedbackStatus.completed}`);
-        
+
+        if (teacherFeedbackStatus.todo) {
+          const label = teacherProgressOptions.todo.find(o => o.value === teacherFeedbackStatus.todo)?.label || teacherFeedbackStatus.todo;
+          statuses.push(`TODO: ${label}`);
+        }
+        if (teacherFeedbackStatus.inProgress) {
+          const label = teacherProgressOptions.inProgress.find(o => o.value === teacherFeedbackStatus.inProgress)?.label || teacherFeedbackStatus.inProgress;
+          statuses.push(`In Progress: ${label}`);
+        }
+        if (teacherFeedbackStatus.completed) {
+          const label = teacherProgressOptions.completed.find(o => o.value === teacherFeedbackStatus.completed)?.label || teacherFeedbackStatus.completed;
+          statuses.push(`Completed: ${label}`);
+        }
+
         if (statuses.length > 0) {
-          enhancedQuery = `Context: Current teaching status for ${currentSubject}: ${statuses.join(', ')}. \n\nQuestion: ${userMessageText}`;
+          enhancedQuery = `Context: Current student progress for ${currentSubject}: ${statuses.join(', ')}.\n\nQuestion: ${userMessageText}`;
         }
       }
 
@@ -816,6 +834,8 @@ const AIChatPage = () => {
         }
       }
 
+      const conversationIdToUse = conversationId || userMsgResponse.conversation_id;
+
       if (view === 'self-learning') {
         setSelfLoadingStatus('Fetching AI response...');
       } else {
@@ -823,7 +843,7 @@ const AIChatPage = () => {
       }
       
       // 2. Get AI response
-      const response = await aiService.query(enhancedQuery, currentSubject);
+      const response = await aiService.query(enhancedQuery, currentSubject, conversationIdToUse);
       console.log('Raw AI Response:', response);
       
       if (view === 'self-learning') {
@@ -876,7 +896,6 @@ const AIChatPage = () => {
       }
       
       // 3. Save AI response to database
-      const conversationIdToUse = conversationId || userMsgResponse.conversation_id;
       await conversationService.createMessage({
         content: typeof response === 'object' ? JSON.stringify(response) : response,
         role: 'assistant',
@@ -902,11 +921,21 @@ const AIChatPage = () => {
       }
     } catch (error) {
       console.error('AI Query Error:', error);
-      toast.error('Failed to get response from AI. Please try again.');
+      const isTimeout =
+        error?.code === 'ECONNABORTED' ||
+        String(error?.message || '').toLowerCase().includes('timeout')
+
+      toast.error(
+        isTimeout
+          ? 'AI request timed out. Please try again.'
+          : 'Failed to get response from AI. Please try again.'
+      );
       
       const errorMessage = {
         id: Date.now() + 1,
-        text: 'Sorry, I encountered an error processing your request.',
+        text: isTimeout
+          ? 'Sorry, the AI request timed out. Please try again.'
+          : 'Sorry, I encountered an error processing your request.',
         sender: 'ai',
         isError: true,
         timestamp: new Date(),
@@ -1012,6 +1041,9 @@ const AIChatPage = () => {
                 } else {
                   setTeacherConversationId(null);
                   setTeacherMessages([]);
+                  setTeacherInput('');
+                  setTeacherLoadingStatus('');
+                  setTeacherFeedbackStatus({ todo: '', inProgress: '', completed: '' });
                 }
                 if (window.innerWidth < 768) setIsChatSidebarOpen(false);
               }}
@@ -1085,31 +1117,45 @@ const AIChatPage = () => {
               </>
             ) : (
               <>
-                {/* Teacher Feedback Sidebar Content */}
                 <div>
                   <label className="flex items-center gap-2 text-[10px] font-bold text-secondary-500 mb-2 uppercase tracking-widest">
-                    <BookOpen className="w-3 h-3" />
-                    Subject
+                    <Book className="w-3 h-3" />
+                    Curriculum Book
                   </label>
                   <div className="relative">
                     <select 
-                      value={selectedSubject}
+                      value={teacherSelectedBook}
                       onChange={(e) => {
-                        setSelectedSubject(e.target.value);
+                        setTeacherSelectedBook(e.target.value);
+                        setTeacherFeedbackStatus({ todo: '', inProgress: '', completed: '' });
                         if (window.innerWidth < 768) setIsChatSidebarOpen(false);
                       }}
                       className="w-full pl-3 pr-10 py-2.5 bg-white border border-secondary-200 rounded-xl text-sm text-secondary-700 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none appearance-none transition-all cursor-pointer hover:border-primary-300"
                     >
-                      <option value="">Select Subject</option>
-                      {subjects.map(subject => (
-                        <option key={subject.subject_id} value={subject.subject_id}>{subject.subject_name}</option>
+                      <option value="">Select Book</option>
+                      {CURRICULUM_BOOKS.map(book => (
+                        <option key={book.value} value={book.value}>{book.label}</option>
                       ))}
                     </select>
                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary-400 pointer-events-none" />
                   </div>
+                  <div className="text-[10px] text-secondary-500 mt-2 px-1">
+                    Student: <span className="font-medium text-secondary-700">{studentUsername || '-'}</span>
+                  </div>
+                  {teacherProgressLoading && (
+                    <div className="text-[10px] text-secondary-500 mt-2 px-1">Loading topics...</div>
+                  )}
+                  {!teacherProgressLoading && teacherProgressError && (
+                    <div className="text-[10px] text-error-600 mt-2 px-1">{teacherProgressError}</div>
+                  )}
+                  {!teacherProgressLoading && !teacherProgressError && (
+                    <div className="text-[10px] text-secondary-500 mt-2 px-1">
+                      Topics: <span className="font-medium text-secondary-700">{teacherProgressOptions.todo.length + teacherProgressOptions.inProgress.length + teacherProgressOptions.completed.length}</span>
+                    </div>
+                  )}
                 </div>
 
-                {selectedSubject && (
+                {teacherSelectedBook && (
                   <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
                     <div>
                       <label className="flex items-center gap-2 text-[10px] font-bold text-secondary-500 mb-2 uppercase tracking-widest">
@@ -1118,12 +1164,16 @@ const AIChatPage = () => {
                       </label>
                       <div className="relative">
                         <select 
-                          value={feedbackStatus.todo}
-                          onChange={(e) => updateCurrentSubjectState({ status: { ...feedbackStatus, todo: e.target.value } })}
+                          value={teacherFeedbackStatus.todo}
+                          onChange={(e) => setTeacherFeedbackStatus(prev => ({ ...prev, todo: e.target.value }))}
                           className="w-full pl-3 pr-10 py-2.5 bg-white border border-secondary-200 rounded-xl text-sm text-secondary-700 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none appearance-none transition-all cursor-pointer hover:border-primary-300"
+                          disabled={teacherProgressLoading}
                         >
-                          <option value="">Select Status</option>
-                          {todoOptions.map(opt => (
+                          <option value="">Select Topic</option>
+                          {!teacherProgressLoading && teacherProgressOptions.todo.length === 0 && (
+                            <option value="" disabled>No topics</option>
+                          )}
+                          {teacherProgressOptions.todo.map(opt => (
                             <option key={opt.value} value={opt.value}>{opt.label}</option>
                           ))}
                         </select>
@@ -1138,15 +1188,16 @@ const AIChatPage = () => {
                       </label>
                       <div className="relative">
                         <select 
-                          value={feedbackStatus.inProgress}
-                          onChange={(e) => updateCurrentSubjectState({ status: { ...feedbackStatus, inProgress: e.target.value } })}
+                          value={teacherFeedbackStatus.inProgress}
+                          onChange={(e) => setTeacherFeedbackStatus(prev => ({ ...prev, inProgress: e.target.value }))}
                           className="w-full pl-3 pr-10 py-2.5 bg-white border border-secondary-200 rounded-xl text-sm text-secondary-700 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none appearance-none transition-all cursor-pointer hover:border-primary-300"
+                          disabled={teacherProgressLoading}
                         >
-                          <option value="">Select Status</option>
-                          {feedbackStatus.inProgress && !IN_PROGRESS_OPTIONS.find(o => o.value === feedbackStatus.inProgress) && (
-                            <option value={feedbackStatus.inProgress}>{feedbackStatus.inProgress}</option>
+                          <option value="">Select Topic</option>
+                          {!teacherProgressLoading && teacherProgressOptions.inProgress.length === 0 && (
+                            <option value="" disabled>No topics</option>
                           )}
-                          {IN_PROGRESS_OPTIONS.map(opt => (
+                          {teacherProgressOptions.inProgress.map(opt => (
                             <option key={opt.value} value={opt.value}>{opt.label}</option>
                           ))}
                         </select>
@@ -1161,12 +1212,16 @@ const AIChatPage = () => {
                       </label>
                       <div className="relative">
                         <select 
-                          value={feedbackStatus.completed}
-                          onChange={(e) => updateCurrentSubjectState({ status: { ...feedbackStatus, completed: e.target.value } })}
+                          value={teacherFeedbackStatus.completed}
+                          onChange={(e) => setTeacherFeedbackStatus(prev => ({ ...prev, completed: e.target.value }))}
                           className="w-full pl-3 pr-10 py-2.5 bg-white border border-secondary-200 rounded-xl text-sm text-secondary-700 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none appearance-none transition-all cursor-pointer hover:border-primary-300"
+                          disabled={teacherProgressLoading}
                         >
-                          <option value="">Select Status</option>
-                          {COMPLETED_OPTIONS.map(opt => (
+                          <option value="">Select Topic</option>
+                          {!teacherProgressLoading && teacherProgressOptions.completed.length === 0 && (
+                            <option value="" disabled>No topics</option>
+                          )}
+                          {teacherProgressOptions.completed.map(opt => (
                             <option key={opt.value} value={opt.value}>{opt.label}</option>
                           ))}
                         </select>
@@ -1201,8 +1256,8 @@ const AIChatPage = () => {
                       ? (selectedCurriculum 
                         ? `${CURRICULUM_BOOKS.find(b => b.value === selectedCurriculum)?.label}`
                         : 'AI Learning Assistant')
-                      : (selectedSubject
-                        ? `Feedback: ${subjects.find(s => String(s.subject_id) === String(selectedSubject))?.subject_name}`
+                      : (teacherSelectedBook
+                        ? `Feedback: ${CURRICULUM_BOOKS.find(b => b.value === teacherSelectedBook)?.label || teacherSelectedBook}`
                         : 'Teacher Feedback Assistant')
                     }
                   </h1>
@@ -1227,8 +1282,8 @@ const AIChatPage = () => {
                           ? (selectedCurriculum 
                             ? `Ask me anything about ${CURRICULUM_BOOKS.find(b => b.value === selectedCurriculum)?.label}`
                             : "Welcome to AI Learning Assistant")
-                          : (selectedSubject
-                            ? `I'm ready to provide feedback on ${subjects.find(s => String(s.subject_id) === String(selectedSubject))?.subject_name}`
+                          : (teacherSelectedBook
+                            ? `I'm ready to provide feedback on ${CURRICULUM_BOOKS.find(b => b.value === teacherSelectedBook)?.label || teacherSelectedBook}`
                             : "Welcome to Teacher Feedback Assistant")
                         }
                       </h3>
@@ -1237,20 +1292,20 @@ const AIChatPage = () => {
                           Please select a book to start new chat or select recent chat to view past chats
                         </p>
                       )}
-                      {activeView === 'teacher-feedback' && !selectedSubject && (
+                      {activeView === 'teacher-feedback' && !teacherSelectedBook && (
                         <p className="text-sm text-secondary-500 mt-2">
-                          Please select a subject to get started with teacher feedback
+                          Please select a curriculum book to get started with teacher feedback
                         </p>
                       )}
-                      {activeView === 'teacher-feedback' && selectedSubject && feedbackStatus.todo && (
+                      {activeView === 'teacher-feedback' && teacherSelectedBook && teacherFeedbackStatus.todo && (
                         <div className="mt-6 p-6 bg-white border border-primary-200 rounded-2xl shadow-sm animate-in zoom-in-95 duration-300 max-w-sm mx-auto">
                           <p className="text-secondary-700 font-medium mb-4">
                             Click start to learn about <span className="text-primary-600 font-bold underline decoration-primary-200 underline-offset-4">
-                              {todoOptions.find(o => o.value === feedbackStatus.todo)?.label}
+                              {teacherProgressOptions.todo.find(o => o.value === teacherFeedbackStatus.todo)?.label}
                             </span>
                           </p>
                           <button
-                            onClick={() => handleStartFeedback(todoOptions.find(o => o.value === feedbackStatus.todo)?.label)}
+                            onClick={() => handleStartFeedback(teacherProgressOptions.todo.find(o => o.value === teacherFeedbackStatus.todo)?.label)}
                             className="w-full py-3 px-6 bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 group"
                           >
                             <Sparkles className="w-5 h-5 group-hover:animate-pulse" />
@@ -1346,6 +1401,30 @@ const AIChatPage = () => {
                     <button
                       type="submit"
                       disabled={isLoading || !selfInput.trim() || !selectedCurriculum}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <Send className="w-4 h-4" />
+                    </button>
+                  </form>
+                  <p className="text-[10px] text-center text-secondary-400 mt-2">
+                    AI can make mistakes. Verify important information.
+                  </p>
+                </div>
+              )}
+              {activeView === 'teacher-feedback' && (
+                <div className="p-3 md:p-4 bg-white border-t border-secondary-100">
+                  <form onSubmit={handleSubmit} className="relative">
+                    <input
+                      type="text"
+                      value={teacherInput}
+                      onChange={(e) => setTeacherInput(e.target.value)}
+                      placeholder="Ask for feedback..."
+                      className="w-full pl-4 pr-12 py-3 bg-secondary-50 border border-secondary-200 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all"
+                      disabled={isLoading || !teacherSelectedBook}
+                    />
+                    <button
+                      type="submit"
+                      disabled={isLoading || !teacherInput.trim() || !teacherSelectedBook}
                       className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                       <Send className="w-4 h-4" />

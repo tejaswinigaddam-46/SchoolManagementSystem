@@ -4,7 +4,7 @@ import config from '../config/env.config'
 
 const aiApiClient = axios.create({
   baseURL: config.aiApiUrl,
-  timeout: 10000,
+  timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -29,6 +29,20 @@ const getTenantIdFromAuth = () => {
 
 aiApiClient.interceptors.request.use(
   (reqConfig) => {
+    const url = String(reqConfig.url || '')
+
+    if (reqConfig.timeout == null) {
+      reqConfig.timeout = 30000
+    }
+
+    if (url.includes('/ai/query')) {
+      reqConfig.timeout = Math.max(Number(reqConfig.timeout) || 0, 60000)
+    }
+
+    if (config.aiApiKey) {
+      reqConfig.headers['X-API-KEY'] = config.aiApiKey
+    }
+
     const token = sessionStorage.getItem('accessToken')
     if (token) {
       reqConfig.headers.Authorization = `Bearer ${token}`
@@ -161,7 +175,13 @@ aiApiClient.interceptors.response.use(
       toast.error('Server error. Please try again later.')
     }
 
-    if (!error.response && !suppress) {
+    const isTimeout =
+      error.code === 'ECONNABORTED' ||
+      String(error.message || '').toLowerCase().includes('timeout')
+
+    if (isTimeout && !suppress) {
+      toast.error('Request timed out. Please try again.')
+    } else if (!error.response && !suppress) {
       toast.error('Network error. Please check your connection.')
     }
 

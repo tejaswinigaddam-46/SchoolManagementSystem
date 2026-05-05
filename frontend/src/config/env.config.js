@@ -13,6 +13,10 @@ const env = {
   googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
   analyticsId: import.meta.env.VITE_ANALYTICS_ID,
   aiApiUrl: import.meta.env.VITE_API_AI_URL,
+  aiApiKey:
+    import.meta.env.VITE_AI_API_KEY ||
+    import.meta.env.VITE_X_API_KEY ||
+    import.meta.env.VITE_API_KEY,
   isDev: import.meta.env.DEV,
   isProd: import.meta.env.PROD,
 };
