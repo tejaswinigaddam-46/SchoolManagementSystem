@@ -601,15 +601,121 @@ const AIChatPage = () => {
     scrollToBottom();
   }, [activeView, selfMessages, teacherMessages]);
 
-  const handleStartFeedback = (topic) => {
-    const safeTopic = String(topic || '').trim();
-    if (!safeTopic) return;
-    const prompt = `I want to learn about: ${safeTopic}`;
-    setTeacherInput(prompt);
-    setTimeout(() => {
-      const fakeEvent = { preventDefault: () => {} };
-      handleSubmit(fakeEvent, prompt);
-    }, 100);
+  const formatFeedbackOverview = (rawResponse, fallbackTopic) => {
+    const root = rawResponse?.data?.data ?? rawResponse?.data ?? rawResponse
+    const answer = root?.answer ?? root
+    const topic = String(answer?.topic ?? fallbackTopic ?? '').trim()
+    const answerPlan = Array.isArray(answer?.answer_plan) ? answer.answer_plan : null
+
+    if (typeof answer === 'string') return answer
+
+    if (answerPlan) {
+      const heading = topic ? `### ${topic}` : '### Learning Plan'
+      const items = answerPlan
+        .map((p) => String(p?.subtopic ?? '').trim())
+        .filter(Boolean)
+        .map((sub) => `- ${sub}`)
+        .join('\n')
+
+      if (items) return `${heading}\n\n${items}`
+      return `${heading}\n\nI created a learning plan, but it was empty.`
+    }
+
+    try {
+      return JSON.stringify(root ?? rawResponse ?? { topic: fallbackTopic }, null, 2)
+    } catch (e) {
+      return `Learning overview generated for ${topic || fallbackTopic || 'your topic'}.`
+    }
+  }
+
+  const handleStartFeedback = async (topic) => {
+    const safeTopic = String(topic || '').trim()
+    if (!safeTopic) return
+    if (!teacherSelectedBook) {
+      toast.error('Please select a curriculum book first')
+      return
+    }
+
+    const userMessageId = Date.now()
+    const userMessageText = `Start learning: ${safeTopic}`
+    const userMessage = {
+      id: userMessageId,
+      text: userMessageText,
+      sender: 'user',
+      timestamp: new Date(),
+    }
+
+    setTeacherMessages((prev) => [...prev, userMessage])
+    setTeacherIsLoading(true)
+    setTeacherLoadingStatus('Creating overview...')
+
+    try {
+      const userMsgResponse = await conversationService.createMessage({
+        content: userMessageText,
+        role: 'user',
+        conversation_id: teacherConversationId,
+        curriculum_book_name: teacherSelectedBook,
+        title: userMessageText.substring(0, 30)
+      })
+
+      if (!teacherConversationId && userMsgResponse?.conversation_id) {
+        setTeacherConversationId(userMsgResponse.conversation_id)
+      }
+
+      const conversationIdToUse = teacherConversationId || userMsgResponse?.conversation_id || null
+
+      setTeacherLoadingStatus('Fetching AI plan...')
+      const overviewResponse = await aiService.feedbackOverview(
+        safeTopic,
+        teacherSelectedBook,
+        5,
+        conversationIdToUse
+      )
+
+      const overviewText = formatFeedbackOverview(overviewResponse, safeTopic)
+
+      setTeacherLoadingStatus('Saving AI response...')
+      await conversationService.createMessage({
+        content: typeof overviewResponse === 'object' ? JSON.stringify(overviewResponse) : String(overviewResponse ?? ''),
+        role: 'assistant',
+        conversation_id: conversationIdToUse,
+        curriculum_book_name: teacherSelectedBook,
+        summary: String(overviewText || '').substring(0, 200),
+        title: `Overview: ${safeTopic}`.substring(0, 50)
+      })
+
+      const assistantMessage = {
+        id: Date.now() + 1,
+        text: overviewText,
+        sender: 'ai',
+        timestamp: new Date(),
+      }
+
+      setTeacherMessages((prev) => [...prev, assistantMessage])
+
+      setTeacherLoadingStatus('Refreshing progress...')
+      await fetchTeacherProgress(teacherSelectedBook)
+      setTeacherFeedbackStatus((prev) => ({ ...prev, todo: '' }))
+    } catch (error) {
+      console.error('Feedback Overview Error:', error)
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to generate feedback overview'
+      toast.error(message)
+
+      const errorMessage = {
+        id: Date.now() + 1,
+        text: message,
+        sender: 'ai',
+        isError: true,
+        timestamp: new Date(),
+      }
+      setTeacherMessages((prev) => [...prev, errorMessage])
+    } finally {
+      setTeacherIsLoading(false)
+      setTeacherLoadingStatus('')
+    }
   };
 
   const handleRecentChatChange = async (convId) => {
