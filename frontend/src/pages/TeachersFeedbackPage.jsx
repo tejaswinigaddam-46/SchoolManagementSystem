@@ -4,6 +4,7 @@ import Card from '../components/ui/Card';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import Badge from '../components/ui/Badge';
 import questionService from '../services/questionService';
+import aiService from '../services/aiService';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -104,6 +105,30 @@ const TeachersFeedbackPage = ({ selectedBook }) => {
     if (!stillExists) setSelectedInProgressTopic('');
   }, [grouped, selectedInProgressTopic]);
 
+  const handleStartInProgress = useCallback(async () => {
+    if (!selectedBook) {
+      toast.error('Please select a curriculum book first');
+      return;
+    }
+
+    const raw = String(selectedInProgressTopic || '').trim();
+    if (!raw) return;
+
+    const cleaned = raw.replace(/^topic\s*:\s*/i, '').trim();
+    const questionText = `Topic:${cleaned || raw}`;
+
+    try {
+      await aiService.query(questionText, selectedBook);
+      toast.success(`Started learning: ${raw}`);
+    } catch (error) {
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to start learning';
+      toast.error(message);
+    }
+  }, [selectedBook, selectedInProgressTopic]);
+
   const renderGroup = (title, key) => {
     const items = grouped[key] || [];
     return (
@@ -140,7 +165,7 @@ const TeachersFeedbackPage = ({ selectedBook }) => {
             {selectedInProgressTopic ? (
               <button
                 type="button"
-                onClick={() => toast.success(`Start learning: ${selectedInProgressTopic}`)}
+                onClick={handleStartInProgress}
                 className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all border shadow-sm bg-primary-600 text-white border-primary-600 hover:bg-primary-700"
               >
                 Start Learning "{selectedInProgressTopic}"

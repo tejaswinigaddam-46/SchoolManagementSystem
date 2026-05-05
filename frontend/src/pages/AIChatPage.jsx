@@ -718,6 +718,134 @@ const AIChatPage = () => {
     }
   };
 
+  const handleStartInProgressLearning = async (subtopic) => {
+    const raw = String(subtopic || '').trim()
+    if (!raw) return
+    if (!teacherSelectedBook) {
+      toast.error('Please select a curriculum book first')
+      return
+    }
+
+    const cleaned = raw.replace(/^topic\s*:\s*/i, '').trim()
+    const questionText = `Topic:${cleaned || raw}`
+
+    const userMessageId = Date.now()
+    const userMessage = {
+      id: userMessageId,
+      text: questionText,
+      sender: 'user',
+      timestamp: new Date(),
+    }
+
+    setTeacherMessages((prev) => [...prev, userMessage])
+    setTeacherIsLoading(true)
+    setTeacherLoadingStatus('Fetching AI response...')
+
+    try {
+      const userMsgResponse = await conversationService.createMessage({
+        content: questionText,
+        role: 'user',
+        conversation_id: teacherConversationId,
+        curriculum_book_name: teacherSelectedBook,
+        title: questionText.substring(0, 30)
+      })
+
+      if (!teacherConversationId && userMsgResponse?.conversation_id) {
+        setTeacherConversationId(userMsgResponse.conversation_id)
+      }
+
+      const conversationIdToUse = teacherConversationId || userMsgResponse?.conversation_id || null
+
+      const response = await aiService.query(questionText, teacherSelectedBook, conversationIdToUse)
+
+      let structuredData = findStructuredData(response)
+      let textContent = ''
+
+      if (!structuredData && typeof response === 'string' && response.includes('status="refused"')) {
+        const messageMatch = response.match(/message="(.*?)"/)
+        structuredData = {
+          status: 'refused',
+          message: messageMatch ? messageMatch[1] : "I'm here to help you learn your subject. Let's focus on your lesson."
+        }
+      }
+
+      if (typeof response === 'string') {
+        const trimmed = response.trim()
+        if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+          try {
+            const parsed = JSON.parse(trimmed)
+            textContent = parsed.message || parsed.answer || parsed.response || parsed.text || ''
+          } catch (e) {}
+        } else {
+          textContent = response
+        }
+      } else if (typeof response === 'object' && response !== null) {
+        textContent = response.message || response.answer || response.response || response.text || ''
+      }
+
+      if (structuredData && !textContent) {
+        textContent = structuredData.message || structuredData.answer || "Here's your lesson breakdown:"
+      }
+
+      if (!textContent) {
+        textContent = typeof response === 'string' ? response : "I processed your request but couldn't format the response properly."
+      }
+
+      let aiSummary = ''
+      let aiTitle = ''
+      if (structuredData) {
+        aiSummary = structuredData.message || structuredData.answer || structuredData.simple_explanation || ''
+        aiTitle = structuredData.current_subtopic || 'AI Response'
+      }
+
+      setTeacherLoadingStatus('Saving AI response...')
+      await conversationService.createMessage({
+        content: typeof response === 'object' ? JSON.stringify(response) : response,
+        role: 'assistant',
+        conversation_id: conversationIdToUse,
+        curriculum_book_name: teacherSelectedBook,
+        summary: String(aiSummary || '').substring(0, 200),
+        title: String(aiTitle || '').substring(0, 50)
+      })
+
+      const assistantMessage = {
+        id: Date.now() + 1,
+        text: textContent,
+        sender: 'ai',
+        timestamp: new Date(),
+        structuredData: structuredData,
+        rawResponse: typeof response === 'object' ? JSON.stringify(response, null, 2) : response
+      }
+
+      setTeacherMessages((prev) => [...prev, assistantMessage])
+    } catch (error) {
+      console.error('AI Query Error:', error)
+      const isTimeout =
+        error?.code === 'ECONNABORTED' ||
+        String(error?.message || '').toLowerCase().includes('timeout')
+
+      toast.error(
+        isTimeout
+          ? 'AI request timed out. Please try again.'
+          : 'Failed to get response from AI. Please try again.'
+      )
+
+      const errorMessage = {
+        id: Date.now() + 1,
+        text: isTimeout
+          ? 'Sorry, the AI request timed out. Please try again.'
+          : 'Sorry, I encountered an error processing your request.',
+        sender: 'ai',
+        isError: true,
+        timestamp: new Date(),
+      }
+      setTeacherMessages((prev) => [...prev, errorMessage])
+    } finally {
+      setTeacherIsLoading(false)
+      setTeacherLoadingStatus('')
+    }
+  }
+
   const handleRecentChatChange = async (convId) => {
     if (!convId) {
       setSelectedRecentChat('');
@@ -1427,7 +1555,7 @@ const AIChatPage = () => {
                             </span>
                           </p>
                           <button
-                            onClick={() => handleStartFeedback(teacherProgressOptions.inProgress.find(o => o.value === teacherFeedbackStatus.inProgress)?.label)}
+                            onClick={() => handleStartInProgressLearning(teacherProgressOptions.inProgress.find(o => o.value === teacherFeedbackStatus.inProgress)?.label)}
                             className="w-full py-3 px-6 bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 group"
                           >
                             <Sparkles className="w-5 h-5 group-hover:animate-pulse" />
@@ -1442,7 +1570,7 @@ const AIChatPage = () => {
                     {activeView === 'teacher-feedback' && teacherSelectedBook && teacherFeedbackStatus.inProgress && (
                       <div className="p-4 bg-white border border-primary-200 rounded-2xl shadow-sm max-w-sm mx-auto">
                         <button
-                          onClick={() => handleStartFeedback(teacherProgressOptions.inProgress.find(o => o.value === teacherFeedbackStatus.inProgress)?.label)}
+                          onClick={() => handleStartInProgressLearning(teacherProgressOptions.inProgress.find(o => o.value === teacherFeedbackStatus.inProgress)?.label)}
                           className="w-full py-3 px-6 bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 group"
                         >
                           <Sparkles className="w-5 h-5 group-hover:animate-pulse" />
