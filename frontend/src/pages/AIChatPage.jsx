@@ -3,19 +3,40 @@ import {
   Send, Bot, User, Sparkles, BookOpen, Lightbulb, 
   Brain, Menu, ClipboardList, ArrowRight, 
   ChevronRight, CheckCircle2, XCircle, Info,
-  History, Book, ChevronDown, Trash2
+  History, Book, ChevronDown, Trash2, MessageSquare,
+  Clock, CheckCircle, ListTodo
 } from 'lucide-react';
 import Card from '../components/ui/Card';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import Badge from '../components/ui/Badge';
 import aiService from '../services/aiService';
 import conversationService from '../services/conversationService';
+import { subjectService } from '../services/subjectService';
+import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'react-hot-toast';
 
 const CURRICULUM_BOOKS = [
   { value: 'GOV_SSC_ENGLISH', label: 'SSC English' },
   { value: 'GOV_SSC_PHYSICS', label: 'SSC Physics' },
   { value: 'GOV_SSC_CHEMISTRY', label: 'SSC Chemistry' }
+];
+
+const TODO_OPTIONS = [
+  { value: 'not-started', label: 'Not Started' },
+  { value: 'planning', label: 'Planning' },
+  { value: 'gathering-resources', label: 'Gathering Resources' }
+];
+
+const IN_PROGRESS_OPTIONS = [
+  { value: 'lecturing', label: 'Lecturing' },
+  { value: 'practical-work', label: 'Practical Work' },
+  { value: 'reviewing', label: 'Reviewing' }
+];
+
+const COMPLETED_OPTIONS = [
+  { value: 'assessment-done', label: 'Assessment Done' },
+  { value: 'grades-posted', label: 'Grades Posted' },
+  { value: 'feedback-given', label: 'Feedback Given' }
 ];
 
 const MarkdownFallback = ({ text }) => {
@@ -451,6 +472,9 @@ const StructuredAIResponse = ({ data, fallbackText }) => {
  * Provides a ChatGPT-like interface for interacting with the AI backend.
  */
 const AIChatPage = () => {
+  const { getCampusId } = useAuth();
+  const campusId = getCampusId();
+  
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -460,31 +484,107 @@ const AIChatPage = () => {
   const [recentChats, setRecentChats] = useState([]);
   const [currentConversationId, setCurrentConversationId] = useState(null);
   const [isChatSidebarOpen, setIsChatSidebarOpen] = useState(false);
+  
+  // New states for tabs and teacher feedback
+  const [activeView, setActiveView] = useState('self-learning');
+  const [subjects, setSubjects] = useState([]);
+  const [selectedSubject, setSelectedSubject] = useState('');
+  
+  // Store per-subject feedback state
+  const [subjectFeedbackStates, setSubjectFeedbackStates] = useState({});
+
+  // Helper to get current subject's state
+  const getCurrentSubjectState = () => {
+    return subjectFeedbackStates[selectedSubject] || {
+      status: { todo: '', inProgress: '', completed: '' },
+      todoOptions: TODO_OPTIONS
+    };
+  };
+
+  const currentSubjectState = getCurrentSubjectState();
+  const feedbackStatus = currentSubjectState.status;
+  const todoOptions = currentSubjectState.todoOptions;
+
+  // Helper to update current subject's state
+  const updateCurrentSubjectState = (updates) => {
+    if (!selectedSubject) return;
+    setSubjectFeedbackStates(prev => ({
+      ...prev,
+      [selectedSubject]: {
+        ...getCurrentSubjectState(),
+        ...updates
+      }
+    }));
+  };
+
+  const handleStartFeedback = (topic) => {
+    const prompt = `I want to learn about: ${topic}`;
+    
+    const newTodoOptions = todoOptions.filter(opt => opt.label !== topic);
+    const newStatus = {
+      ...feedbackStatus,
+      todo: '',
+      inProgress: `${topic} Overview`
+    };
+
+    // Update subject-specific state
+    updateCurrentSubjectState({
+      status: newStatus,
+      todoOptions: newTodoOptions
+    });
+
+    setInput(prompt);
+    // Auto-submit after a brief delay to allow input state to update
+    setTimeout(() => {
+      const fakeEvent = { preventDefault: () => {} };
+      handleSubmit(fakeEvent, prompt);
+    }, 100);
+  };
+
   const messagesEndRef = useRef(null);
 
-  // Fetch recent chats on mount
+  // Fetch recent chats and subjects on mount
   useEffect(() => {
     fetchRecentChats();
-  }, []);
+    if (campusId) {
+      fetchSubjects();
+    }
+  }, [campusId]);
 
   const fetchRecentChats = async () => {
     try {
       const chats = await conversationService.listConversations();
-      console.log('Recent chats titles:', chats.map(chat => chat.title || 'Untitled Chat'));
       setRecentChats(chats);
-      
-      // Check if the currently selected chat still exists in the updated list
-      if (selectedRecentChat) {
-        const chatStillExists = chats.some(chat => chat.id === selectedRecentChat);
-        if (!chatStillExists) {
-          setSelectedRecentChat('');
-        }
-      }
     } catch (error) {
       console.error('Error fetching recent chats:', error);
-      // Don't show toast on initial load to avoid noise
     }
   };
+
+  const fetchSubjects = async () => {
+    try {
+      const response = await subjectService.getAllSubjects(campusId);
+      if (response.success) {
+        setSubjects(response.data.subjects || []);
+      }
+    } catch (error) {
+      console.error('Error fetching subjects:', error);
+    }
+  };
+
+  const tabs = [
+    {
+      id: 'self-learning',
+      name: 'Self Learning',
+      icon: Brain,
+      description: 'Learn subjects with AI assistance'
+    },
+    {
+      id: 'teacher-feedback',
+      name: 'Teachers Feedback',
+      icon: MessageSquare,
+      description: 'Get AI feedback on teaching progress'
+    }
+  ];
 
   // Auto-scroll to bottom of messages
   const scrollToBottom = () => {
@@ -627,11 +727,12 @@ const AIChatPage = () => {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!input.trim() || isLoading) return;
+  const handleSubmit = async (e, overrideInput) => {
+    if (e) e.preventDefault();
+    const queryToUse = overrideInput || input;
+    if (!queryToUse.trim() || isLoading) return;
 
-    const userMessageText = input;
+    const userMessageText = queryToUse;
     const userMessageId = Date.now();
     const userMessage = {
       id: userMessageId,
@@ -646,11 +747,28 @@ const AIChatPage = () => {
     setLoadingStatus('Saving message...');
 
     try {
-      if (!selectedCurriculum) {
-        toast.error('Please select a curriculum book first');
+      const currentSubject = activeView === 'self-learning' 
+        ? selectedCurriculum 
+        : subjects.find(s => String(s.subject_id) === String(selectedSubject))?.subject_name;
+
+      if (!currentSubject) {
+        toast.error(activeView === 'self-learning' ? 'Please select a curriculum book first' : 'Please select a subject first');
         setIsLoading(false);
         setLoadingStatus('');
         return;
+      }
+
+      // Add feedback context if in teacher-feedback mode
+      let enhancedQuery = userMessageText;
+      if (activeView === 'teacher-feedback') {
+        const statuses = [];
+        if (feedbackStatus.todo) statuses.push(`TODO: ${feedbackStatus.todo}`);
+        if (feedbackStatus.inProgress) statuses.push(`In Progress: ${feedbackStatus.inProgress}`);
+        if (feedbackStatus.completed) statuses.push(`Completed: ${feedbackStatus.completed}`);
+        
+        if (statuses.length > 0) {
+          enhancedQuery = `Context: Current teaching status for ${currentSubject}: ${statuses.join(', ')}. \n\nQuestion: ${userMessageText}`;
+        }
       }
 
       // 1. Save user message to database
@@ -658,7 +776,7 @@ const AIChatPage = () => {
         content: userMessageText,
         role: 'user',
         conversation_id: currentConversationId,
-        curriculum_book_name: selectedCurriculum,
+        curriculum_book_name: currentSubject,
         title: userMessageText.substring(0, 30)
       });
 
@@ -672,7 +790,7 @@ const AIChatPage = () => {
       setLoadingStatus('Fetching AI response...');
       
       // 2. Get AI response
-      const response = await aiService.query(userMessageText, selectedCurriculum);
+      const response = await aiService.query(enhancedQuery, currentSubject);
       console.log('Raw AI Response:', response);
       
       setLoadingStatus('Saving AI response...');
@@ -759,269 +877,438 @@ const AIChatPage = () => {
   };
 
   return (
-    <div className="relative flex h-[calc(100vh-180px)] bg-secondary-50 overflow-hidden rounded-2xl border border-secondary-200 shadow-sm">
-      {/* Sidebar - Mobile Overlay Backdrop */}
-      {isChatSidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black/60 z-[60] md:hidden backdrop-blur-sm"
-          onClick={() => setIsChatSidebarOpen(false)}
-        />
-      )}
-
-      {/* Sidebar */}
-      <div className={`
-        fixed inset-y-0 left-0 z-[70] w-[280px] bg-white border-r border-secondary-200 flex flex-col shadow-2xl transform transition-transform duration-300 ease-in-out
-        md:relative md:translate-x-0 md:shadow-sm md:w-72 md:z-30
-        ${isChatSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-      `}>
-        {/* Sidebar Header */}
-        <div className="p-4 md:p-6 border-b border-secondary-100 flex items-center justify-between bg-white sticky top-0 z-10">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary-600 rounded-lg text-white shadow-soft">
-              <Bot className="w-5 h-5 md:w-6 md:h-6" />
-            </div>
-            <div>
-              <h2 className="text-lg md:text-xl font-bold text-secondary-900 leading-none">AI Assistant</h2>
-              <div className="flex items-center gap-1.5 mt-1">
-                <div className="w-1.5 h-1.5 rounded-full bg-success-500 animate-pulse" />
-                <span className="text-[10px] text-success-600 font-bold uppercase tracking-widest">Online</span>
-              </div>
-            </div>
-          </div>
-          <button 
-            className="md:hidden p-2 text-secondary-400 hover:text-secondary-600 hover:bg-secondary-50 rounded-full transition-colors"
-            onClick={() => setIsChatSidebarOpen(false)}
-          >
-            <XCircle className="w-6 h-6" />
-          </button>
-        </div>
-
-        {/* Sidebar Content (Scrollable Area for future items) */}
-        <div className="flex-1 overflow-y-auto p-4">
-          <div className="text-[10px] font-bold text-secondary-400 uppercase tracking-widest px-2 mb-4">
-            Navigation
-          </div>
-          <button 
-            onClick={() => {
-              setCurrentConversationId(null);
-              setSelectedRecentChat('');
-              setMessages([]);
-              if (window.innerWidth < 768) setIsChatSidebarOpen(false);
-            }}
-            className="w-full flex items-center gap-3 px-3 py-2 text-sm text-primary-600 bg-primary-50 rounded-lg font-medium transition-colors hover:bg-primary-100"
-          >
-            <Sparkles className="w-4 h-4" />
-            New Learning Session
-          </button>
-        </div>
-
-        {/* Sidebar Bottom (Dropdowns) */}
-        <div className="p-4 border-t border-secondary-100 space-y-4 bg-secondary-50/50">
-          <div>
-            <label className="flex items-center gap-2 text-[10px] font-bold text-secondary-500 mb-2 uppercase tracking-widest">
-              <Book className="w-3 h-3" />
-              Curriculum Book
-            </label>
-            <div className="relative">
-              <select 
-                value={selectedCurriculum}
-                onChange={(e) => {
-                  setSelectedCurriculum(e.target.value);
-                  if (window.innerWidth < 768) setIsChatSidebarOpen(false);
-                }}
-                className="w-full pl-3 pr-10 py-2.5 bg-white border border-secondary-200 rounded-xl text-sm text-secondary-700 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none appearance-none transition-all cursor-pointer hover:border-primary-300"
-              >
-                <option value="">Select Book</option>
-                {CURRICULUM_BOOKS.map(book => (
-                  <option key={book.value} value={book.value}>{book.label}</option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary-400 pointer-events-none" />
-            </div>
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="flex items-center gap-2 text-[10px] font-bold text-secondary-500 uppercase tracking-widest">
-                <History className="w-3 h-3" />
-                Recent Chats
-              </label>
-              {selectedRecentChat && (
-                <button 
-                  onClick={() => handleDeleteConversation(selectedRecentChat)}
-                  className="text-error-500 hover:text-error-600 p-1 rounded-md hover:bg-error-50 transition-colors"
-                  title="Delete this conversation"
+    <div className="space-y-4 h-full flex flex-col">
+      {/* Tab Navigation - Based on AcademicManagementPage style */}
+      <div className="bg-white rounded-xl border border-secondary-200 shadow-sm overflow-hidden flex-shrink-0">
+        <div className="p-3 bg-secondary-50/30 overflow-x-auto no-scrollbar">
+          <div className="flex flex-nowrap md:w-full gap-4">
+            {tabs.map((tab) => {
+              const Icon = tab.icon
+              const isActive = activeView === tab.id
+              
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveView(tab.id)}
+                  className={`
+                    flex-1 flex flex-col items-center justify-center py-3 px-4 rounded-xl transition-all duration-300 border
+                    ${
+                      isActive
+                        ? 'bg-primary-50 text-primary-700 border-transparent shadow-md'
+                        : 'bg-white border-secondary-300 text-secondary-500 hover:bg-secondary-50 hover:border-secondary-300 hover:text-secondary-700'
+                    }
+                  `}
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
+                  <div className="flex items-center space-x-3">
+                    <Icon className={`h-5 w-5 ${isActive ? 'text-primary-600' : 'text-secondary-400'}`} />
+                    <span className={`font-bold text-sm tracking-wide ${isActive ? 'text-primary-900' : ''}`}>
+                      {tab.name}
+                    </span>
+                  </div>
+                  <span className={`text-xs mt-1 font-medium ${isActive ? 'text-primary-600' : 'text-secondary-400'}`}>
+                    {tab.description}
+                  </span>
                 </button>
-              )}
-            </div>
-            <div className="relative">
-              <select 
-                value={selectedRecentChat}
-                onChange={(e) => {
-                  handleRecentChatChange(e.target.value);
-                  if (window.innerWidth < 768) setIsChatSidebarOpen(false);
-                }}
-                className="w-full pl-3 pr-10 py-2.5 bg-white border border-secondary-200 rounded-xl text-sm text-secondary-700 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none appearance-none transition-all cursor-pointer hover:border-primary-300"
-              >
-                <option value="">Select a recent chat</option>
-                {recentChats.map(chat => (
-                  <option key={chat.id} value={chat.id}>{chat.title || 'Untitled Chat'}</option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary-400 pointer-events-none" />
-            </div>
+              )
+            })}
           </div>
         </div>
       </div>
 
-      {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col min-w-0 bg-white relative">
-        <div className="flex-1 flex flex-col max-w-5xl mx-auto w-full p-2 md:p-4 lg:p-6 overflow-hidden">
-          {/* Header */}
-          <div className="mb-2 md:mb-4 flex items-center justify-between px-2">
-            <div className="flex items-center gap-2 md:gap-3">
-              <button 
-                className="md:hidden p-2.5 bg-secondary-100 rounded-xl text-secondary-600 hover:bg-secondary-200 transition-colors"
-                onClick={() => setIsChatSidebarOpen(true)}
-              >
-                <Menu className="w-5 h-5" />
-              </button>
-              <div className="p-2 bg-primary-50 rounded-lg text-primary-600 hidden xs:block">
-                <Sparkles className="w-4 h-4 md:w-5 md:h-5" />
+      <div className="relative flex flex-1 bg-secondary-50 overflow-hidden rounded-2xl border border-secondary-200 shadow-sm min-h-0">
+        {/* Sidebar - Mobile Overlay Backdrop */}
+        {isChatSidebarOpen && (
+          <div 
+            className="fixed inset-0 bg-black/60 z-[60] md:hidden backdrop-blur-sm"
+            onClick={() => setIsChatSidebarOpen(false)}
+          />
+        )}
+
+        {/* Sidebar */}
+        <div className={`
+          fixed inset-y-0 left-0 z-[70] w-[280px] bg-white border-r border-secondary-200 flex flex-col shadow-2xl transform transition-transform duration-300 ease-in-out
+          md:relative md:translate-x-0 md:shadow-sm md:w-72 md:z-30
+          ${isChatSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        `}>
+          {/* Sidebar Header */}
+          <div className="p-4 md:p-6 border-b border-secondary-100 flex items-center justify-between bg-white sticky top-0 z-10">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-primary-600 rounded-lg text-white shadow-soft">
+                {activeView === 'self-learning' ? <Bot className="w-5 h-5 md:w-6 md:h-6" /> : <MessageSquare className="w-5 h-5 md:w-6 md:h-6" />}
               </div>
               <div>
-                <h1 className="text-base md:text-xl font-bold text-secondary-900 line-clamp-1">
-                  {selectedCurriculum 
-                    ? `${CURRICULUM_BOOKS.find(b => b.value === selectedCurriculum)?.label}`
-                    : 'AI Learning Assistant'}
-                </h1>
-                <p className="text-[10px] md:text-xs text-secondary-500 font-medium">Master your subjects with AI</p>
+                <h2 className="text-lg md:text-xl font-bold text-secondary-900 leading-none">
+                  {activeView === 'self-learning' ? 'AI Assistant' : 'Teacher Feed'}
+                </h2>
+                <div className="flex items-center gap-1.5 mt-1">
+                  <div className="w-1.5 h-1.5 rounded-full bg-success-500 animate-pulse" />
+                  <span className="text-[10px] text-success-600 font-bold uppercase tracking-widest">Online</span>
+                </div>
               </div>
             </div>
+            <button 
+              className="md:hidden p-2 text-secondary-400 hover:text-secondary-600 hover:bg-secondary-50 rounded-full transition-colors"
+              onClick={() => setIsChatSidebarOpen(false)}
+            >
+              <XCircle className="w-6 h-6" />
+            </button>
           </div>
 
-          {/* Chat Messages Area */}
-          <Card className="flex-1 flex flex-col overflow-hidden bg-secondary-50/30 border-secondary-200 rounded-xl md:rounded-2xl shadow-inner">
-            <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-4">
-              {messages.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-center p-4 md:p-8 space-y-4">
-                  <div className="w-12 h-12 md:w-16 md:h-16 bg-white rounded-full flex items-center justify-center shadow-soft border border-secondary-100 text-primary-500">
-                    <Bot className="w-8 h-8 md:w-10 md:h-10" />
+          {/* Sidebar Content (Scrollable Area) */}
+          <div className="flex-1 overflow-y-auto p-4">
+            <div className="text-[10px] font-bold text-secondary-400 uppercase tracking-widest px-2 mb-4">
+              Navigation
+            </div>
+            <button 
+              onClick={() => {
+                setCurrentConversationId(null);
+                setSelectedRecentChat('');
+                setMessages([]);
+                if (window.innerWidth < 768) setIsChatSidebarOpen(false);
+              }}
+              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-primary-600 bg-primary-50 rounded-lg font-medium transition-colors hover:bg-primary-100"
+            >
+              <Sparkles className="w-4 h-4" />
+              {activeView === 'self-learning' ? 'New Learning Session' : 'New Feedback Session'}
+            </button>
+          </div>
+
+          {/* Sidebar Bottom (Dropdowns) */}
+          <div className="p-4 border-t border-secondary-100 space-y-4 bg-secondary-50/50">
+            {activeView === 'self-learning' ? (
+              <>
+                <div>
+                  <label className="flex items-center gap-2 text-[10px] font-bold text-secondary-500 mb-2 uppercase tracking-widest">
+                    <Book className="w-3 h-3" />
+                    Curriculum Book
+                  </label>
+                  <div className="relative">
+                    <select 
+                      value={selectedCurriculum}
+                      onChange={(e) => {
+                        setSelectedCurriculum(e.target.value);
+                        if (window.innerWidth < 768) setIsChatSidebarOpen(false);
+                      }}
+                      className="w-full pl-3 pr-10 py-2.5 bg-white border border-secondary-200 rounded-xl text-sm text-secondary-700 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none appearance-none transition-all cursor-pointer hover:border-primary-300"
+                    >
+                      <option value="">Select Book</option>
+                      {CURRICULUM_BOOKS.map(book => (
+                        <option key={book.value} value={book.value}>{book.label}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary-400 pointer-events-none" />
                   </div>
-                  <div className="max-w-md">
-                    <h3 className="text-base md:text-lg font-semibold text-secondary-800">
-                      {selectedCurriculum 
-                        ? `Ask me anything about ${CURRICULUM_BOOKS.find(b => b.value === selectedCurriculum)?.label}`
-                        : "Welcome to AI Assistant"}
-                    </h3>
-                    {!selectedCurriculum && (
-                      <p className="text-sm text-secondary-500 mt-2">
-                        Please select a book to start new chat or select recent chat to view past chats
-                      </p>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="flex items-center gap-2 text-[10px] font-bold text-secondary-500 uppercase tracking-widest">
+                      <History className="w-3 h-3" />
+                      Recent Chats
+                    </label>
+                    {selectedRecentChat && (
+                      <button 
+                        onClick={() => handleDeleteConversation(selectedRecentChat)}
+                        className="text-error-500 hover:text-error-600 p-1 rounded-md hover:bg-error-50 transition-colors"
+                        title="Delete this conversation"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     )}
                   </div>
+                  <div className="relative">
+                    <select 
+                      value={selectedRecentChat}
+                      onChange={(e) => {
+                        handleRecentChatChange(e.target.value);
+                        if (window.innerWidth < 768) setIsChatSidebarOpen(false);
+                      }}
+                      className="w-full pl-3 pr-10 py-2.5 bg-white border border-secondary-200 rounded-xl text-sm text-secondary-700 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none appearance-none transition-all cursor-pointer hover:border-primary-300"
+                    >
+                      <option value="">Select a recent chat</option>
+                      {recentChats.map(chat => (
+                        <option key={chat.id} value={chat.id}>{chat.title || 'Untitled Chat'}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary-400 pointer-events-none" />
+                  </div>
                 </div>
-              ) : (
-                messages.map((msg) => (
-                  <div
-                    key={msg.id}
-                    className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-                  >
+              </>
+            ) : (
+              <>
+                {/* Teacher Feedback Sidebar Content */}
+                <div>
+                  <label className="flex items-center gap-2 text-[10px] font-bold text-secondary-500 mb-2 uppercase tracking-widest">
+                    <BookOpen className="w-3 h-3" />
+                    Subject
+                  </label>
+                  <div className="relative">
+                    <select 
+                      value={selectedSubject}
+                      onChange={(e) => {
+                        setSelectedSubject(e.target.value);
+                        if (window.innerWidth < 768) setIsChatSidebarOpen(false);
+                      }}
+                      className="w-full pl-3 pr-10 py-2.5 bg-white border border-secondary-200 rounded-xl text-sm text-secondary-700 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none appearance-none transition-all cursor-pointer hover:border-primary-300"
+                    >
+                      <option value="">Select Subject</option>
+                      {subjects.map(subject => (
+                        <option key={subject.subject_id} value={subject.subject_id}>{subject.subject_name}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary-400 pointer-events-none" />
+                  </div>
+                </div>
+
+                {selectedSubject && (
+                  <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <div>
+                      <label className="flex items-center gap-2 text-[10px] font-bold text-secondary-500 mb-2 uppercase tracking-widest">
+                        <ListTodo className="w-3 h-3 text-amber-500" />
+                        TODO
+                      </label>
+                      <div className="relative">
+                        <select 
+                          value={feedbackStatus.todo}
+                          onChange={(e) => updateCurrentSubjectState({ status: { ...feedbackStatus, todo: e.target.value } })}
+                          className="w-full pl-3 pr-10 py-2.5 bg-white border border-secondary-200 rounded-xl text-sm text-secondary-700 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none appearance-none transition-all cursor-pointer hover:border-primary-300"
+                        >
+                          <option value="">Select Status</option>
+                          {todoOptions.map(opt => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                          ))}
+                        </select>
+                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary-400 pointer-events-none" />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="flex items-center gap-2 text-[10px] font-bold text-secondary-500 mb-2 uppercase tracking-widest">
+                        <Clock className="w-3 h-3 text-primary-500" />
+                        In Progress
+                      </label>
+                      <div className="relative">
+                        <select 
+                          value={feedbackStatus.inProgress}
+                          onChange={(e) => updateCurrentSubjectState({ status: { ...feedbackStatus, inProgress: e.target.value } })}
+                          className="w-full pl-3 pr-10 py-2.5 bg-white border border-secondary-200 rounded-xl text-sm text-secondary-700 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none appearance-none transition-all cursor-pointer hover:border-primary-300"
+                        >
+                          <option value="">Select Status</option>
+                          {feedbackStatus.inProgress && !IN_PROGRESS_OPTIONS.find(o => o.value === feedbackStatus.inProgress) && (
+                            <option value={feedbackStatus.inProgress}>{feedbackStatus.inProgress}</option>
+                          )}
+                          {IN_PROGRESS_OPTIONS.map(opt => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                          ))}
+                        </select>
+                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary-400 pointer-events-none" />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="flex items-center gap-2 text-[10px] font-bold text-secondary-500 mb-2 uppercase tracking-widest">
+                        <CheckCircle className="w-3 h-3 text-primary-500" />
+                        Completed
+                      </label>
+                      <div className="relative">
+                        <select 
+                          value={feedbackStatus.completed}
+                          onChange={(e) => updateCurrentSubjectState({ status: { ...feedbackStatus, completed: e.target.value } })}
+                          className="w-full pl-3 pr-10 py-2.5 bg-white border border-secondary-200 rounded-xl text-sm text-secondary-700 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none appearance-none transition-all cursor-pointer hover:border-primary-300"
+                        >
+                          <option value="">Select Status</option>
+                          {COMPLETED_OPTIONS.map(opt => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                          ))}
+                        </select>
+                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary-400 pointer-events-none" />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Main Chat Area */}
+        <div className="flex-1 flex flex-col min-w-0 bg-white relative">
+          <div className="flex-1 flex flex-col max-w-5xl mx-auto w-full p-2 md:p-4 lg:p-6 overflow-hidden">
+            {/* Header */}
+            <div className="mb-2 md:mb-4 flex items-center justify-between px-2">
+              <div className="flex items-center gap-2 md:gap-3">
+                <button 
+                  className="md:hidden p-2.5 bg-secondary-100 rounded-xl text-secondary-600 hover:bg-secondary-200 transition-colors"
+                  onClick={() => setIsChatSidebarOpen(true)}
+                >
+                  <Menu className="w-5 h-5" />
+                </button>
+                <div className="p-2 bg-primary-50 rounded-lg text-primary-600 hidden xs:block">
+                  <Sparkles className="w-4 h-4 md:w-5 md:h-5" />
+                </div>
+                <div>
+                  <h1 className="text-base md:text-xl font-bold text-secondary-900 line-clamp-1">
+                    {activeView === 'self-learning' 
+                      ? (selectedCurriculum 
+                        ? `${CURRICULUM_BOOKS.find(b => b.value === selectedCurriculum)?.label}`
+                        : 'AI Learning Assistant')
+                      : (selectedSubject
+                        ? `Feedback: ${subjects.find(s => String(s.subject_id) === String(selectedSubject))?.subject_name}`
+                        : 'Teacher Feedback Assistant')
+                    }
+                  </h1>
+                  <p className="text-[10px] md:text-xs text-secondary-500 font-medium">
+                    {activeView === 'self-learning' ? 'Master your subjects with AI' : 'Optimize your teaching with AI insights'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Chat Messages Area */}
+            <Card className="flex-1 flex flex-col overflow-hidden bg-secondary-50/30 border-secondary-200 rounded-xl md:rounded-2xl shadow-inner">
+              <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-4">
+                {messages.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-center p-4 md:p-8 space-y-4">
+                    <div className="w-12 h-12 md:w-16 md:h-16 bg-white rounded-full flex items-center justify-center shadow-soft border border-secondary-100 text-primary-500">
+                      {activeView === 'self-learning' ? <Bot className="w-8 h-8 md:w-10 md:h-10" /> : <MessageSquare className="w-8 h-8 md:w-10 md:h-10" />}
+                    </div>
+                    <div className="max-w-md">
+                      <h3 className="text-base md:text-lg font-semibold text-secondary-800">
+                        {activeView === 'self-learning'
+                          ? (selectedCurriculum 
+                            ? `Ask me anything about ${CURRICULUM_BOOKS.find(b => b.value === selectedCurriculum)?.label}`
+                            : "Welcome to AI Learning Assistant")
+                          : (selectedSubject
+                            ? `I'm ready to provide feedback on ${subjects.find(s => String(s.subject_id) === String(selectedSubject))?.subject_name}`
+                            : "Welcome to Teacher Feedback Assistant")
+                        }
+                      </h3>
+                      {activeView === 'self-learning' && !selectedCurriculum && (
+                        <p className="text-sm text-secondary-500 mt-2">
+                          Please select a book to start new chat or select recent chat to view past chats
+                        </p>
+                      )}
+                      {activeView === 'teacher-feedback' && !selectedSubject && (
+                        <p className="text-sm text-secondary-500 mt-2">
+                          Please select a subject to get started with teacher feedback
+                        </p>
+                      )}
+                      {activeView === 'teacher-feedback' && selectedSubject && feedbackStatus.todo && (
+                        <div className="mt-6 p-6 bg-white border border-primary-200 rounded-2xl shadow-sm animate-in zoom-in-95 duration-300 max-w-sm mx-auto">
+                          <p className="text-secondary-700 font-medium mb-4">
+                            Click start to learn about <span className="text-primary-600 font-bold underline decoration-primary-200 underline-offset-4">
+                              {todoOptions.find(o => o.value === feedbackStatus.todo)?.label}
+                            </span>
+                          </p>
+                          <button
+                            onClick={() => handleStartFeedback(todoOptions.find(o => o.value === feedbackStatus.todo)?.label)}
+                            className="w-full py-3 px-6 bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 group"
+                          >
+                            <Sparkles className="w-5 h-5 group-hover:animate-pulse" />
+                            Start Learning
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  messages.map((msg) => (
                     <div
-                      className={`flex gap-2 md:gap-3 ${
-                        msg.sender === 'user' ? 'flex-row-reverse max-w-[90%] md:max-w-[80%]' : 'flex-row max-w-[95%] md:max-w-[90%]'
-                      }`}
+                      key={msg.id}
+                      className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
                     >
                       <div
-                        className={`flex-shrink-0 w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center text-white ${
-                          msg.sender === 'user' ? 'bg-primary-500' : msg.isError ? 'bg-error-500' : 'bg-secondary-600'
+                        className={`flex gap-2 md:gap-3 ${
+                          msg.sender === 'user' ? 'flex-row-reverse max-w-[90%] md:max-w-[80%]' : 'flex-row max-w-[95%] md:max-w-[90%]'
                         }`}
                       >
-                        {msg.sender === 'user' ? <User className="w-4 h-4 md:w-5 md:h-5" /> : <Bot className="w-4 h-4 md:w-5 md:h-5" />}
-                      </div>
-                      <div
-                        className={`p-3 md:p-4 rounded-xl md:rounded-2xl shadow-sm text-xs md:text-sm relative group ${
-                          msg.sender === 'user'
-                            ? 'bg-primary-600 text-white rounded-tr-none'
-                            : 'bg-white border border-secondary-100 text-secondary-800 rounded-tl-none w-full'
-                        }`}
-                      >
-                        {/* Delete Message Button */}
-                        <button
-                          onClick={() => handleDeleteMessage(msg.id)}
-                          className={`absolute top-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-black/5 ${
-                            msg.sender === 'user' ? '-left-8 text-secondary-400' : '-right-8 text-secondary-400'
+                        <div
+                          className={`flex-shrink-0 w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center text-white ${
+                            msg.sender === 'user' ? 'bg-primary-500' : msg.isError ? 'bg-error-500' : 'bg-secondary-600'
                           }`}
-                          title="Delete message"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                          {msg.sender === 'user' ? <User className="w-4 h-4 md:w-5 md:h-5" /> : <Bot className="w-4 h-4 md:w-5 md:h-5" />}
+                        </div>
+                        <div
+                          className={`p-3 md:p-4 rounded-xl md:rounded-2xl shadow-sm text-xs md:text-sm relative group ${
+                            msg.sender === 'user'
+                              ? 'bg-primary-600 text-white rounded-tr-none'
+                              : 'bg-white border border-secondary-100 text-secondary-800 rounded-tl-none w-full'
+                          }`}
+                        >
+                          {/* Delete Message Button */}
+                          <button
+                            onClick={() => handleDeleteMessage(msg.id)}
+                            className={`absolute top-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-black/5 ${
+                              msg.sender === 'user' ? '-left-8 text-secondary-400' : '-right-8 text-secondary-400'
+                            }`}
+                            title="Delete message"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
 
-                        {msg.structuredData ? (
-                          <StructuredAIResponse data={msg.structuredData} fallbackText={msg.text} />
-                        ) : msg.sender === 'ai' ? (
-                          <MarkdownFallback text={msg.text} />
-                        ) : (
-                          <p className="whitespace-pre-wrap">{msg.text}</p>
-                        )}
-                        <span
-                          className={`text-[9px] md:text-[10px] mt-2 block opacity-60 ${
-                            msg.sender === 'user' ? 'text-right' : 'text-left'
-                          }`}
-                        >
-                          {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
+                          {msg.structuredData ? (
+                            <StructuredAIResponse data={msg.structuredData} fallbackText={msg.text} />
+                          ) : msg.sender === 'ai' ? (
+                            <MarkdownFallback text={msg.text} />
+                          ) : (
+                            <p className="whitespace-pre-wrap">{msg.text}</p>
+                          )}
+                          <span
+                            className={`text-[9px] md:text-[10px] mt-2 block opacity-60 ${
+                              msg.sender === 'user' ? 'text-right' : 'text-left'
+                            }`}
+                          >
+                            {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+                {isLoading && (
+                  <div className="flex justify-start">
+                    <div className="flex max-w-[90%] md:max-w-[80%] gap-3">
+                      <div className="flex-shrink-0 w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center bg-secondary-600 text-white">
+                        <Bot className="w-4 h-4 md:w-5 md:h-5" />
+                      </div>
+                      <div className="bg-white border border-secondary-100 p-3 md:p-4 rounded-xl md:rounded-2xl rounded-tl-none shadow-sm flex items-center gap-3">
+                        <LoadingSpinner size="sm" color="primary" />
+                        <span className="text-xs text-secondary-500 animate-pulse">{loadingStatus}</span>
                       </div>
                     </div>
                   </div>
-                ))
-              )}
-              {isLoading && (
-                <div className="flex justify-start">
-                  <div className="flex max-w-[90%] md:max-w-[80%] gap-3">
-                    <div className="flex-shrink-0 w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center bg-secondary-600 text-white">
-                      <Bot className="w-4 h-4 md:w-5 md:h-5" />
-                    </div>
-                    <div className="bg-white border border-secondary-100 p-3 md:p-4 rounded-xl md:rounded-2xl rounded-tl-none shadow-sm flex items-center gap-3">
-                      <LoadingSpinner size="sm" color="primary" />
-                      <span className="text-xs text-secondary-500 animate-pulse">{loadingStatus}</span>
-                    </div>
-                  </div>
+                )}
+                <div ref={messagesEndRef} />
+              </div>
+
+              {/* Input Area */}
+              {activeView === 'self-learning' && (
+                <div className="p-3 md:p-4 bg-white border-t border-secondary-100">
+                  <form onSubmit={handleSubmit} className="relative">
+                    <input
+                      type="text"
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      placeholder="Ask about a topic..."
+                      className="w-full pl-4 pr-12 py-3 bg-secondary-50 border border-secondary-200 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all"
+                      disabled={isLoading || !selectedCurriculum}
+                    />
+                    <button
+                      type="submit"
+                      disabled={isLoading || !input.trim() || !selectedCurriculum}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <Send className="w-4 h-4" />
+                    </button>
+                  </form>
+                  <p className="text-[10px] text-center text-secondary-400 mt-2">
+                    AI can make mistakes. Verify important information.
+                  </p>
                 </div>
               )}
-              <div ref={messagesEndRef} />
-            </div>
-
-            {/* Input Area */}
-            <div className="p-3 md:p-4 bg-white border-t border-secondary-100">
-              <form onSubmit={handleSubmit} className="relative">
-                <input
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder={selectedCurriculum ? "Type your message here..." : "Select a book to start chatting"}
-                  className="w-full pl-4 pr-12 py-2.5 md:py-3 bg-secondary-100 border border-secondary-400 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all text-sm md:text-base text-secondary-800 disabled:opacity-60 disabled:cursor-not-allowed"
-                  disabled={isLoading || !selectedCurriculum}
-                />
-                <button
-                  type="submit"
-                  disabled={!input.trim() || isLoading || !selectedCurriculum}
-                  className={`absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg transition-all ${
-                    !input.trim() || isLoading || !selectedCurriculum
-                      ? 'text-secondary-400 cursor-not-allowed'
-                      : 'text-primary-600 hover:bg-primary-50'
-                  }`}
-                >
-                  <Send className="w-5 h-5" />
-                </button>
-              </form>
-              <p className="text-[9px] md:text-[10px] text-secondary-400 mt-2 text-center">
-                AI can make mistakes. Verify important information.
-              </p>
-            </div>
-          </Card>
+            </Card>
+          </div>
         </div>
       </div>
     </div>
