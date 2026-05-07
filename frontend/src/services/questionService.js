@@ -22,6 +22,13 @@ const getSubtopicProgressPath = (questionSubtopicsId) => {
     : `/api/v1/questions/subtopics/${id}/progress`
 }
 
+const getSubtopicRequestPath = () => {
+  const baseURL = String(aiApiClient?.defaults?.baseURL || '')
+  return baseURL.includes('/api/v1')
+    ? '/questions/subtopics/request'
+    : '/api/v1/questions/subtopics/request'
+}
+
 const questionService = {
   createQuestionAssignment: async (data) => {
     const response = await aiApi.post(getAssignmentsPath(), data);
@@ -49,7 +56,25 @@ const questionService = {
       { status }
     )
     return response.data
-  }
+  },
+
+  requestSubtopicAi: async (questionSubtopicsId, question = null) => {
+    const idNumber = Number(questionSubtopicsId)
+    if (!Number.isFinite(idNumber)) {
+      throw new Error('Invalid question_subtopics_id')
+    }
+    const payload = {
+      question_subtopics_id: idNumber,
+      question: question == null ? null : String(question),
+    }
+
+    const response = await aiApi.post(
+      getSubtopicRequestPath(),
+      payload,
+      { timeout: 60000, suppressErrorToast: true }
+    )
+    return response.data
+  },
 };
 
 export default questionService;

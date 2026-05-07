@@ -771,8 +771,13 @@ const AIChatPage = () => {
       }
 
       const conversationIdToUse = teacherConversationId || userMsgResponse?.conversation_id || null
+      if (!questionSubtopicsId) {
+        toast.error('Unable to determine question_subtopics_id for the selected topic')
+        return
+      }
 
-      const response = await aiService.query(questionText, teacherSelectedBook, conversationIdToUse)
+      const responseWrapper = await questionService.requestSubtopicAi(questionSubtopicsId, questionText)
+      const response = responseWrapper?.ai ?? responseWrapper
 
       let structuredData = findStructuredData(response)
       let textContent = ''
