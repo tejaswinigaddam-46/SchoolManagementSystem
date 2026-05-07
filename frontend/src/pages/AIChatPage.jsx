@@ -278,7 +278,7 @@ const QuizQuestion = ({ questionData, onAnswer }) => {
  * StructuredAIResponse Component
  * Renders the formatted JSON output from the AI.
  */
-const StructuredAIResponse = ({ data, fallbackText }) => {
+const StructuredAIResponse = ({ data, fallbackText, quizConversationId, quizKeyPrefix, onQuizAnswered }) => {
   if (!data) return <MarkdownFallback text={fallbackText} />;
 
   // Handle Refused Status
@@ -426,9 +426,18 @@ const StructuredAIResponse = ({ data, fallbackText }) => {
             <h3 className="text-lg">Quick Practice</h3>
           </div>
           <div className="space-y-4">
-            {practice.map((q, idx) => (
-              <QuizQuestion key={idx} questionData={q} index={idx} />
-            ))}
+            {practice.map((q, idx) => {
+              const keyBase = String(quizKeyPrefix ?? '').trim()
+              const quizKey = keyBase ? `${keyBase}:${idx}` : `quiz:${idx}`
+              return (
+                <QuizQuestion
+                  key={quizKey}
+                  questionData={q}
+                  index={idx}
+                  onAnswer={() => onQuizAnswered?.({ conversationId: quizConversationId, quizKey })}
+                />
+              )
+            })}
           </div>
         </section>
       )}
@@ -491,6 +500,9 @@ const AIChatPage = () => {
   });
   const [teacherProgressLoading, setTeacherProgressLoading] = useState(false);
   const [teacherProgressError, setTeacherProgressError] = useState('');
+  const [answeredQuizKeysByConversation, setAnsweredQuizKeysByConversation] = useState({});
+  const [teacherChatDisabledByConversation, setTeacherChatDisabledByConversation] = useState({});
+  const [markAsCompletedLoading, setMarkAsCompletedLoading] = useState(false);
 
   const messagesEndRef = useRef(null);
 
@@ -1032,6 +1044,10 @@ const AIChatPage = () => {
     const viewIsLoading = view === 'self-learning' ? selfIsLoading : teacherIsLoading;
     const conversationId = view === 'self-learning' ? selfConversationId : teacherConversationId;
     if (!queryToUse.trim() || viewIsLoading) return;
+    if (view === 'teacher-feedback') {
+      const id = String(teacherConversationId ?? '').trim()
+      if (id && teacherChatDisabledByConversation?.[id]) return;
+    }
 
     const userMessageText = queryToUse;
     const userMessageId = Date.now();
@@ -1237,6 +1253,7 @@ const AIChatPage = () => {
   const messages = isSelfLearning ? selfMessages : teacherMessages;
   const isLoading = isSelfLearning ? selfIsLoading : teacherIsLoading;
   const loadingStatus = isSelfLearning ? selfLoadingStatus : teacherLoadingStatus;
+  const activeConversationId = String((isSelfLearning ? selfConversationId : teacherConversationId) ?? '').trim()
   const selectedTeacherInProgressOption =
     teacherFeedbackStatus.inProgress
       ? teacherProgressOptions.inProgress.find((o) => o.value === teacherFeedbackStatus.inProgress)
@@ -1253,6 +1270,93 @@ const AIChatPage = () => {
     String(activeTeacherOption?.conversationId ?? '').trim() ||
     (activeTeacherSubtopicId ? String(teacherSubtopicConversations?.[activeTeacherSubtopicId] ?? '').trim() : '') ||
     ''
+  const isActiveTeacherInProgress = Boolean(selectedTeacherInProgressOption)
+  const isTeacherConversationDisabled = Boolean(activeConversationId && teacherChatDisabledByConversation?.[activeConversationId])
+
+  const coerceArray = (val) => {
+    if (Array.isArray(val)) return val
+    if (typeof val === 'string') {
+      const trimmed = val.trim()
+      if (!trimmed) return null
+      try {
+        const parsed = JSON.parse(trimmed)
+        return Array.isArray(parsed) ? parsed : null
+      } catch (e) {
+        return null
+      }
+    }
+    return null
+  }
+
+  const getQuizKeysForConversation = (conversationIdToUse, msgs) => {
+    const id = String(conversationIdToUse ?? '').trim()
+    if (!id || !Array.isArray(msgs)) return []
+    const keys = []
+    for (const msg of msgs) {
+      if (!msg || msg.sender !== 'ai' || !msg.structuredData) continue
+      const practiceArr = coerceArray(msg.structuredData.practice)
+      if (!practiceArr || practiceArr.length === 0) continue
+      for (let i = 0; i < practiceArr.length; i += 1) {
+        keys.push(`${id}:${msg.id}:${i}`)
+      }
+    }
+    return keys
+  }
+
+  const activeTeacherQuizKeys =
+    activeView === 'teacher-feedback' ? getQuizKeysForConversation(activeTeacherConversationId, teacherMessages) : []
+  const answeredForActiveTeacherConversation =
+    (activeTeacherConversationId && answeredQuizKeysByConversation?.[activeTeacherConversationId]) || {}
+  const allActiveTeacherQuizzesAnswered =
+    activeTeacherQuizKeys.length > 0 && activeTeacherQuizKeys.every((k) => Boolean(answeredForActiveTeacherConversation?.[k]))
+  const showMarkAsCompletedButton =
+    activeView === 'teacher-feedback' &&
+    teacherSelectedBook &&
+    isActiveTeacherInProgress &&
+    activeTeacherSubtopicId &&
+    activeTeacherConversationId &&
+    allActiveTeacherQuizzesAnswered &&
+    !isTeacherConversationDisabled
+
+  const handleQuizAnswered = ({ conversationId, quizKey }) => {
+    const id = String(conversationId ?? '').trim()
+    const key = String(quizKey ?? '').trim()
+    if (!id || !key) return
+    setAnsweredQuizKeysByConversation((prev) => {
+      const existingForConversation = prev?.[id] || {}
+      if (existingForConversation[key]) return prev
+      return {
+        ...prev,
+        [id]: {
+          ...existingForConversation,
+          [key]: true
+        }
+      }
+    })
+  }
+
+  const handleMarkAsCompleted = async () => {
+    if (!activeTeacherSubtopicId || !activeTeacherConversationId) return
+    if (markAsCompletedLoading) return
+    setMarkAsCompletedLoading(true)
+    try {
+      await questionService.updateQuestionSubtopicProgress(activeTeacherSubtopicId, 'completed')
+      setTeacherChatDisabledByConversation((prev) => ({
+        ...prev,
+        [activeTeacherConversationId]: true
+      }))
+      toast.success('Marked as completed')
+      await fetchTeacherProgress(teacherSelectedBook)
+    } catch (error) {
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to update progress'
+      toast.error(message)
+    } finally {
+      setMarkAsCompletedLoading(false)
+    }
+  }
 
   return (
     <div className="space-y-4 min-h-screen flex flex-col">
@@ -1693,7 +1797,13 @@ const AIChatPage = () => {
                             </button>
 
                             {msg.structuredData ? (
-                              <StructuredAIResponse data={msg.structuredData} fallbackText={msg.text} />
+                              <StructuredAIResponse
+                                data={msg.structuredData}
+                                fallbackText={msg.text}
+                                quizConversationId={activeConversationId || null}
+                                quizKeyPrefix={activeConversationId ? `${activeConversationId}:${msg.id}` : null}
+                                onQuizAnswered={handleQuizAnswered}
+                              />
                             ) : msg.sender === 'ai' ? (
                               <MarkdownFallback text={msg.text} />
                             ) : (
@@ -1755,6 +1865,18 @@ const AIChatPage = () => {
               )}
               {activeView === 'teacher-feedback' && (
                 <div className="p-3 md:p-4 bg-white border-t border-secondary-100">
+                  {showMarkAsCompletedButton && (
+                    <div className="mb-3">
+                      <button
+                        type="button"
+                        onClick={handleMarkAsCompleted}
+                        disabled={isLoading || markAsCompletedLoading}
+                        className="w-full py-2.5 px-4 bg-success-600 hover:bg-success-700 text-white font-bold rounded-xl transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Mark as completed
+                      </button>
+                    </div>
+                  )}
                   <form onSubmit={handleSubmit} className="relative">
                     <input
                       type="text"
@@ -1762,11 +1884,11 @@ const AIChatPage = () => {
                       onChange={(e) => setTeacherInput(e.target.value)}
                       placeholder="Ask for feedback..."
                       className="w-full pl-4 pr-12 py-3 bg-secondary-50 border border-secondary-200 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all"
-                      disabled={isLoading || !teacherSelectedBook}
+                      disabled={isLoading || !teacherSelectedBook || isTeacherConversationDisabled}
                     />
                     <button
                       type="submit"
-                      disabled={isLoading || !teacherInput.trim() || !teacherSelectedBook}
+                      disabled={isLoading || !teacherInput.trim() || !teacherSelectedBook || isTeacherConversationDisabled}
                       className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                       <Send className="w-4 h-4" />
