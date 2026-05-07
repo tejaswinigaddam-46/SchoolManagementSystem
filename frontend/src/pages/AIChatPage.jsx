@@ -476,6 +476,7 @@ const AIChatPage = () => {
   const [teacherIsLoading, setTeacherIsLoading] = useState(false);
   const [teacherLoadingStatus, setTeacherLoadingStatus] = useState('');
   const [teacherConversationId, setTeacherConversationId] = useState(null);
+  const [teacherSubtopicConversations, setTeacherSubtopicConversations] = useState({});
 
   const [teacherFeedbackStatus, setTeacherFeedbackStatus] = useState({
     todo: '',
@@ -540,6 +541,7 @@ const AIChatPage = () => {
       const todo = [];
       const inProgress = [];
       const completed = [];
+      const conversationsBySubtopicId = {};
 
       for (const row of rows) {
         const normalized = normalizeProgressStatus(row?.status);
@@ -551,12 +553,35 @@ const AIChatPage = () => {
           row?.id ??
           null
         const questionId = row?.question_id ?? null
+        const label = String(
+          row?.question_subtopic_name ??
+            row?.question_subtopics_name ??
+            row?.subtopic_name ??
+            row?.subtopic ??
+            row?.question_name ??
+            row?.question_id ??
+            'Question'
+        ).trim()
+        const conversationIdRaw =
+          row?.conversation_id ??
+          row?.conversationId ??
+          row?.conversationID ??
+          row?.chat_conversation_id ??
+          row?.chat_id ??
+          row?.conversation?.id ??
+          null
+        const conversationId = String(conversationIdRaw ?? '').trim() || null
         const option = {
-          value: String(questionId ?? questionSubtopicsId ?? ''),
+          value: String(questionSubtopicsId ?? questionId ?? ''),
           questionSubtopicsId: String(questionSubtopicsId ?? ''),
-          label: String(row?.question_name ?? row?.question_id ?? 'Question')
+          label,
+          conversationId
         };
         if (!option.value) continue;
+
+        if (option.questionSubtopicsId && conversationId) {
+          conversationsBySubtopicId[option.questionSubtopicsId] = conversationId
+        }
 
         if (normalized === 'TODO') todo.push(option);
         else if (normalized === 'InProgress') inProgress.push(option);
@@ -564,6 +589,9 @@ const AIChatPage = () => {
       }
 
       setTeacherProgressOptions({ todo, inProgress, completed });
+      if (Object.keys(conversationsBySubtopicId).length > 0) {
+        setTeacherSubtopicConversations((prev) => ({ ...prev, ...conversationsBySubtopicId }))
+      }
     } catch (error) {
       setTeacherProgressOptions({ todo: [], inProgress: [], completed: [] });
       const message =
@@ -588,6 +616,17 @@ const AIChatPage = () => {
     fetchTeacherProgress(teacherSelectedBook);
   }, [activeView, teacherSelectedBook, studentUsername]);
 
+  useEffect(() => {
+    if (activeView !== 'teacher-feedback') return;
+    setTeacherFeedbackStatus((prev) => {
+      const next = { ...prev }
+      if (next.todo && !teacherProgressOptions.todo.some((o) => o.value === next.todo)) next.todo = ''
+      if (next.inProgress && !teacherProgressOptions.inProgress.some((o) => o.value === next.inProgress)) next.inProgress = ''
+      if (next.completed && !teacherProgressOptions.completed.some((o) => o.value === next.completed)) next.completed = ''
+      return next
+    })
+  }, [activeView, teacherProgressOptions]);
+
   const tabs = [
     {
       id: 'self-learning',
@@ -611,123 +650,6 @@ const AIChatPage = () => {
   useEffect(() => {
     scrollToBottom();
   }, [activeView, selfMessages, teacherMessages]);
-
-  const formatFeedbackOverview = (rawResponse, fallbackTopic) => {
-    const root = rawResponse?.data?.data ?? rawResponse?.data ?? rawResponse
-    const answer = root?.answer ?? root
-    const topic = String(answer?.topic ?? fallbackTopic ?? '').trim()
-    const answerPlan = Array.isArray(answer?.answer_plan) ? answer.answer_plan : null
-
-    if (typeof answer === 'string') return answer
-
-    if (answerPlan) {
-      const heading = topic ? `### ${topic}` : '### Learning Plan'
-      const items = answerPlan
-        .map((p) => String(p?.subtopic ?? '').trim())
-        .filter(Boolean)
-        .map((sub) => `- ${sub}`)
-        .join('\n')
-
-      if (items) return `${heading}\n\n${items}`
-      return `${heading}\n\nI created a learning plan, but it was empty.`
-    }
-
-    try {
-      return JSON.stringify(root ?? rawResponse ?? { topic: fallbackTopic }, null, 2)
-    } catch (e) {
-      return `Learning overview generated for ${topic || fallbackTopic || 'your topic'}.`
-    }
-  }
-
-  const handleStartFeedback = async (topic) => {
-    const safeTopic = String(topic || '').trim()
-    if (!safeTopic) return
-    if (!teacherSelectedBook) {
-      toast.error('Please select a curriculum book first')
-      return
-    }
-
-    const userMessageId = Date.now()
-    const userMessageText = `Start learning: ${safeTopic}`
-    const userMessage = {
-      id: userMessageId,
-      text: userMessageText,
-      sender: 'user',
-      timestamp: new Date(),
-    }
-
-    setTeacherMessages((prev) => [...prev, userMessage])
-    setTeacherIsLoading(true)
-    setTeacherLoadingStatus('Creating overview...')
-
-    try {
-      const userMsgResponse = await conversationService.createMessage({
-        content: userMessageText,
-        role: 'user',
-        conversation_id: teacherConversationId,
-        curriculum_book_name: teacherSelectedBook,
-        title: userMessageText.substring(0, 30)
-      })
-
-      if (!teacherConversationId && userMsgResponse?.conversation_id) {
-        setTeacherConversationId(userMsgResponse.conversation_id)
-      }
-
-      const conversationIdToUse = teacherConversationId || userMsgResponse?.conversation_id || null
-
-      setTeacherLoadingStatus('Fetching AI plan...')
-      const overviewResponse = await aiService.feedbackOverview(
-        safeTopic,
-        teacherSelectedBook,
-        5,
-        conversationIdToUse
-      )
-
-      const overviewText = formatFeedbackOverview(overviewResponse, safeTopic)
-
-      setTeacherLoadingStatus('Saving AI response...')
-      await conversationService.createMessage({
-        content: typeof overviewResponse === 'object' ? JSON.stringify(overviewResponse) : String(overviewResponse ?? ''),
-        role: 'assistant',
-        conversation_id: conversationIdToUse,
-        curriculum_book_name: teacherSelectedBook,
-        summary: String(overviewText || '').substring(0, 200),
-        title: `Overview: ${safeTopic}`.substring(0, 50)
-      })
-
-      const assistantMessage = {
-        id: Date.now() + 1,
-        text: overviewText,
-        sender: 'ai',
-        timestamp: new Date(),
-      }
-
-      setTeacherMessages((prev) => [...prev, assistantMessage])
-
-      setTeacherLoadingStatus('Refreshing progress...')
-      await fetchTeacherProgress(teacherSelectedBook)
-      setTeacherFeedbackStatus({ todo: '', inProgress: '', completed: '' })
-    } catch (error) {
-      console.error('Feedback Overview Error:', error)
-      const message =
-        error?.response?.data?.message ||
-        error?.message ||
-        'Failed to generate feedback overview'
-      toast.error(message)
-
-      const errorMessage = {
-        id: Date.now() + 1,
-        text: message,
-        sender: 'ai',
-        isError: true,
-        timestamp: new Date(),
-      }
-      setTeacherMessages((prev) => [...prev, errorMessage])
-    } finally {
-      setTeacherIsLoading(false)
-      setTeacherLoadingStatus('')
-    }
-  };
 
   const handleStartInProgressLearning = async (subtopicOrOption) => {
     const option =
@@ -758,19 +680,29 @@ const AIChatPage = () => {
     setTeacherLoadingStatus('Fetching AI response...')
 
     try {
+      const existingConversationId =
+        String(option?.conversationId ?? '').trim() ||
+        (questionSubtopicsId ? String(teacherSubtopicConversations?.[questionSubtopicsId] ?? '').trim() : '') ||
+        null
+
       const userMsgResponse = await conversationService.createMessage({
         content: questionText,
         role: 'user',
-        conversation_id: teacherConversationId,
+        conversation_id: existingConversationId,
         curriculum_book_name: teacherSelectedBook,
         title: questionText.substring(0, 30)
       })
 
-      if (!teacherConversationId && userMsgResponse?.conversation_id) {
-        setTeacherConversationId(userMsgResponse.conversation_id)
+      const createdConversationId = String(userMsgResponse?.conversation_id ?? '').trim() || null
+      const conversationIdToUse = existingConversationId || createdConversationId || null
+
+      if (questionSubtopicsId && createdConversationId && !existingConversationId) {
+        setTeacherSubtopicConversations((prev) => ({ ...prev, [questionSubtopicsId]: createdConversationId }))
       }
 
-      const conversationIdToUse = teacherConversationId || userMsgResponse?.conversation_id || null
+      if (conversationIdToUse) {
+        setTeacherConversationId(conversationIdToUse)
+      }
       if (!questionSubtopicsId) {
         toast.error('Unable to determine question_subtopics_id for the selected topic')
         return
@@ -925,6 +857,78 @@ const AIChatPage = () => {
       setSelfLoadingStatus('');
     }
   };
+
+  const loadTeacherConversation = async (convId) => {
+    const id = String(convId ?? '').trim()
+    if (!id) return
+    if (String(teacherConversationId ?? '').trim() === id && teacherMessages.length > 0) return
+
+    setTeacherConversationId(id)
+    setTeacherIsLoading(true)
+    setTeacherLoadingStatus('Loading conversation...')
+    try {
+      const chatMessages = await conversationService.getMessages(id)
+      const formattedMessages = chatMessages.map((msg) => ({
+        id: msg.id,
+        text: msg.content,
+        sender: msg.role === 'user' ? 'user' : 'ai',
+        timestamp: new Date(msg.created_at || Date.now()),
+        structuredData: msg.role === 'assistant' ? findStructuredData(msg.content) : null
+      }))
+      setTeacherMessages(formattedMessages)
+    } catch (error) {
+      console.error('Error loading teacher conversation:', error)
+      toast.error('Failed to load conversation history')
+    } finally {
+      setTeacherIsLoading(false)
+      setTeacherLoadingStatus('')
+    }
+  }
+
+  useEffect(() => {
+    if (activeView !== 'teacher-feedback') return;
+    if (!teacherSelectedBook) return;
+
+    const selectedInProgressOption =
+      teacherFeedbackStatus.inProgress
+        ? teacherProgressOptions.inProgress.find((o) => o.value === teacherFeedbackStatus.inProgress)
+        : null
+    const selectedTodoOption =
+      teacherFeedbackStatus.todo
+        ? teacherProgressOptions.todo.find((o) => o.value === teacherFeedbackStatus.todo)
+        : null
+    const selectedCompletedOption =
+      teacherFeedbackStatus.completed
+        ? teacherProgressOptions.completed.find((o) => o.value === teacherFeedbackStatus.completed)
+        : null
+
+    const activeOption = selectedInProgressOption || selectedTodoOption || selectedCompletedOption
+    if (!activeOption) return
+
+    const subtopicId = String(activeOption.questionSubtopicsId ?? '').trim()
+    const conversationId =
+      String(activeOption.conversationId ?? '').trim() ||
+      (subtopicId ? String(teacherSubtopicConversations?.[subtopicId] ?? '').trim() : '') ||
+      ''
+
+    if (conversationId) {
+      loadTeacherConversation(conversationId)
+      return
+    }
+
+    if (teacherMessages.length > 0 || teacherConversationId) {
+      setTeacherConversationId(null)
+      setTeacherMessages([])
+    }
+  }, [
+    activeView,
+    teacherSelectedBook,
+    teacherFeedbackStatus.todo,
+    teacherFeedbackStatus.inProgress,
+    teacherFeedbackStatus.completed,
+    teacherProgressOptions,
+    teacherSubtopicConversations
+  ]);
 
   // Helper function to find structured data in text (moved inside component or made accessible)
   const findStructuredData = (obj, depth = 0) => {
@@ -1233,6 +1237,22 @@ const AIChatPage = () => {
   const messages = isSelfLearning ? selfMessages : teacherMessages;
   const isLoading = isSelfLearning ? selfIsLoading : teacherIsLoading;
   const loadingStatus = isSelfLearning ? selfLoadingStatus : teacherLoadingStatus;
+  const selectedTeacherInProgressOption =
+    teacherFeedbackStatus.inProgress
+      ? teacherProgressOptions.inProgress.find((o) => o.value === teacherFeedbackStatus.inProgress)
+      : null
+  const selectedTeacherTodoOption =
+    teacherFeedbackStatus.todo ? teacherProgressOptions.todo.find((o) => o.value === teacherFeedbackStatus.todo) : null
+  const selectedTeacherCompletedOption =
+    teacherFeedbackStatus.completed
+      ? teacherProgressOptions.completed.find((o) => o.value === teacherFeedbackStatus.completed)
+      : null
+  const activeTeacherOption = selectedTeacherInProgressOption || selectedTeacherTodoOption || selectedTeacherCompletedOption
+  const activeTeacherSubtopicId = String(activeTeacherOption?.questionSubtopicsId ?? '').trim()
+  const activeTeacherConversationId =
+    String(activeTeacherOption?.conversationId ?? '').trim() ||
+    (activeTeacherSubtopicId ? String(teacherSubtopicConversations?.[activeTeacherSubtopicId] ?? '').trim() : '') ||
+    ''
 
   return (
     <div className="space-y-4 min-h-screen flex flex-col">
@@ -1401,6 +1421,10 @@ const AIChatPage = () => {
                       onChange={(e) => {
                         setTeacherSelectedBook(e.target.value);
                         setTeacherFeedbackStatus({ todo: '', inProgress: '', completed: '' });
+                        setTeacherMessages([]);
+                        setTeacherConversationId(null);
+                        setTeacherInput('');
+                        setTeacherLoadingStatus('');
                         if (window.innerWidth < 768) setIsChatSidebarOpen(false);
                       }}
                       className="w-full pl-3 pr-10 py-2.5 bg-white border border-secondary-200 rounded-xl text-sm text-secondary-700 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none appearance-none transition-all cursor-pointer hover:border-primary-300"
@@ -1570,7 +1594,7 @@ const AIChatPage = () => {
                           Please select a curriculum book to get started with teacher feedback
                         </p>
                       )}
-                      {activeView === 'teacher-feedback' && teacherSelectedBook && teacherFeedbackStatus.todo && (
+                      {activeView === 'teacher-feedback' && teacherSelectedBook && teacherFeedbackStatus.todo && !activeTeacherConversationId && (
                         <div className="mt-6 p-6 bg-white border border-primary-200 rounded-2xl shadow-sm animate-in zoom-in-95 duration-300 max-w-sm mx-auto">
                           <p className="text-secondary-700 font-medium mb-4">
                             Click start to learn about <span className="text-primary-600 font-bold underline decoration-primary-200 underline-offset-4">
@@ -1578,7 +1602,7 @@ const AIChatPage = () => {
                             </span>
                           </p>
                           <button
-                            onClick={() => handleStartFeedback(teacherProgressOptions.todo.find(o => o.value === teacherFeedbackStatus.todo)?.label)}
+                            onClick={() => handleStartInProgressLearning(teacherProgressOptions.todo.find(o => o.value === teacherFeedbackStatus.todo))}
                             className="w-full py-3 px-6 bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 group"
                           >
                             <Sparkles className="w-5 h-5 group-hover:animate-pulse" />
@@ -1586,7 +1610,7 @@ const AIChatPage = () => {
                           </button>
                         </div>
                       )}
-                      {activeView === 'teacher-feedback' && teacherSelectedBook && teacherFeedbackStatus.inProgress && (
+                      {activeView === 'teacher-feedback' && teacherSelectedBook && teacherFeedbackStatus.inProgress && !activeTeacherConversationId && (
                         <div className="mt-6 p-6 bg-white border border-primary-200 rounded-2xl shadow-sm animate-in zoom-in-95 duration-300 max-w-sm mx-auto">
                           <p className="text-secondary-700 font-medium mb-4">
                             Click start to learn about <span className="text-primary-600 font-bold underline decoration-primary-200 underline-offset-4">
@@ -1602,11 +1626,27 @@ const AIChatPage = () => {
                           </button>
                         </div>
                       )}
+                      {activeView === 'teacher-feedback' && teacherSelectedBook && teacherFeedbackStatus.completed && !activeTeacherConversationId && (
+                        <div className="mt-6 p-6 bg-white border border-primary-200 rounded-2xl shadow-sm animate-in zoom-in-95 duration-300 max-w-sm mx-auto">
+                          <p className="text-secondary-700 font-medium mb-4">
+                            Click start to learn about <span className="text-primary-600 font-bold underline decoration-primary-200 underline-offset-4">
+                              {teacherProgressOptions.completed.find(o => o.value === teacherFeedbackStatus.completed)?.label}
+                            </span>
+                          </p>
+                          <button
+                            onClick={() => handleStartInProgressLearning(teacherProgressOptions.completed.find(o => o.value === teacherFeedbackStatus.completed))}
+                            className="w-full py-3 px-6 bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 group"
+                          >
+                            <Sparkles className="w-5 h-5 group-hover:animate-pulse" />
+                            Start Learning "{teacherProgressOptions.completed.find(o => o.value === teacherFeedbackStatus.completed)?.label}"
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ) : (
                   <>
-                    {activeView === 'teacher-feedback' && teacherSelectedBook && teacherFeedbackStatus.inProgress && (
+                    {activeView === 'teacher-feedback' && teacherSelectedBook && teacherFeedbackStatus.inProgress && !activeTeacherConversationId && (
                       <div className="p-4 bg-white border border-primary-200 rounded-2xl shadow-sm max-w-sm mx-auto">
                         <button
                           onClick={() => handleStartInProgressLearning(teacherProgressOptions.inProgress.find(o => o.value === teacherFeedbackStatus.inProgress))}
