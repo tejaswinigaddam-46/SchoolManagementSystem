@@ -1,5 +1,6 @@
 import axios from 'axios';
 import config from '../config/env.config';
+import aiApiClient, { aiApi } from './aiApiClient';
 
 /**
  * Helper to get common headers including tenant info
@@ -48,10 +49,31 @@ const getHeaders = () => {
   return headers;
 };
 
+const getConversationsAskPath = () => {
+  const baseURL = String(aiApiClient?.defaults?.baseURL || '');
+  return baseURL.includes('/api/v1') ? '/conversations/ask' : '/api/v1/conversations/ask';
+};
+
 /**
  * Service for handling AI conversations and messages
  */
 const conversationService = {
+  ask: async ({ question, curriculum_book_name, conversation_id = null, title = null }) => {
+    const payload = {
+      question,
+      curriculum_book_name,
+      conversation_id,
+      title,
+    };
+
+    const response = await aiApi.post(
+      getConversationsAskPath(),
+      payload,
+      { timeout: 60000, suppressErrorToast: true }
+    );
+    return response.data;
+  },
+
   /**
    * Create a new message in a conversation
    */

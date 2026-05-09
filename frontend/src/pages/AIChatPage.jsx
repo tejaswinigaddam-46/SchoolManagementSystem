@@ -9,9 +9,12 @@ import {
 import Card from '../components/ui/Card';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import Badge from '../components/ui/Badge';
-import aiService from '../services/aiService';
+// here commenting
+// import aiService from '../services/aiService';
+// here commenting
 import conversationService from '../services/conversationService';
-import questionService from '../services/questionService';
+// here commenting
+// import questionService from '../services/questionService';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'react-hot-toast';
 
@@ -463,9 +466,6 @@ const StructuredAIResponse = ({ data, fallbackText, quizConversationId, quizKeyP
  * Provides a ChatGPT-like interface for interacting with the AI backend.
  */
 const AIChatPage = () => {
-  const { getUserName } = useAuth();
-  const studentUsername = String(getUserName?.() || '').trim();
-
   const [selfMessages, setSelfMessages] = useState([]);
   const [selfInput, setSelfInput] = useState('');
   const [selfIsLoading, setSelfIsLoading] = useState(false);
@@ -475,34 +475,6 @@ const AIChatPage = () => {
   const [recentChats, setRecentChats] = useState([]);
   const [selfConversationId, setSelfConversationId] = useState(null);
   const [isChatSidebarOpen, setIsChatSidebarOpen] = useState(false);
-  
-  // New states for tabs
-  const [activeView, setActiveView] = useState('self-learning');
-  const [teacherSelectedBook, setTeacherSelectedBook] = useState('');
-
-  const [teacherMessages, setTeacherMessages] = useState([]);
-  const [teacherInput, setTeacherInput] = useState('');
-  const [teacherIsLoading, setTeacherIsLoading] = useState(false);
-  const [teacherLoadingStatus, setTeacherLoadingStatus] = useState('');
-  const [teacherConversationId, setTeacherConversationId] = useState(null);
-  const [teacherSubtopicConversations, setTeacherSubtopicConversations] = useState({});
-
-  const [teacherFeedbackStatus, setTeacherFeedbackStatus] = useState({
-    todo: '',
-    inProgress: '',
-    completed: ''
-  });
-
-  const [teacherProgressOptions, setTeacherProgressOptions] = useState({
-    todo: [],
-    inProgress: [],
-    completed: []
-  });
-  const [teacherProgressLoading, setTeacherProgressLoading] = useState(false);
-  const [teacherProgressError, setTeacherProgressError] = useState('');
-  const [answeredQuizKeysByConversation, setAnsweredQuizKeysByConversation] = useState({});
-  const [teacherChatDisabledByConversation, setTeacherChatDisabledByConversation] = useState({});
-  const [markAsCompletedLoading, setMarkAsCompletedLoading] = useState(false);
 
   const messagesEndRef = useRef(null);
 
@@ -513,321 +485,22 @@ const AIChatPage = () => {
 
   const fetchRecentChats = async () => {
     try {
+      // here commenting
       const chats = await conversationService.listConversations();
       setRecentChats(chats);
+      setRecentChats((prev) => prev);
     } catch (error) {
       console.error('Error fetching recent chats:', error);
     }
   };
 
-  const normalizeProgressStatus = (status) => {
-    const raw = String(status || '').trim();
-    const compact = raw.replace(/[^a-z0-9]/gi, '').toLowerCase();
-    if (compact === 'todo') return 'TODO';
-    if (compact === 'yettostart') return 'TODO';
-    if (compact === 'inprogress') return 'InProgress';
-    if (compact === 'learning') return 'InProgress';
-    if (compact === 'completed' || compact === 'complete') return 'completed';
-    return raw || 'Unknown';
-  };
-
-  const fetchTeacherProgress = async (book) => {
-    if (!studentUsername || !book) return;
-    setTeacherProgressLoading(true);
-    setTeacherProgressError('');
-    try {
-      const response = await questionService.getQuestionsProgress({
-        studentusername: studentUsername,
-        book
-      });
-
-      const rows =
-        Array.isArray(response) ? response :
-        Array.isArray(response?.data) ? response.data :
-        Array.isArray(response?.results) ? response.results :
-        Array.isArray(response?.items) ? response.items :
-        Array.isArray(response?.progress) ? response.progress :
-        Array.isArray(response?.data?.data) ? response.data.data :
-        [];
-
-      const todo = [];
-      const inProgress = [];
-      const completed = [];
-      const conversationsBySubtopicId = {};
-
-      for (const row of rows) {
-        const normalized = normalizeProgressStatus(row?.status);
-        const questionSubtopicsId =
-          row?.question_subtopics_id ??
-          row?.question_subtopic_id ??
-          row?.subtopic_id ??
-          row?.question_subtopic_progress_id ??
-          row?.id ??
-          null
-        const questionId = row?.question_id ?? null
-        const label = String(
-          row?.question_subtopic_name ??
-            row?.question_subtopics_name ??
-            row?.subtopic_name ??
-            row?.subtopic ??
-            row?.question_name ??
-            row?.question_id ??
-            'Question'
-        ).trim()
-        const conversationIdRaw =
-          row?.conversation_id ??
-          row?.conversationId ??
-          row?.conversationID ??
-          row?.chat_conversation_id ??
-          row?.chat_id ??
-          row?.conversation?.id ??
-          null
-        const conversationId = String(conversationIdRaw ?? '').trim() || null
-        const option = {
-          value: String(questionSubtopicsId ?? questionId ?? ''),
-          questionSubtopicsId: String(questionSubtopicsId ?? ''),
-          label,
-          conversationId
-        };
-        if (!option.value) continue;
-
-        if (option.questionSubtopicsId && conversationId) {
-          conversationsBySubtopicId[option.questionSubtopicsId] = conversationId
-        }
-
-        if (normalized === 'TODO') todo.push(option);
-        else if (normalized === 'InProgress') inProgress.push(option);
-        else if (normalized === 'completed') completed.push(option);
-      }
-
-      setTeacherProgressOptions({ todo, inProgress, completed });
-      if (Object.keys(conversationsBySubtopicId).length > 0) {
-        setTeacherSubtopicConversations((prev) => ({ ...prev, ...conversationsBySubtopicId }))
-      }
-    } catch (error) {
-      setTeacherProgressOptions({ todo: [], inProgress: [], completed: [] });
-      const message =
-        error?.response?.data?.message ||
-        error?.message ||
-        'Failed to fetch questions progress';
-      setTeacherProgressError(message);
-      toast.error(message);
-    } finally {
-      setTeacherProgressLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (activeView !== 'teacher-feedback') return;
-    if (!teacherSelectedBook) return;
-    if (!studentUsername) {
-      setTeacherProgressOptions({ todo: [], inProgress: [], completed: [] });
-      setTeacherProgressError('Username not available in session');
-      return;
-    }
-    fetchTeacherProgress(teacherSelectedBook);
-  }, [activeView, teacherSelectedBook, studentUsername]);
-
-  useEffect(() => {
-    if (activeView !== 'teacher-feedback') return;
-    setTeacherFeedbackStatus((prev) => {
-      const next = { ...prev }
-      if (next.todo && !teacherProgressOptions.todo.some((o) => o.value === next.todo)) next.todo = ''
-      if (next.inProgress && !teacherProgressOptions.inProgress.some((o) => o.value === next.inProgress)) next.inProgress = ''
-      if (next.completed && !teacherProgressOptions.completed.some((o) => o.value === next.completed)) next.completed = ''
-      return next
-    })
-  }, [activeView, teacherProgressOptions]);
-
-  const tabs = [
-    {
-      id: 'self-learning',
-      name: 'Self Learning',
-      icon: Brain,
-      description: 'Learn subjects with AI assistance'
-    },
-    {
-      id: 'teacher-feedback',
-      name: 'Teachers Feedback',
-      icon: MessageSquare,
-      description: 'Get AI feedback on teaching progress'
-    }
-  ];
-
-  // Auto-scroll to bottom of messages
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   useEffect(() => {
     scrollToBottom();
-  }, [activeView, selfMessages, teacherMessages]);
-
-  const handleStartInProgressLearning = async (subtopicOrOption) => {
-    const option =
-      subtopicOrOption && typeof subtopicOrOption === 'object'
-        ? subtopicOrOption
-        : null
-    const questionSubtopicsId = String(option?.questionSubtopicsId ?? '').trim()
-    const raw = String(option?.label ?? subtopicOrOption ?? '').trim()
-    if (!raw) return
-    if (!teacherSelectedBook) {
-      toast.error('Please select a curriculum book first')
-      return
-    }
-
-    const cleaned = raw.replace(/^topic\s*:\s*/i, '').trim()
-    const questionText = `Topic:${cleaned || raw}`
-
-    const userMessageId = Date.now()
-    const userMessage = {
-      id: userMessageId,
-      text: questionText,
-      sender: 'user',
-      timestamp: new Date(),
-    }
-
-    setTeacherMessages((prev) => [...prev, userMessage])
-    setTeacherIsLoading(true)
-    setTeacherLoadingStatus('Fetching AI response...')
-
-    try {
-      const existingConversationId =
-        String(option?.conversationId ?? '').trim() ||
-        (questionSubtopicsId ? String(teacherSubtopicConversations?.[questionSubtopicsId] ?? '').trim() : '') ||
-        null
-
-      const userMsgResponse = await conversationService.createMessage({
-        content: questionText,
-        role: 'user',
-        conversation_id: existingConversationId,
-        curriculum_book_name: teacherSelectedBook,
-        title: questionText.substring(0, 30)
-      })
-
-      const createdConversationId = String(userMsgResponse?.conversation_id ?? '').trim() || null
-      const conversationIdToUse = existingConversationId || createdConversationId || null
-
-      if (questionSubtopicsId && createdConversationId && !existingConversationId) {
-        setTeacherSubtopicConversations((prev) => ({ ...prev, [questionSubtopicsId]: createdConversationId }))
-      }
-
-      if (conversationIdToUse) {
-        setTeacherConversationId(conversationIdToUse)
-      }
-      if (!questionSubtopicsId) {
-        toast.error('Unable to determine question_subtopics_id for the selected topic')
-        return
-      }
-
-      const responseWrapper = await questionService.requestSubtopicAi(questionSubtopicsId, questionText)
-      const response = responseWrapper?.ai ?? responseWrapper
-
-      let structuredData = findStructuredData(response)
-      let textContent = ''
-
-      if (!structuredData && typeof response === 'string' && response.includes('status="refused"')) {
-        const messageMatch = response.match(/message="(.*?)"/)
-        structuredData = {
-          status: 'refused',
-          message: messageMatch ? messageMatch[1] : "I'm here to help you learn your subject. Let's focus on your lesson."
-        }
-      }
-
-      if (typeof response === 'string') {
-        const trimmed = response.trim()
-        if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
-          try {
-            const parsed = JSON.parse(trimmed)
-            textContent = parsed.message || parsed.answer || parsed.response || parsed.text || ''
-          } catch (e) {}
-        } else {
-          textContent = response
-        }
-      } else if (typeof response === 'object' && response !== null) {
-        textContent = response.message || response.answer || response.response || response.text || ''
-      }
-
-      if (structuredData && !textContent) {
-        textContent = structuredData.message || structuredData.answer || "Here's your lesson breakdown:"
-      }
-
-      if (!textContent) {
-        textContent = typeof response === 'string' ? response : "I processed your request but couldn't format the response properly."
-      }
-
-      let aiSummary = ''
-      let aiTitle = ''
-      if (structuredData) {
-        aiSummary = structuredData.message || structuredData.answer || structuredData.simple_explanation || ''
-        aiTitle = structuredData.current_subtopic || 'AI Response'
-      }
-
-      setTeacherLoadingStatus('Saving AI response...')
-      await conversationService.createMessage({
-        content: typeof response === 'object' ? JSON.stringify(response) : response,
-        role: 'assistant',
-        conversation_id: conversationIdToUse,
-        curriculum_book_name: teacherSelectedBook,
-        summary: String(aiSummary || '').substring(0, 200),
-        title: String(aiTitle || '').substring(0, 50)
-      })
-
-      const assistantMessage = {
-        id: Date.now() + 1,
-        text: textContent,
-        sender: 'ai',
-        timestamp: new Date(),
-        structuredData: structuredData,
-        rawResponse: typeof response === 'object' ? JSON.stringify(response, null, 2) : response
-      }
-
-      setTeacherMessages((prev) => [...prev, assistantMessage])
-
-      if (questionSubtopicsId) {
-        try {
-          setTeacherLoadingStatus('Updating progress...')
-          await questionService.updateQuestionSubtopicProgress(questionSubtopicsId, 'learning')
-        } catch (error) {
-          const message =
-            error?.response?.data?.message ||
-            error?.message ||
-            'Failed to update progress'
-          toast.error(message)
-        }
-      } else {
-        toast.error('Subtopic ID not available. Unable to update progress.')
-      }
-
-      setTeacherLoadingStatus('Refreshing progress...')
-      await fetchTeacherProgress(teacherSelectedBook)
-    } catch (error) {
-      console.error('AI Query Error:', error)
-      const isTimeout =
-        error?.code === 'ECONNABORTED' ||
-        String(error?.message || '').toLowerCase().includes('timeout')
-
-      toast.error(
-        isTimeout
-          ? 'AI request timed out. Please try again.'
-          : 'Failed to get response from AI. Please try again.'
-      )
-
-      const errorMessage = {
-        id: Date.now() + 1,
-        text: isTimeout
-          ? 'Sorry, the AI request timed out. Please try again.'
-          : 'Sorry, I encountered an error processing your request.',
-        sender: 'ai',
-        isError: true,
-        timestamp: new Date(),
-      }
-      setTeacherMessages((prev) => [...prev, errorMessage])
-    } finally {
-      setTeacherIsLoading(false)
-      setTeacherLoadingStatus('')
-    }
-  }
+  }, [selfMessages]);
 
   const handleRecentChatChange = async (convId) => {
     if (!convId) {
@@ -843,6 +516,7 @@ const AIChatPage = () => {
     setSelfLoadingStatus('Loading conversation...');
 
     try {
+      // here commenting
       const chatMessages = await conversationService.getMessages(convId);
       
       // Transform API messages to UI format
@@ -869,78 +543,6 @@ const AIChatPage = () => {
       setSelfLoadingStatus('');
     }
   };
-
-  const loadTeacherConversation = async (convId) => {
-    const id = String(convId ?? '').trim()
-    if (!id) return
-    if (String(teacherConversationId ?? '').trim() === id && teacherMessages.length > 0) return
-
-    setTeacherConversationId(id)
-    setTeacherIsLoading(true)
-    setTeacherLoadingStatus('Loading conversation...')
-    try {
-      const chatMessages = await conversationService.getMessages(id)
-      const formattedMessages = chatMessages.map((msg) => ({
-        id: msg.id,
-        text: msg.content,
-        sender: msg.role === 'user' ? 'user' : 'ai',
-        timestamp: new Date(msg.created_at || Date.now()),
-        structuredData: msg.role === 'assistant' ? findStructuredData(msg.content) : null
-      }))
-      setTeacherMessages(formattedMessages)
-    } catch (error) {
-      console.error('Error loading teacher conversation:', error)
-      toast.error('Failed to load conversation history')
-    } finally {
-      setTeacherIsLoading(false)
-      setTeacherLoadingStatus('')
-    }
-  }
-
-  useEffect(() => {
-    if (activeView !== 'teacher-feedback') return;
-    if (!teacherSelectedBook) return;
-
-    const selectedInProgressOption =
-      teacherFeedbackStatus.inProgress
-        ? teacherProgressOptions.inProgress.find((o) => o.value === teacherFeedbackStatus.inProgress)
-        : null
-    const selectedTodoOption =
-      teacherFeedbackStatus.todo
-        ? teacherProgressOptions.todo.find((o) => o.value === teacherFeedbackStatus.todo)
-        : null
-    const selectedCompletedOption =
-      teacherFeedbackStatus.completed
-        ? teacherProgressOptions.completed.find((o) => o.value === teacherFeedbackStatus.completed)
-        : null
-
-    const activeOption = selectedInProgressOption || selectedTodoOption || selectedCompletedOption
-    if (!activeOption) return
-
-    const subtopicId = String(activeOption.questionSubtopicsId ?? '').trim()
-    const conversationId =
-      String(activeOption.conversationId ?? '').trim() ||
-      (subtopicId ? String(teacherSubtopicConversations?.[subtopicId] ?? '').trim() : '') ||
-      ''
-
-    if (conversationId) {
-      loadTeacherConversation(conversationId)
-      return
-    }
-
-    if (teacherMessages.length > 0 || teacherConversationId) {
-      setTeacherConversationId(null)
-      setTeacherMessages([])
-    }
-  }, [
-    activeView,
-    teacherSelectedBook,
-    teacherFeedbackStatus.todo,
-    teacherFeedbackStatus.inProgress,
-    teacherFeedbackStatus.completed,
-    teacherProgressOptions,
-    teacherSubtopicConversations
-  ]);
 
   // Helper function to find structured data in text (moved inside component or made accessible)
   const findStructuredData = (obj, depth = 0) => {
@@ -1000,6 +602,7 @@ const AIChatPage = () => {
     if (!convId || !window.confirm('Are you sure you want to delete this conversation?')) return;
 
     try {
+      // here commenting
       await conversationService.deleteConversation(convId);
       toast.success('Conversation deleted');
       
@@ -1009,9 +612,10 @@ const AIChatPage = () => {
         setSelectedRecentChat('');
         setSelfMessages([]);
       }
+
+      setRecentChats((prev) => prev.filter((chat) => String(chat?.id ?? '') !== String(convId)));
       
-      // Refresh the list
-      fetchRecentChats();
+      // Refresh list is frontend-only now
     } catch (error) {
       console.error('Error deleting conversation:', error);
       toast.error('Failed to delete conversation');
@@ -1022,369 +626,135 @@ const AIChatPage = () => {
     if (!messageId || !window.confirm('Delete this message?')) return;
 
     try {
+      // here commenting
       await conversationService.deleteMessage(messageId);
       toast.success('Message deleted');
       
       // Remove from local state
-      if (activeView === 'self-learning') {
-        setSelfMessages(prev => prev.filter(m => m.id !== messageId));
-      } else {
-        setTeacherMessages(prev => prev.filter(m => m.id !== messageId));
-      }
+      setSelfMessages((prev) => prev.filter((m) => m.id !== messageId));
     } catch (error) {
       console.error('Error deleting message:', error);
       toast.error('Failed to delete message');
     }
   };
 
-  const handleSubmit = async (e, overrideInput) => {
+  const handleSubmit = async (e) => {
     if (e) e.preventDefault();
-    const view = activeView;
-    const queryToUse = overrideInput || (view === 'self-learning' ? selfInput : teacherInput);
-    const viewIsLoading = view === 'self-learning' ? selfIsLoading : teacherIsLoading;
-    const conversationId = view === 'self-learning' ? selfConversationId : teacherConversationId;
-    if (!queryToUse.trim() || viewIsLoading) return;
-    if (view === 'teacher-feedback') {
-      const id = String(teacherConversationId ?? '').trim()
-      if (id && teacherChatDisabledByConversation?.[id]) return;
+    if (!selfInput.trim() || selfIsLoading) return;
+
+    const currentSubject = selectedCurriculum;
+    if (!currentSubject) {
+      toast.error('Please select a curriculum book first');
+      return;
     }
 
-    const userMessageText = queryToUse;
-    const userMessageId = Date.now();
+    const userMessageText = selfInput;
     const userMessage = {
-      id: userMessageId,
+      id: Date.now(),
       text: userMessageText,
       sender: 'user',
       timestamp: new Date(),
     };
 
-    if (view === 'self-learning') {
-      setSelfMessages((prev) => [...prev, userMessage]);
-      setSelfInput('');
-      setSelfIsLoading(true);
-      setSelfLoadingStatus('Saving message...');
-    } else {
-      setTeacherMessages((prev) => [...prev, userMessage]);
-      setTeacherInput('');
-      setTeacherIsLoading(true);
-      setTeacherLoadingStatus('Saving message...');
-    }
+    setSelfMessages((prev) => [...prev, userMessage]);
+    setSelfInput('');
+    setSelfIsLoading(true);
+    setSelfLoadingStatus('Saving message...');
 
     try {
-      const currentSubject = view === 'self-learning' ? selectedCurriculum : teacherSelectedBook;
+      setSelfLoadingStatus('Fetching AI response...');
 
-      if (!currentSubject) {
-        toast.error('Please select a curriculum book first');
-        if (view === 'self-learning') {
-          setSelfIsLoading(false);
-          setSelfLoadingStatus('');
-        } else {
-          setTeacherIsLoading(false);
-          setTeacherLoadingStatus('');
-        }
-        return;
-      }
+      const tempUserMessageId = userMessage.id;
+      const title = String(userMessageText || 'Untitled Chat').substring(0, 30);
 
-      let enhancedQuery = userMessageText;
-      if (view === 'teacher-feedback') {
-        const statuses = [];
-
-        if (teacherFeedbackStatus.todo) {
-          const label = teacherProgressOptions.todo.find(o => o.value === teacherFeedbackStatus.todo)?.label || teacherFeedbackStatus.todo;
-          statuses.push(`TODO: ${label}`);
-        }
-        if (teacherFeedbackStatus.inProgress) {
-          const label = teacherProgressOptions.inProgress.find(o => o.value === teacherFeedbackStatus.inProgress)?.label || teacherFeedbackStatus.inProgress;
-          statuses.push(`In Progress: ${label}`);
-        }
-        if (teacherFeedbackStatus.completed) {
-          const label = teacherProgressOptions.completed.find(o => o.value === teacherFeedbackStatus.completed)?.label || teacherFeedbackStatus.completed;
-          statuses.push(`Completed: ${label}`);
-        }
-
-        if (statuses.length > 0) {
-          enhancedQuery = `Context: Current student progress for ${currentSubject}: ${statuses.join(', ')}.\n\nQuestion: ${userMessageText}`;
-        }
-      }
-
-      // 1. Save user message to database
-      const userMsgResponse = await conversationService.createMessage({
-        content: userMessageText,
-        role: 'user',
-        conversation_id: conversationId,
+      const askResponse = await conversationService.ask({
+        question: userMessageText,
         curriculum_book_name: currentSubject,
-        title: userMessageText.substring(0, 30)
+        conversation_id: selfConversationId || null,
+        title
       });
 
-      // Update conversation ID if it was a new conversation
-      if (!conversationId && userMsgResponse.conversation_id) {
-        if (view === 'self-learning') {
-          setSelfConversationId(userMsgResponse.conversation_id);
-          setSelectedRecentChat(userMsgResponse.conversation_id);
-          fetchRecentChats();
-        } else {
-          setTeacherConversationId(userMsgResponse.conversation_id);
-        }
+      const nextConversationId = askResponse?.conversation_id || selfConversationId;
+
+      if (nextConversationId && (askResponse?.is_new_conversation || !selfConversationId)) {
+        setSelfConversationId(nextConversationId);
+        setSelectedRecentChat(nextConversationId);
+        setRecentChats((prev) => {
+          const nextId = String(nextConversationId);
+          if (prev.some((c) => String(c?.id ?? '') === nextId)) return prev;
+          return [{ id: nextId, title }, ...prev];
+        });
       }
 
-      const conversationIdToUse = conversationId || userMsgResponse.conversation_id;
+      if (askResponse?.user_message?.id) {
+        setSelfMessages((prev) =>
+          prev.map((m) =>
+            m.id === tempUserMessageId
+              ? {
+                  ...m,
+                  id: askResponse.user_message.id,
+                  timestamp: new Date(askResponse.user_message.created_at || m.timestamp || Date.now())
+                }
+              : m
+          )
+        );
+      }
 
-      if (view === 'self-learning') {
-        setSelfLoadingStatus('Fetching AI response...');
-      } else {
-        setTeacherLoadingStatus('Fetching AI response...');
-      }
-      
-      // 2. Get AI response
-      const response = await aiService.query(enhancedQuery, currentSubject, conversationIdToUse);
-      console.log('Raw AI Response:', response);
-      
-      if (view === 'self-learning') {
-        setSelfLoadingStatus('Saving AI response...');
-      } else {
-        setTeacherLoadingStatus('Saving AI response...');
-      }
-      
-      let structuredData = findStructuredData(response);
+      const aiAnswer = askResponse?.ai?.answer ?? askResponse?.assistant_message?.content ?? '';
+      const structuredData = findStructuredData(aiAnswer);
+
       let textContent = '';
-
-      // Handle the specific "Response: status=..." string format if it's not caught by findStructuredData
-      if (!structuredData && typeof response === 'string' && response.includes('status="refused"')) {
-        const messageMatch = response.match(/message="(.*?)"/);
-        structuredData = {
-          status: 'refused',
-          message: messageMatch ? messageMatch[1] : "I'm here to help you learn your subject 😊 Let's focus on your lesson."
-        };
+      if (typeof aiAnswer === 'string') {
+        textContent = aiAnswer;
+      } else if (aiAnswer && typeof aiAnswer === 'object') {
+        textContent =
+          aiAnswer?.message ||
+          aiAnswer?.answer ||
+          aiAnswer?.response ||
+          aiAnswer?.text ||
+          JSON.stringify(aiAnswer);
       }
 
-      if (typeof response === 'string') {
-        const trimmed = response.trim();
-        if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
-          try {
-            const parsed = JSON.parse(trimmed);
-            textContent = parsed.message || parsed.answer || parsed.response || parsed.text || '';
-          } catch (e) {}
-        } else {
-          textContent = response;
-        }
-      } else if (typeof response === 'object' && response !== null) {
-        textContent = response.message || response.answer || response.response || response.text || '';
+      if (!textContent && typeof askResponse?.assistant_message?.content === 'string') {
+        textContent = askResponse.assistant_message.content;
       }
-
-      if (structuredData && !textContent) {
-        textContent = structuredData.message || structuredData.answer || "Here's your lesson breakdown:";
-      }
-
-      if (!textContent) {
-        textContent = typeof response === 'string' ? response : "I processed your request but couldn't format the response properly.";
-      }
-
-      // Extract summary and title from structured data
-      let aiSummary = '';
-      let aiTitle = '';
-      
-      if (structuredData) {
-        aiSummary = structuredData.message || structuredData.answer || structuredData.simple_explanation || '';
-        aiTitle = structuredData.current_subtopic || 'AI Response';
-      }
-      
-      // 3. Save AI response to database
-      await conversationService.createMessage({
-        content: typeof response === 'object' ? JSON.stringify(response) : response,
-        role: 'assistant',
-        conversation_id: conversationIdToUse,
-        curriculum_book_name: currentSubject,
-        summary: aiSummary.substring(0, 200),
-        title: aiTitle.substring(0, 50)
-      });
 
       const assistantMessage = {
-        id: Date.now() + 1,
-        text: textContent,
+        id: askResponse?.assistant_message?.id || Date.now() + 1,
+        text: textContent || 'Sorry, I could not generate a response.',
         sender: 'ai',
-        timestamp: new Date(),
-        structuredData: structuredData,
-        rawResponse: typeof response === 'object' ? JSON.stringify(response, null, 2) : response
+        timestamp: new Date(askResponse?.assistant_message?.created_at || Date.now()),
+        structuredData,
+        rawResponse: typeof aiAnswer === 'object' ? JSON.stringify(aiAnswer, null, 2) : aiAnswer
       };
 
-      if (view === 'self-learning') {
-        setSelfMessages((prev) => [...prev, assistantMessage]);
-      } else {
-        setTeacherMessages((prev) => [...prev, assistantMessage]);
-      }
+      setSelfMessages((prev) => [...prev, assistantMessage]);
     } catch (error) {
       console.error('AI Query Error:', error);
-      const isTimeout =
-        error?.code === 'ECONNABORTED' ||
-        String(error?.message || '').toLowerCase().includes('timeout')
-
-      toast.error(
-        isTimeout
-          ? 'AI request timed out. Please try again.'
-          : 'Failed to get response from AI. Please try again.'
-      );
-      
-      const errorMessage = {
-        id: Date.now() + 1,
-        text: isTimeout
-          ? 'Sorry, the AI request timed out. Please try again.'
-          : 'Sorry, I encountered an error processing your request.',
-        sender: 'ai',
-        isError: true,
-        timestamp: new Date(),
-      };
-      if (view === 'self-learning') {
-        setSelfMessages((prev) => [...prev, errorMessage]);
-      } else {
-        setTeacherMessages((prev) => [...prev, errorMessage]);
-      }
+      toast.error('Failed to get response from AI. Please try again.');
+      setSelfMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now() + 1,
+          text: 'Sorry, I encountered an error processing your request.',
+          sender: 'ai',
+          isError: true,
+          timestamp: new Date(),
+        }
+      ]);
     } finally {
-      if (view === 'self-learning') {
-        setSelfIsLoading(false);
-        setSelfLoadingStatus('');
-      } else {
-        setTeacherIsLoading(false);
-        setTeacherLoadingStatus('');
-      }
+      setSelfIsLoading(false);
+      setSelfLoadingStatus('');
     }
   };
 
-  const isSelfLearning = activeView === 'self-learning';
-  const messages = isSelfLearning ? selfMessages : teacherMessages;
-  const isLoading = isSelfLearning ? selfIsLoading : teacherIsLoading;
-  const loadingStatus = isSelfLearning ? selfLoadingStatus : teacherLoadingStatus;
-  const activeConversationId = String((isSelfLearning ? selfConversationId : teacherConversationId) ?? '').trim()
-  const selectedTeacherInProgressOption =
-    teacherFeedbackStatus.inProgress
-      ? teacherProgressOptions.inProgress.find((o) => o.value === teacherFeedbackStatus.inProgress)
-      : null
-  const selectedTeacherTodoOption =
-    teacherFeedbackStatus.todo ? teacherProgressOptions.todo.find((o) => o.value === teacherFeedbackStatus.todo) : null
-  const selectedTeacherCompletedOption =
-    teacherFeedbackStatus.completed
-      ? teacherProgressOptions.completed.find((o) => o.value === teacherFeedbackStatus.completed)
-      : null
-  const activeTeacherOption = selectedTeacherInProgressOption || selectedTeacherTodoOption || selectedTeacherCompletedOption
-  const activeTeacherSubtopicId = String(activeTeacherOption?.questionSubtopicsId ?? '').trim()
-  const activeTeacherConversationId =
-    String(activeTeacherOption?.conversationId ?? '').trim() ||
-    (activeTeacherSubtopicId ? String(teacherSubtopicConversations?.[activeTeacherSubtopicId] ?? '').trim() : '') ||
-    ''
-  const isActiveTeacherInProgress = Boolean(selectedTeacherInProgressOption)
-  const isTeacherConversationDisabled = Boolean(activeConversationId && teacherChatDisabledByConversation?.[activeConversationId])
-
-  const coerceArray = (val) => {
-    if (Array.isArray(val)) return val
-    if (typeof val === 'string') {
-      const trimmed = val.trim()
-      if (!trimmed) return null
-      try {
-        const parsed = JSON.parse(trimmed)
-        return Array.isArray(parsed) ? parsed : null
-      } catch (e) {
-        return null
-      }
-    }
-    return null
-  }
-
-  const getQuizKeysForConversation = (conversationIdToUse, msgs) => {
-    const id = String(conversationIdToUse ?? '').trim()
-    if (!id || !Array.isArray(msgs)) return []
-    const keys = []
-    for (const msg of msgs) {
-      if (!msg || msg.sender !== 'ai' || !msg.structuredData) continue
-      const practiceArr = coerceArray(msg.structuredData.practice)
-      if (!practiceArr || practiceArr.length === 0) continue
-      for (let i = 0; i < practiceArr.length; i += 1) {
-        keys.push(`${id}:${msg.id}:${i}`)
-      }
-    }
-    return keys
-  }
-
-  const activeTeacherQuizKeys =
-    activeView === 'teacher-feedback' ? getQuizKeysForConversation(activeTeacherConversationId, teacherMessages) : []
-  const answeredForActiveTeacherConversation =
-    (activeTeacherConversationId && answeredQuizKeysByConversation?.[activeTeacherConversationId]) || {}
-  const allActiveTeacherQuizzesAnswered =
-    activeTeacherQuizKeys.length > 0 && activeTeacherQuizKeys.every((k) => Boolean(answeredForActiveTeacherConversation?.[k]))
-  const showMarkAsCompletedButton =
-    activeView === 'teacher-feedback' &&
-    teacherSelectedBook &&
-    isActiveTeacherInProgress &&
-    activeTeacherSubtopicId &&
-    activeTeacherConversationId &&
-    allActiveTeacherQuizzesAnswered &&
-    !isTeacherConversationDisabled
-
-  const handleQuizAnswered = ({ conversationId, quizKey }) => {
-    const id = String(conversationId ?? '').trim()
-    const key = String(quizKey ?? '').trim()
-    if (!id || !key) return
-    setAnsweredQuizKeysByConversation((prev) => {
-      const existingForConversation = prev?.[id] || {}
-      if (existingForConversation[key]) return prev
-      return {
-        ...prev,
-        [id]: {
-          ...existingForConversation,
-          [key]: true
-        }
-      }
-    })
-  }
-
-  const handleMarkAsCompleted = async () => {
-    if (!activeTeacherSubtopicId || !activeTeacherConversationId) return
-    if (markAsCompletedLoading) return
-    setMarkAsCompletedLoading(true)
-    try {
-      await questionService.updateQuestionSubtopicProgress(activeTeacherSubtopicId, 'completed')
-      setTeacherChatDisabledByConversation((prev) => ({
-        ...prev,
-        [activeTeacherConversationId]: true
-      }))
-      toast.success('Marked as completed')
-      await fetchTeacherProgress(teacherSelectedBook)
-    } catch (error) {
-      const message =
-        error?.response?.data?.message ||
-        error?.message ||
-        'Failed to update progress'
-      toast.error(message)
-    } finally {
-      setMarkAsCompletedLoading(false)
-    }
-  }
+  const messages = selfMessages;
+  const isLoading = selfIsLoading;
+  const loadingStatus = selfLoadingStatus;
+  const activeConversationId = String(selfConversationId ?? '').trim();
 
   return (
     <div className="space-y-4 min-h-screen flex flex-col">
-      {/* Tab Navigation - Based on AcademicManagementPage style */}
-      <div className="flex-shrink-0">
-        <div className="grid grid-cols-2 gap-2 w-full">
-          {tabs.map((tab) => {
-            const Icon = tab.icon
-            const isActive = activeView === tab.id
-
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveView(tab.id)}
-                className={`
-                  w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all border shadow-sm
-                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2
-                  ${isActive ? 'bg-primary-600 text-white border-primary-600 shadow-md' : 'bg-white text-secondary-700 border-secondary-300 hover:bg-secondary-50 hover:shadow'}
-                `}
-              >
-                <Icon className={`h-4 w-4 ${isActive ? 'text-white' : 'text-secondary-400'}`} />
-                <span className="whitespace-nowrap">{tab.name}</span>
-              </button>
-            )
-          })}
-        </div>
-      </div>
-
       <div className="relative flex flex-1 bg-secondary-50 overflow-hidden rounded-2xl border border-secondary-200 shadow-sm min-h-0">
         {/* Sidebar - Mobile Overlay Backdrop */}
         {isChatSidebarOpen && (
@@ -1404,11 +774,11 @@ const AIChatPage = () => {
           <div className="p-4 md:p-6 border-b border-secondary-100 flex items-center justify-between bg-white sticky top-0 z-10">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-primary-600 rounded-lg text-white shadow-soft">
-                {activeView === 'self-learning' ? <Bot className="w-5 h-5 md:w-6 md:h-6" /> : <MessageSquare className="w-5 h-5 md:w-6 md:h-6" />}
+                <Bot className="w-5 h-5 md:w-6 md:h-6" />
               </div>
               <div>
                 <h2 className="text-lg md:text-xl font-bold text-secondary-900 leading-none">
-                  {activeView === 'self-learning' ? 'AI Assistant' : 'Teacher Feed'}
+                  AI Assistant
                 </h2>
                 <div className="flex items-center gap-1.5 mt-1">
                   <div className="w-1.5 h-1.5 rounded-full bg-success-500 animate-pulse" />
@@ -1431,208 +801,76 @@ const AIChatPage = () => {
             </div>
             <button 
               onClick={() => {
-                if (activeView === 'self-learning') {
-                  setSelfConversationId(null);
-                  setSelectedRecentChat('');
-                  setSelfMessages([]);
-                } else {
-                  setTeacherConversationId(null);
-                  setTeacherMessages([]);
-                  setTeacherInput('');
-                  setTeacherLoadingStatus('');
-                  setTeacherFeedbackStatus({ todo: '', inProgress: '', completed: '' });
-                }
+                setSelfConversationId(null);
+                setSelectedRecentChat('');
+                setSelfMessages([]);
                 if (window.innerWidth < 768) setIsChatSidebarOpen(false);
               }}
               className="w-full flex items-center gap-3 px-3 py-2 text-sm text-primary-600 bg-primary-50 rounded-lg font-medium transition-colors hover:bg-primary-100"
             >
               <Sparkles className="w-4 h-4" />
-              {activeView === 'self-learning' ? 'New Learning Session' : 'New Feedback Session'}
+              New Learning Session
             </button>
           </div>
 
           {/* Sidebar Bottom (Dropdowns) */}
           <div className="p-4 border-t border-secondary-100 space-y-4 bg-secondary-50/50">
-            {activeView === 'self-learning' ? (
-              <>
-                <div>
-                  <label className="flex items-center gap-2 text-[10px] font-bold text-secondary-500 mb-2 uppercase tracking-widest">
-                    <Book className="w-3 h-3" />
-                    Curriculum Book
-                  </label>
-                  <div className="relative">
-                    <select 
-                      value={selectedCurriculum}
-                      onChange={(e) => {
-                        setSelectedCurriculum(e.target.value);
-                        if (window.innerWidth < 768) setIsChatSidebarOpen(false);
-                      }}
-                      className="w-full pl-3 pr-10 py-2.5 bg-white border border-secondary-200 rounded-xl text-sm text-secondary-700 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none appearance-none transition-all cursor-pointer hover:border-primary-300"
-                    >
-                      <option value="">Select Book</option>
-                      {CURRICULUM_BOOKS.map(book => (
-                        <option key={book.value} value={book.value}>{book.label}</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary-400 pointer-events-none" />
-                  </div>
-                </div>
+            <div>
+              <label className="flex items-center gap-2 text-[10px] font-bold text-secondary-500 mb-2 uppercase tracking-widest">
+                <Book className="w-3 h-3" />
+                Curriculum Book
+              </label>
+              <div className="relative">
+                <select 
+                  value={selectedCurriculum}
+                  onChange={(e) => {
+                    setSelectedCurriculum(e.target.value);
+                    if (window.innerWidth < 768) setIsChatSidebarOpen(false);
+                  }}
+                  className="w-full pl-3 pr-10 py-2.5 bg-white border border-secondary-200 rounded-xl text-sm text-secondary-700 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none appearance-none transition-all cursor-pointer hover:border-primary-300"
+                >
+                  <option value="">Select Book</option>
+                  {CURRICULUM_BOOKS.map(book => (
+                    <option key={book.value} value={book.value}>{book.label}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary-400 pointer-events-none" />
+              </div>
+            </div>
 
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="flex items-center gap-2 text-[10px] font-bold text-secondary-500 uppercase tracking-widest">
-                      <History className="w-3 h-3" />
-                      Recent Chats
-                    </label>
-                    {selectedRecentChat && (
-                      <button 
-                        onClick={() => handleDeleteConversation(selectedRecentChat)}
-                        className="text-error-500 hover:text-error-600 p-1 rounded-md hover:bg-error-50 transition-colors"
-                        title="Delete this conversation"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-                  <div className="relative">
-                    <select 
-                      value={selectedRecentChat}
-                      onChange={(e) => {
-                        handleRecentChatChange(e.target.value);
-                        if (window.innerWidth < 768) setIsChatSidebarOpen(false);
-                      }}
-                      className="w-full pl-3 pr-10 py-2.5 bg-white border border-secondary-200 rounded-xl text-sm text-secondary-700 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none appearance-none transition-all cursor-pointer hover:border-primary-300"
-                    >
-                      <option value="">Select a recent chat</option>
-                      {recentChats.map(chat => (
-                        <option key={chat.id} value={chat.id}>{chat.title || 'Untitled Chat'}</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary-400 pointer-events-none" />
-                  </div>
-                </div>
-              </>
-            ) : (
-              <>
-                <div>
-                  <label className="flex items-center gap-2 text-[10px] font-bold text-secondary-500 mb-2 uppercase tracking-widest">
-                    <Book className="w-3 h-3" />
-                    Curriculum Book
-                  </label>
-                  <div className="relative">
-                    <select 
-                      value={teacherSelectedBook}
-                      onChange={(e) => {
-                        setTeacherSelectedBook(e.target.value);
-                        setTeacherFeedbackStatus({ todo: '', inProgress: '', completed: '' });
-                        setTeacherMessages([]);
-                        setTeacherConversationId(null);
-                        setTeacherInput('');
-                        setTeacherLoadingStatus('');
-                        if (window.innerWidth < 768) setIsChatSidebarOpen(false);
-                      }}
-                      className="w-full pl-3 pr-10 py-2.5 bg-white border border-secondary-200 rounded-xl text-sm text-secondary-700 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none appearance-none transition-all cursor-pointer hover:border-primary-300"
-                    >
-                      <option value="">Select Book</option>
-                      {CURRICULUM_BOOKS.map(book => (
-                        <option key={book.value} value={book.value}>{book.label}</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary-400 pointer-events-none" />
-                  </div>
-                  <div className="text-[10px] text-secondary-500 mt-2 px-1">
-                    Student: <span className="font-medium text-secondary-700">{studentUsername || '-'}</span>
-                  </div>
-                  {teacherProgressLoading && (
-                    <div className="text-[10px] text-secondary-500 mt-2 px-1">Loading topics...</div>
-                  )}
-                  {!teacherProgressLoading && teacherProgressError && (
-                    <div className="text-[10px] text-error-600 mt-2 px-1">{teacherProgressError}</div>
-                  )}
-                  {!teacherProgressLoading && !teacherProgressError && (
-                    <div className="text-[10px] text-secondary-500 mt-2 px-1">
-                      Topics: <span className="font-medium text-secondary-700">{teacherProgressOptions.todo.length + teacherProgressOptions.inProgress.length + teacherProgressOptions.completed.length}</span>
-                    </div>
-                  )}
-                </div>
-
-                {teacherSelectedBook && (
-                  <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                    <div>
-                      <label className="flex items-center gap-2 text-[10px] font-bold text-secondary-500 mb-2 uppercase tracking-widest">
-                        <ListTodo className="w-3 h-3 text-amber-500" />
-                        TODO
-                      </label>
-                      <div className="relative">
-                        <select 
-                          value={teacherFeedbackStatus.todo}
-                          onChange={(e) => setTeacherFeedbackStatus(prev => ({ ...prev, todo: e.target.value }))}
-                          className="w-full pl-3 pr-10 py-2.5 bg-white border border-secondary-200 rounded-xl text-sm text-secondary-700 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none appearance-none transition-all cursor-pointer hover:border-primary-300"
-                          disabled={teacherProgressLoading}
-                        >
-                          <option value="">Select Topic</option>
-                          {!teacherProgressLoading && teacherProgressOptions.todo.length === 0 && (
-                            <option value="" disabled>No topics</option>
-                          )}
-                          {teacherProgressOptions.todo.map(opt => (
-                            <option key={opt.value} value={opt.value}>{String(opt.label).slice(0, 20)}</option>
-                          ))}
-                        </select>
-                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary-400 pointer-events-none" />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="flex items-center gap-2 text-[10px] font-bold text-secondary-500 mb-2 uppercase tracking-widest">
-                        <Clock className="w-3 h-3 text-primary-500" />
-                        In Progress
-                      </label>
-                      <div className="relative">
-                        <select 
-                          value={teacherFeedbackStatus.inProgress}
-                          onChange={(e) => setTeacherFeedbackStatus(prev => ({ ...prev, inProgress: e.target.value }))}
-                          className="w-full pl-3 pr-10 py-2.5 bg-white border border-secondary-200 rounded-xl text-sm text-secondary-700 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none appearance-none transition-all cursor-pointer hover:border-primary-300"
-                          disabled={teacherProgressLoading}
-                        >
-                          <option value="">Select Topic</option>
-                          {!teacherProgressLoading && teacherProgressOptions.inProgress.length === 0 && (
-                            <option value="" disabled>No topics</option>
-                          )}
-                          {teacherProgressOptions.inProgress.map(opt => (
-                            <option key={opt.value} value={opt.value}>{String(opt.label).slice(0, 20)}</option>
-                          ))}
-                        </select>
-                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary-400 pointer-events-none" />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="flex items-center gap-2 text-[10px] font-bold text-secondary-500 mb-2 uppercase tracking-widest">
-                        <CheckCircle className="w-3 h-3 text-primary-500" />
-                        Completed
-                      </label>
-                      <div className="relative">
-                        <select 
-                          value={teacherFeedbackStatus.completed}
-                          onChange={(e) => setTeacherFeedbackStatus(prev => ({ ...prev, completed: e.target.value }))}
-                          className="w-full pl-3 pr-10 py-2.5 bg-white border border-secondary-200 rounded-xl text-sm text-secondary-700 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none appearance-none transition-all cursor-pointer hover:border-primary-300"
-                          disabled={teacherProgressLoading}
-                        >
-                          <option value="">Select Topic</option>
-                          {!teacherProgressLoading && teacherProgressOptions.completed.length === 0 && (
-                            <option value="" disabled>No topics</option>
-                          )}
-                          {teacherProgressOptions.completed.map(opt => (
-                            <option key={opt.value} value={opt.value}>{String(opt.label).slice(0, 20)}</option>
-                          ))}
-                        </select>
-                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary-400 pointer-events-none" />
-                      </div>
-                    </div>
-                  </div>
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="flex items-center gap-2 text-[10px] font-bold text-secondary-500 uppercase tracking-widest">
+                  <History className="w-3 h-3" />
+                  Recent Chats
+                </label>
+                {selectedRecentChat && (
+                  <button 
+                    onClick={() => handleDeleteConversation(selectedRecentChat)}
+                    className="text-error-500 hover:text-error-600 p-1 rounded-md hover:bg-error-50 transition-colors"
+                    title="Delete this conversation"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                 )}
-              </>
-            )}
+              </div>
+              <div className="relative">
+                <select 
+                  value={selectedRecentChat}
+                  onChange={(e) => {
+                    handleRecentChatChange(e.target.value);
+                    if (window.innerWidth < 768) setIsChatSidebarOpen(false);
+                  }}
+                  className="w-full pl-3 pr-10 py-2.5 bg-white border border-secondary-200 rounded-xl text-sm text-secondary-700 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none appearance-none transition-all cursor-pointer hover:border-primary-300"
+                >
+                  <option value="">Select a recent chat</option>
+                  {recentChats.map(chat => (
+                    <option key={chat.id} value={chat.id}>{chat.title || 'Untitled Chat'}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary-400 pointer-events-none" />
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1653,17 +891,12 @@ const AIChatPage = () => {
                 </div>
                 <div>
                   <h1 className="text-base md:text-xl font-bold text-secondary-900 line-clamp-1">
-                    {activeView === 'self-learning' 
-                      ? (selectedCurriculum 
-                        ? `${CURRICULUM_BOOKS.find(b => b.value === selectedCurriculum)?.label}`
-                        : 'AI Learning Assistant')
-                      : (teacherSelectedBook
-                        ? `Feedback: ${CURRICULUM_BOOKS.find(b => b.value === teacherSelectedBook)?.label || teacherSelectedBook}`
-                        : 'Teacher Feedback Assistant')
-                    }
+                    {selectedCurriculum 
+                      ? `${CURRICULUM_BOOKS.find(b => b.value === selectedCurriculum)?.label}`
+                      : 'AI Learning Assistant'}
                   </h1>
                   <p className="text-[10px] md:text-xs text-secondary-500 font-medium">
-                    {activeView === 'self-learning' ? 'Master your subjects with AI' : 'Optimize your teaching with AI insights'}
+                    Master your subjects with AI
                   </p>
                 </div>
               </div>
@@ -1675,92 +908,23 @@ const AIChatPage = () => {
                 {messages.length === 0 ? (
                   <div className="h-full flex flex-col items-center justify-center text-center p-4 md:p-8 space-y-4">
                     <div className="w-12 h-12 md:w-16 md:h-16 bg-white rounded-full flex items-center justify-center shadow-soft border border-secondary-100 text-primary-500">
-                      {activeView === 'self-learning' ? <Bot className="w-8 h-8 md:w-10 md:h-10" /> : <MessageSquare className="w-8 h-8 md:w-10 md:h-10" />}
+                      <Bot className="w-8 h-8 md:w-10 md:h-10" />
                     </div>
                     <div className="max-w-md">
                       <h3 className="text-base md:text-lg font-semibold text-secondary-800">
-                        {activeView === 'self-learning'
-                          ? (selectedCurriculum 
-                            ? `Ask me anything about ${CURRICULUM_BOOKS.find(b => b.value === selectedCurriculum)?.label}`
-                            : "Welcome to AI Learning Assistant")
-                          : (teacherSelectedBook
-                            ? `I'm ready to provide feedback on ${CURRICULUM_BOOKS.find(b => b.value === teacherSelectedBook)?.label || teacherSelectedBook}`
-                            : "Welcome to Teacher Feedback Assistant")
-                        }
+                        {selectedCurriculum 
+                          ? `Ask me anything about ${CURRICULUM_BOOKS.find(b => b.value === selectedCurriculum)?.label}`
+                          : "Welcome to AI Learning Assistant"}
                       </h3>
-                      {activeView === 'self-learning' && !selectedCurriculum && (
+                      {!selectedCurriculum && (
                         <p className="text-sm text-secondary-500 mt-2">
                           Please select a book to start new chat or select recent chat to view past chats
                         </p>
-                      )}
-                      {activeView === 'teacher-feedback' && !teacherSelectedBook && (
-                        <p className="text-sm text-secondary-500 mt-2">
-                          Please select a curriculum book to get started with teacher feedback
-                        </p>
-                      )}
-                      {activeView === 'teacher-feedback' && teacherSelectedBook && teacherFeedbackStatus.todo && !activeTeacherConversationId && (
-                        <div className="mt-6 p-6 bg-white border border-primary-200 rounded-2xl shadow-sm animate-in zoom-in-95 duration-300 max-w-sm mx-auto">
-                          <p className="text-secondary-700 font-medium mb-4">
-                            Click start to learn about <span className="text-primary-600 font-bold underline decoration-primary-200 underline-offset-4">
-                              {teacherProgressOptions.todo.find(o => o.value === teacherFeedbackStatus.todo)?.label}
-                            </span>
-                          </p>
-                          <button
-                            onClick={() => handleStartInProgressLearning(teacherProgressOptions.todo.find(o => o.value === teacherFeedbackStatus.todo))}
-                            className="w-full py-3 px-6 bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 group"
-                          >
-                            <Sparkles className="w-5 h-5 group-hover:animate-pulse" />
-                            Start Learning
-                          </button>
-                        </div>
-                      )}
-                      {activeView === 'teacher-feedback' && teacherSelectedBook && teacherFeedbackStatus.inProgress && !activeTeacherConversationId && (
-                        <div className="mt-6 p-6 bg-white border border-primary-200 rounded-2xl shadow-sm animate-in zoom-in-95 duration-300 max-w-sm mx-auto">
-                          <p className="text-secondary-700 font-medium mb-4">
-                            Click start to learn about <span className="text-primary-600 font-bold underline decoration-primary-200 underline-offset-4">
-                              {teacherProgressOptions.inProgress.find(o => o.value === teacherFeedbackStatus.inProgress)?.label}
-                            </span>
-                          </p>
-                          <button
-                            onClick={() => handleStartInProgressLearning(teacherProgressOptions.inProgress.find(o => o.value === teacherFeedbackStatus.inProgress))}
-                            className="w-full py-3 px-6 bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 group"
-                          >
-                            <Sparkles className="w-5 h-5 group-hover:animate-pulse" />
-                            Start Learning "{teacherProgressOptions.inProgress.find(o => o.value === teacherFeedbackStatus.inProgress)?.label}"
-                          </button>
-                        </div>
-                      )}
-                      {activeView === 'teacher-feedback' && teacherSelectedBook && teacherFeedbackStatus.completed && !activeTeacherConversationId && (
-                        <div className="mt-6 p-6 bg-white border border-primary-200 rounded-2xl shadow-sm animate-in zoom-in-95 duration-300 max-w-sm mx-auto">
-                          <p className="text-secondary-700 font-medium mb-4">
-                            Click start to learn about <span className="text-primary-600 font-bold underline decoration-primary-200 underline-offset-4">
-                              {teacherProgressOptions.completed.find(o => o.value === teacherFeedbackStatus.completed)?.label}
-                            </span>
-                          </p>
-                          <button
-                            onClick={() => handleStartInProgressLearning(teacherProgressOptions.completed.find(o => o.value === teacherFeedbackStatus.completed))}
-                            className="w-full py-3 px-6 bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 group"
-                          >
-                            <Sparkles className="w-5 h-5 group-hover:animate-pulse" />
-                            Start Learning "{teacherProgressOptions.completed.find(o => o.value === teacherFeedbackStatus.completed)?.label}"
-                          </button>
-                        </div>
                       )}
                     </div>
                   </div>
                 ) : (
                   <>
-                    {activeView === 'teacher-feedback' && teacherSelectedBook && teacherFeedbackStatus.inProgress && !activeTeacherConversationId && (
-                      <div className="p-4 bg-white border border-primary-200 rounded-2xl shadow-sm max-w-sm mx-auto">
-                        <button
-                          onClick={() => handleStartInProgressLearning(teacherProgressOptions.inProgress.find(o => o.value === teacherFeedbackStatus.inProgress))}
-                          className="w-full py-3 px-6 bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 group"
-                        >
-                          <Sparkles className="w-5 h-5 group-hover:animate-pulse" />
-                          Start Learning "{teacherProgressOptions.inProgress.find(o => o.value === teacherFeedbackStatus.inProgress)?.label}"
-                        </button>
-                      </div>
-                    )}
                     {messages.map((msg) => (
                       <div
                         key={msg.id}
@@ -1802,7 +966,7 @@ const AIChatPage = () => {
                                 fallbackText={msg.text}
                                 quizConversationId={activeConversationId || null}
                                 quizKeyPrefix={activeConversationId ? `${activeConversationId}:${msg.id}` : null}
-                                onQuizAnswered={handleQuizAnswered}
+                                onQuizAnswered={() => {}}
                               />
                             ) : msg.sender === 'ai' ? (
                               <MarkdownFallback text={msg.text} />
@@ -1839,66 +1003,28 @@ const AIChatPage = () => {
               </div>
 
               {/* Input Area */}
-              {activeView === 'self-learning' && (
-                <div className="p-3 md:p-4 bg-white border-t border-secondary-100">
-                  <form onSubmit={handleSubmit} className="relative">
-                    <input
-                      type="text"
-                      value={selfInput}
-                      onChange={(e) => setSelfInput(e.target.value)}
-                      placeholder="Ask about a topic..."
-                      className="w-full pl-4 pr-12 py-3 bg-secondary-50 border border-secondary-200 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all"
-                      disabled={isLoading || !selectedCurriculum}
-                    />
-                    <button
-                      type="submit"
-                      disabled={isLoading || !selfInput.trim() || !selectedCurriculum}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      <Send className="w-4 h-4" />
-                    </button>
-                  </form>
-                  <p className="text-[10px] text-center text-secondary-400 mt-2">
-                    AI can make mistakes. Verify important information.
-                  </p>
-                </div>
-              )}
-              {activeView === 'teacher-feedback' && (
-                <div className="p-3 md:p-4 bg-white border-t border-secondary-100">
-                  {showMarkAsCompletedButton && (
-                    <div className="mb-3">
-                      <button
-                        type="button"
-                        onClick={handleMarkAsCompleted}
-                        disabled={isLoading || markAsCompletedLoading}
-                        className="w-full py-2.5 px-4 bg-success-600 hover:bg-success-700 text-white font-bold rounded-xl transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        Mark as completed
-                      </button>
-                    </div>
-                  )}
-                  <form onSubmit={handleSubmit} className="relative">
-                    <input
-                      type="text"
-                      value={teacherInput}
-                      onChange={(e) => setTeacherInput(e.target.value)}
-                      placeholder="Ask for feedback..."
-                      className="w-full pl-4 pr-12 py-3 bg-secondary-50 border border-secondary-200 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all"
-                      disabled={isLoading || !teacherSelectedBook || isTeacherConversationDisabled}
-                    />
-                    <button
-                      type="submit"
-                      disabled={isLoading || !teacherInput.trim() || !teacherSelectedBook || isTeacherConversationDisabled}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      <Send className="w-4 h-4" />
-                    </button>
-                  </form>
-                  <p className="text-[10px] text-center text-secondary-400 mt-2">
-                    AI can make mistakes. Verify important information.
-                  </p>
-                </div>
-              )}
+              <div className="p-3 md:p-4 bg-white border-t border-secondary-100">
+                <form onSubmit={handleSubmit} className="relative">
+                  <input
+                    type="text"
+                    value={selfInput}
+                    onChange={(e) => setSelfInput(e.target.value)}
+                    placeholder="Ask about a topic..."
+                    className="w-full pl-4 pr-12 py-3 bg-secondary-50 border border-secondary-200 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all"
+                    disabled={isLoading || !selectedCurriculum}
+                  />
+                  <button
+                    type="submit"
+                    disabled={isLoading || !selfInput.trim() || !selectedCurriculum}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <Send className="w-4 h-4" />
+                  </button>
+                </form>
+                <p className="text-[10px] text-center text-secondary-400 mt-2">
+                  AI can make mistakes. Verify important information.
+                </p>
+              </div>
             </Card>
           </div>
         </div>
