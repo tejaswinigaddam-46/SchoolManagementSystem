@@ -9,13 +9,7 @@ import {
 import Card from '../components/ui/Card';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import Badge from '../components/ui/Badge';
-// here commenting
-// import aiService from '../services/aiService';
-// here commenting
 import conversationService from '../services/conversationService';
-// here commenting
-// import questionService from '../services/questionService';
-import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'react-hot-toast';
 
 const CURRICULUM_BOOKS = [
