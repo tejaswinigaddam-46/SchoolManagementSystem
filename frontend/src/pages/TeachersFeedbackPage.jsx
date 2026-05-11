@@ -27,6 +27,7 @@ import LoadingSpinner from '../components/ui/LoadingSpinner';
 import Badge from '../components/ui/Badge';
 import conversationService from '../services/conversationService';
 import questionService from '../services/questionService';
+import aiApiClient, { aiApi } from '../services/aiApiClient';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -474,6 +475,8 @@ const TeachersFeedbackPage = ({ selectedBook }) => {
   const [answeredQuizKeysByConversation, setAnsweredQuizKeysByConversation] = useState({});
   const [teacherChatDisabledByConversation, setTeacherChatDisabledByConversation] = useState({});
   const [markAsCompletedLoading, setMarkAsCompletedLoading] = useState(false);
+  const [markOverviewCompleteLoading, setMarkOverviewCompleteLoading] = useState(false);
+  const [teacherTodoStartReady, setTeacherTodoStartReady] = useState(false);
 
   const messagesEndRef = useRef(null);
 
@@ -492,6 +495,30 @@ const TeachersFeedbackPage = ({ selectedBook }) => {
     if (compact === 'inprogress' || compact === 'learning') return 'InProgress';
     if (compact === 'completed' || compact === 'complete') return 'completed';
     return raw || 'Unknown';
+  };
+
+  function toPositiveIntOrNull(val) {
+    const raw = String(val ?? '').trim();
+    if (!raw) return null;
+    const num = Number(raw);
+    if (!Number.isFinite(num)) return null;
+    const intVal = Math.trunc(num);
+    return intVal > 0 ? intVal : null;
+  }
+
+  const getConversationByQuestionPath = (questionId) => {
+    const baseURL = String(aiApiClient?.defaults?.baseURL || '');
+    const id = encodeURIComponent(String(questionId ?? '').trim());
+    return baseURL.includes('/api/v1')
+      ? `/conversations/by-question/${id}`
+      : `/api/v1/conversations/by-question/${id}`;
+  };
+
+  const getFeedbackOverviewPath = () => {
+    const baseURL = String(aiApiClient?.defaults?.baseURL || '');
+    return baseURL.includes('/api/v1')
+      ? '/conversations/feedback-overview'
+      : '/api/v1/conversations/feedback-overview';
   };
 
   const findStructuredData = (obj, depth = 0) => {
@@ -546,6 +573,130 @@ const TeachersFeedbackPage = ({ selectedBook }) => {
     return null;
   };
 
+  const extractConversationId = (payload) => {
+    const id =
+      payload?.conversation_id ??
+      payload?.conversationId ??
+      payload?.conversation?.id ??
+      payload?.conversation?.conversation_id ??
+      payload?.id ??
+      null;
+    const trimmed = String(id ?? '').trim();
+    return trimmed || null;
+  };
+
+  const titleCaseKey = (key) => {
+    const raw = String(key ?? '').trim();
+    if (!raw) return '';
+    return raw
+      .replace(/_/g, ' ')
+      .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .split(' ')
+      .map((w) => (w ? `${w[0].toUpperCase()}${w.slice(1)}` : ''))
+      .join(' ');
+  };
+
+  const jsonToMarkdown = (value, depth = 0) => {
+    if (value == null) return '';
+    if (typeof value === 'string') return value;
+    if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+
+    const maxDepth = 4;
+    if (depth >= maxDepth) {
+      try {
+        return `\n\`\`\`json\n${JSON.stringify(value, null, 2)}\n\`\`\`\n`;
+      } catch (e) {
+        return String(value);
+      }
+    }
+
+    if (Array.isArray(value)) {
+      if (value.length === 0) return '';
+      const parts = value
+        .map((item) => {
+          const rendered = jsonToMarkdown(item, depth + 1).trim();
+          if (!rendered) return null;
+          const singleLine = rendered.replace(/\n+/g, ' ').trim();
+          return `- ${singleLine}`;
+        })
+        .filter(Boolean);
+      return `${parts.join('\n')}\n`;
+    }
+
+    if (typeof value === 'object') {
+      const entries = Object.entries(value).filter(([k, v]) => v != null && String(v).trim() !== '');
+      if (entries.length === 0) return '';
+      const headingPrefix = depth === 0 ? '##' : depth === 1 ? '###' : depth === 2 ? '####' : '#####';
+      const sections = [];
+      for (const [k, v] of entries) {
+        const label = titleCaseKey(k);
+        const rendered = jsonToMarkdown(v, depth + 1).trim();
+        if (!rendered) continue;
+        if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
+          sections.push(`${headingPrefix} ${label}\n\n${rendered}\n`);
+        } else if (Array.isArray(v)) {
+          sections.push(`${headingPrefix} ${label}\n\n${rendered}\n`);
+        } else {
+          sections.push(`${headingPrefix} ${label}\n\n${rendered}\n`);
+        }
+      }
+      return sections.join('\n').trim() + '\n';
+    }
+
+    return String(value);
+  };
+
+  const formatAiTextForDisplay = (content) => {
+    if (content == null) return '';
+    if (typeof content === 'string') {
+      const trimmed = content.trim();
+      if (!trimmed) return '';
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (parsed && (typeof parsed === 'object' || Array.isArray(parsed))) {
+          return jsonToMarkdown(parsed);
+        }
+      } catch (e) {}
+      return content;
+    }
+    if (typeof content === 'object') {
+      return jsonToMarkdown(content);
+    }
+    return String(content);
+  };
+
+  const loadMessagesForConversationId = async (convId, seq) => {
+    const conversationId = String(convId ?? '').trim();
+    if (!conversationId) return;
+
+    const chatMessages = await conversationService.getMessages(conversationId);
+    const rows = Array.isArray(chatMessages)
+      ? chatMessages
+      : Array.isArray(chatMessages?.data)
+        ? chatMessages.data
+        : [];
+
+    const formattedMessages = rows.map((msg) => {
+      const role = String(msg?.role ?? '').trim().toLowerCase();
+      const sender = role === 'user' ? 'user' : 'ai';
+      const content = msg?.content ?? '';
+      return {
+        id: msg?.id ?? `${conversationId}:${String(msg?.created_at ?? Date.now())}`,
+        text: sender === 'ai' ? formatAiTextForDisplay(content) : String(content ?? ''),
+        sender,
+        timestamp: new Date(msg?.created_at || Date.now()),
+        structuredData: sender === 'ai' ? findStructuredData(content) : null,
+        conversationId
+      };
+    });
+
+    if (seq != null && seq !== activeConversationLoadSeq.current) return;
+    setTeacherConversationId(conversationId);
+    setTeacherMessages(formattedMessages);
+  };
+
   const fetchTeacherProgress = async (book) => {
     if (!studentUsername || !book) return;
     setTeacherProgressLoading(true);
@@ -564,13 +715,13 @@ const TeachersFeedbackPage = ({ selectedBook }) => {
         Array.isArray(response?.progress) ? response.progress :
         Array.isArray(response?.data?.data) ? response.data.data :
         [];
-      //const rows = [];
 
       const todo = [];
       const inProgress = [];
       const completed = [];
       const conversationsBySubtopicId = {};
 
+      let missingQuestionIdCount = 0;
       for (const row of rows) {
         const normalized = normalizeProgressStatus(row?.status);
         const questionSubtopicsId =
@@ -608,6 +759,10 @@ const TeachersFeedbackPage = ({ selectedBook }) => {
           conversationId
         };
         if (!option.value) continue;
+        if (!toPositiveIntOrNull(option.questionId)) {
+          missingQuestionIdCount += 1;
+          continue;
+        }
 
         if (option.questionSubtopicsId && conversationId) {
           conversationsBySubtopicId[option.questionSubtopicsId] = conversationId;
@@ -619,6 +774,9 @@ const TeachersFeedbackPage = ({ selectedBook }) => {
       }
 
       setTeacherProgressOptions({ todo, inProgress, completed });
+      if (missingQuestionIdCount > 0) {
+        toast.error(`${missingQuestionIdCount} topics skipped because question_id is missing`);
+      }
       if (Object.keys(conversationsBySubtopicId).length > 0) {
         setTeacherSubtopicConversations((prev) => ({ ...prev, ...conversationsBySubtopicId }));
       }
@@ -667,6 +825,8 @@ const TeachersFeedbackPage = ({ selectedBook }) => {
       : null;
 
   const activeTeacherOption = selectedInProgressOption || selectedTodoOption || selectedCompletedOption;
+  const activeTeacherStatusKey =
+    selectedInProgressOption ? 'inProgress' : selectedTodoOption ? 'todo' : selectedCompletedOption ? 'completed' : '';
   const activeTeacherSubtopicId = String(activeTeacherOption?.questionSubtopicsId ?? '').trim();
   const activeTeacherQuestionId = String(activeTeacherOption?.questionId ?? '').trim();
   const activeTeacherConversationId =
@@ -676,14 +836,110 @@ const TeachersFeedbackPage = ({ selectedBook }) => {
   const conversationIdToUse = activeTeacherConversationId || String(teacherConversationId ?? '').trim() || null;
   const isTeacherConversationDisabled = Boolean(conversationIdToUse && teacherChatDisabledByConversation?.[conversationIdToUse]);
 
-  const toPositiveIntOrNull = (val) => {
-    const raw = String(val ?? '').trim();
-    if (!raw) return null;
-    const num = Number(raw);
-    if (!Number.isFinite(num)) return null;
-    const intVal = Math.trunc(num);
-    return intVal > 0 ? intVal : null;
-  };
+  const activeConversationLoadSeq = useRef(0);
+
+  useEffect(() => {
+    if (!teacherSelectedBook) return;
+    if (!activeTeacherOption) {
+      setTeacherConversationId(null);
+      setTeacherMessages([]);
+      setTeacherLoadingStatus('');
+      setTeacherTodoStartReady(false);
+      return;
+    }
+    if (!studentUsername) return;
+
+    if (activeTeacherStatusKey === 'todo') {
+      const option = activeTeacherOption;
+      const existingConversationId =
+        String(option?.conversationId ?? '').trim() ||
+        (String(option?.questionSubtopicsId ?? '').trim()
+          ? String(teacherSubtopicConversations?.[String(option.questionSubtopicsId).trim()] ?? '').trim()
+          : '') ||
+        null;
+      const resolved = String(existingConversationId ?? '').trim();
+      const current = String(teacherConversationId ?? '').trim();
+      if (resolved && current && resolved === current && teacherMessages.length > 0) return;
+    }
+
+    const seq = (activeConversationLoadSeq.current += 1);
+    const option = activeTeacherOption;
+    const statusKey = activeTeacherStatusKey;
+
+    const run = async () => {
+      setTeacherIsLoading(true);
+      setTeacherLoadingStatus('Loading conversation...');
+      setTeacherConversationId(null);
+      setTeacherMessages([]);
+      setTeacherTodoStartReady(false);
+
+      try {
+        const questionId = toPositiveIntOrNull(option?.questionId);
+        if (!questionId) {
+          toast.error('Selected topic is missing question_id');
+          return;
+        }
+
+        const existingConversationId =
+          String(option?.conversationId ?? '').trim() ||
+          (String(option?.questionSubtopicsId ?? '').trim()
+            ? String(teacherSubtopicConversations?.[String(option.questionSubtopicsId).trim()] ?? '').trim()
+            : '') ||
+          null;
+
+        if (statusKey !== 'todo') {
+          if (!existingConversationId) return;
+          await loadMessagesForConversationId(existingConversationId, seq);
+          return;
+        }
+
+        let byQuestionPayload = null;
+        try {
+          const byQuestion = await aiApi.get(getConversationByQuestionPath(questionId), {
+            params: { studentusername: studentUsername, _t: Date.now() },
+            suppressErrorToast: true
+          });
+          byQuestionPayload = byQuestion?.data ?? byQuestion ?? null;
+        } catch (error) {
+          const status = error?.response?.status;
+          if (status !== 404) throw error;
+          byQuestionPayload = null;
+        }
+
+        const byQuestionConversationId = extractConversationId(byQuestionPayload);
+
+        if (byQuestionConversationId) {
+          await loadMessagesForConversationId(byQuestionConversationId, seq);
+          return;
+        }
+
+        if (seq !== activeConversationLoadSeq.current) return;
+        setTeacherTodoStartReady(true);
+      } catch (error) {
+        const message =
+          error?.response?.data?.message ||
+          error?.message ||
+          'Failed to load conversation';
+        toast.error(message);
+      } finally {
+        if (seq === activeConversationLoadSeq.current) {
+          setTeacherIsLoading(false);
+          setTeacherLoadingStatus('');
+        }
+      }
+    };
+
+    run();
+  }, [
+    teacherSelectedBook,
+    studentUsername,
+    teacherFeedbackStatus.todo,
+    teacherFeedbackStatus.inProgress,
+    teacherFeedbackStatus.completed,
+    activeTeacherStatusKey,
+    activeTeacherOption,
+    teacherSubtopicConversations
+  ]);
 
   const coerceArray = (val) => {
     if (Array.isArray(val)) return val;
@@ -728,6 +984,14 @@ const TeachersFeedbackPage = ({ selectedBook }) => {
     allActiveTeacherQuizzesAnswered &&
     !isTeacherConversationDisabled;
 
+  const showMarkOverviewCompleteButton =
+    teacherSelectedBook &&
+    Boolean(selectedTodoOption) &&
+    activeTeacherSubtopicId &&
+    conversationIdToUse &&
+    teacherMessages.length > 0 &&
+    !teacherIsLoading;
+
   const handleQuizAnswered = ({ conversationId, quizKey }) => {
     const id = String(conversationId ?? '').trim();
     const key = String(quizKey ?? '').trim();
@@ -769,6 +1033,31 @@ const TeachersFeedbackPage = ({ selectedBook }) => {
     }
   };
 
+  const handleMarkOverviewComplete = async () => {
+    if (!activeTeacherSubtopicId) return;
+    if (markOverviewCompleteLoading) return;
+    setMarkOverviewCompleteLoading(true);
+    try {
+      await questionService.updateQuestionSubtopicProgress(activeTeacherSubtopicId, 'completed')
+      toast.success('Overview marked as completed');
+      await fetchTeacherProgress(teacherSelectedBook);
+      const nextValue = String(activeTeacherOption?.value ?? '').trim();
+      if (nextValue) {
+        setTeacherFeedbackStatus({ todo: '', inProgress: '', completed: nextValue });
+      } else {
+        setTeacherFeedbackStatus({ todo: '', inProgress: '', completed: '' });
+      }
+    } catch (error) {
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to update progress';
+      toast.error(message);
+    } finally {
+      setMarkOverviewCompleteLoading(false);
+    }
+  };
+
   const handleDeleteMessage = async (messageId) => {
     if (!messageId || !window.confirm('Delete this message?')) return;
     try {
@@ -778,6 +1067,111 @@ const TeachersFeedbackPage = ({ selectedBook }) => {
       setTeacherMessages((prev) => prev.filter((m) => m.id !== messageId));
     } catch (error) {
       toast.error('Failed to delete message');
+    }
+  };
+
+  const handleStartTodoLearning = async (todoOption) => {
+    const option = todoOption && typeof todoOption === 'object' ? todoOption : null;
+    if (!option) return;
+    if (!teacherSelectedBook) {
+      toast.error('Please select a curriculum book first');
+      return;
+    }
+
+    const questionId = toPositiveIntOrNull(option?.questionId);
+    if (!questionId) {
+      toast.error('Selected topic is missing question_id');
+      return;
+    }
+
+    const label = String(option?.label ?? '').trim();
+    setTeacherIsLoading(true);
+    setTeacherTodoStartReady(false);
+    setTeacherLoadingStatus('Generating feedback overview...');
+    setTeacherConversationId(null);
+    setTeacherMessages([]);
+
+    try {
+      const feedbackPayload = {
+        question_id: questionId,
+        curriculum_book_name: teacherSelectedBook,
+        conversation_id: null,
+        title: label || null,
+        no_of_chunks: 8,
+        question_subtopics_id: toPositiveIntOrNull(option?.questionSubtopicsId)
+      };
+
+      const feedbackResp = await aiApi.post(
+        getFeedbackOverviewPath(),
+        feedbackPayload,
+        { timeout: 60000, suppressErrorToast: true }
+      );
+
+      const feedbackData = feedbackResp?.data ?? feedbackResp ?? null;
+      const newConversationId = extractConversationId(feedbackData);
+
+      if (!newConversationId) {
+        toast.error('Failed to create feedback conversation');
+        setTeacherTodoStartReady(true);
+        return;
+      }
+
+      setTeacherConversationId(newConversationId);
+
+      const userMsg = feedbackData?.user_message || null;
+      const assistantMsg = feedbackData?.assistant_message || null;
+      const rawAnswer = feedbackData?.ai?.answer ?? assistantMsg?.content ?? '';
+      let parsedAnswer = rawAnswer;
+      if (typeof rawAnswer === 'string') {
+        const trimmed = rawAnswer.trim();
+        if (trimmed) {
+          try {
+            parsedAnswer = JSON.parse(trimmed);
+          } catch (e) {
+            parsedAnswer = rawAnswer;
+          }
+        }
+      }
+
+      const assistantText =
+        typeof parsedAnswer === 'string' ? parsedAnswer : formatAiTextForDisplay(parsedAnswer);
+
+      const initialMessages = [];
+      if (userMsg?.content != null) {
+        initialMessages.push({
+          id: userMsg?.id || Date.now(),
+          text: String(userMsg.content),
+          sender: 'user',
+          timestamp: new Date(userMsg?.created_at || Date.now()),
+          conversationId: newConversationId
+        });
+      }
+      initialMessages.push({
+        id: assistantMsg?.id || Date.now() + 1,
+        text: assistantText || (typeof rawAnswer === 'string' ? formatAiTextForDisplay(rawAnswer) : ''),
+        sender: 'ai',
+        timestamp: new Date(assistantMsg?.created_at || Date.now()),
+        structuredData: null,
+        rawResponse: typeof parsedAnswer === 'object' ? JSON.stringify(parsedAnswer, null, 2) : String(parsedAnswer ?? ''),
+        conversationId: newConversationId
+      });
+
+      setTeacherMessages(initialMessages);
+
+      const questionSubtopicsId = String(option?.questionSubtopicsId ?? '').trim();
+      if (questionSubtopicsId) {
+        setTeacherSubtopicConversations((prev) => ({ ...prev, [questionSubtopicsId]: newConversationId }));
+      }
+    } catch (error) {
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to generate feedback overview';
+      toast.error(message);
+      setTeacherTodoStartReady(true);
+    } finally {
+      setTeacherIsLoading(false);
+      setTeacherLoadingStatus('');
     }
   };
 
@@ -1123,7 +1517,7 @@ const TeachersFeedbackPage = ({ selectedBook }) => {
                   <div className="relative">
                     <select
                       value={teacherFeedbackStatus.todo}
-                      onChange={(e) => setTeacherFeedbackStatus(prev => ({ ...prev, todo: e.target.value }))}
+                      onChange={(e) => setTeacherFeedbackStatus({ todo: e.target.value, inProgress: '', completed: '' })}
                       className="w-full pl-3 pr-10 py-2.5 bg-white border border-secondary-200 rounded-xl text-sm text-secondary-700 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none appearance-none transition-all cursor-pointer hover:border-primary-300"
                       disabled={teacherProgressLoading}
                     >
@@ -1147,7 +1541,7 @@ const TeachersFeedbackPage = ({ selectedBook }) => {
                   <div className="relative">
                     <select
                       value={teacherFeedbackStatus.inProgress}
-                      onChange={(e) => setTeacherFeedbackStatus(prev => ({ ...prev, inProgress: e.target.value }))}
+                      onChange={(e) => setTeacherFeedbackStatus({ todo: '', inProgress: e.target.value, completed: '' })}
                       className="w-full pl-3 pr-10 py-2.5 bg-white border border-secondary-200 rounded-xl text-sm text-secondary-700 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none appearance-none transition-all cursor-pointer hover:border-primary-300"
                       disabled={teacherProgressLoading}
                     >
@@ -1171,7 +1565,7 @@ const TeachersFeedbackPage = ({ selectedBook }) => {
                   <div className="relative">
                     <select
                       value={teacherFeedbackStatus.completed}
-                      onChange={(e) => setTeacherFeedbackStatus(prev => ({ ...prev, completed: e.target.value }))}
+                      onChange={(e) => setTeacherFeedbackStatus({ todo: '', inProgress: '', completed: e.target.value })}
                       className="w-full pl-3 pr-10 py-2.5 bg-white border border-secondary-200 rounded-xl text-sm text-secondary-700 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none appearance-none transition-all cursor-pointer hover:border-primary-300"
                       disabled={teacherProgressLoading}
                     >
@@ -1233,7 +1627,7 @@ const TeachersFeedbackPage = ({ selectedBook }) => {
                           Please select a curriculum book to get started with teacher feedback
                         </p>
                       )}
-                      {teacherSelectedBook && startOptionForCard && !conversationIdToUse && (
+                      {teacherSelectedBook && startOptionForCard && !conversationIdToUse && !teacherIsLoading && activeTeacherStatusKey !== 'todo' && (
                         <div className="mt-6 p-6 bg-white border border-primary-200 rounded-2xl shadow-sm animate-in zoom-in-95 duration-300 max-w-sm mx-auto">
                           <p className="text-secondary-700 font-medium mb-4">
                             Click start to learn about <span className="text-primary-600 font-bold underline decoration-primary-200 underline-offset-4">
@@ -1241,6 +1635,7 @@ const TeachersFeedbackPage = ({ selectedBook }) => {
                             </span>
                           </p>
                           <button
+                            type="button"
                             onClick={() => handleStartInProgressLearning(startOptionForCard)}
                             className="w-full py-3 px-6 bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 group"
                           >
@@ -1249,13 +1644,31 @@ const TeachersFeedbackPage = ({ selectedBook }) => {
                           </button>
                         </div>
                       )}
+                      {teacherSelectedBook && selectedTodoOption && !conversationIdToUse && !teacherIsLoading && teacherTodoStartReady && (
+                        <div className="mt-6 p-6 bg-white border border-primary-200 rounded-2xl shadow-sm animate-in zoom-in-95 duration-300 max-w-sm mx-auto">
+                          <p className="text-secondary-700 font-medium mb-4">
+                            Click start to generate feedback overview for <span className="text-primary-600 font-bold underline decoration-primary-200 underline-offset-4">
+                              {selectedTodoOption?.label}
+                            </span>
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => handleStartTodoLearning(selectedTodoOption)}
+                            className="w-full py-3 px-6 bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 group"
+                          >
+                            <Sparkles className="w-5 h-5 group-hover:animate-pulse" />
+                            Start Learning main
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ) : (
                   <>
-                    {teacherSelectedBook && selectedInProgressOption && !conversationIdToUse && (
+                    {teacherSelectedBook && selectedInProgressOption && !conversationIdToUse && !teacherIsLoading && (
                       <div className="p-4 bg-white border border-primary-200 rounded-2xl shadow-sm max-w-sm mx-auto">
                         <button
+                          type="button"
                           onClick={() => handleStartInProgressLearning(selectedInProgressOption)}
                           className="w-full py-3 px-6 bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 group"
                         >
@@ -1342,6 +1755,18 @@ const TeachersFeedbackPage = ({ selectedBook }) => {
               </div>
 
               <div className="p-3 md:p-4 bg-white border-t border-secondary-100">
+                {showMarkOverviewCompleteButton && (
+                  <div className="mb-3">
+                    <button
+                      type="button"
+                      onClick={handleMarkOverviewComplete}
+                      disabled={teacherIsLoading || markOverviewCompleteLoading}
+                      className="w-full py-2.5 px-4 bg-success-600 hover:bg-success-700 text-white font-bold rounded-xl transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Mark overview complete
+                    </button>
+                  </div>
+                )}
                 {showMarkAsCompletedButton && (
                   <div className="mb-3">
                     <button
