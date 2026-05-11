@@ -628,7 +628,7 @@ const TeachersFeedbackPage = ({ selectedBook }) => {
     if (typeof value === 'object') {
       const entries = Object.entries(value).filter(([k, v]) => v != null && String(v).trim() !== '');
       if (entries.length === 0) return '';
-      const headingPrefix = depth === 0 ? '##' : depth === 1 ? '###' : depth === 2 ? '####' : '#####';
+      const headingPrefix = depth === 0 ? '##' : '###';
       const sections = [];
       for (const [k, v] of entries) {
         const label = titleCaseKey(k);
@@ -981,7 +981,8 @@ const TeachersFeedbackPage = ({ selectedBook }) => {
     Boolean(selectedInProgressOption) &&
     activeTeacherSubtopicId &&
     conversationIdToUse &&
-    allActiveTeacherQuizzesAnswered &&
+    teacherMessages.some((m) => m?.sender === 'ai') &&
+    !teacherIsLoading &&
     !isTeacherConversationDisabled;
 
   const showMarkOverviewCompleteButton =
@@ -1022,6 +1023,12 @@ const TeachersFeedbackPage = ({ selectedBook }) => {
       }));
       toast.success('Marked as completed');
       await fetchTeacherProgress(teacherSelectedBook);
+      const nextValue = String(activeTeacherOption?.value ?? '').trim();
+      if (nextValue) {
+        setTeacherFeedbackStatus({ todo: '', inProgress: '', completed: nextValue });
+      } else {
+        setTeacherFeedbackStatus({ todo: '', inProgress: '', completed: '' });
+      }
     } catch (error) {
       const message =
         error?.response?.data?.message ||
