@@ -54,11 +54,41 @@ const getConversationsAskPath = () => {
   return baseURL.includes('/api/v1') ? '/conversations/ask' : '/api/v1/conversations/ask';
 };
 
+const getConversationPath = (conversationId) => {
+  const baseURL = String(aiApiClient?.defaults?.baseURL || '');
+  const id = encodeURIComponent(String(conversationId ?? '').trim());
+  return baseURL.includes('/api/v1') ? `/conversations/${id}` : `/api/v1/conversations/${id}`;
+};
+
+const getConversationByQuestionPath = (questionId) => {
+  const baseURL = String(aiApiClient?.defaults?.baseURL || '');
+  const id = encodeURIComponent(String(questionId ?? '').trim());
+  return baseURL.includes('/api/v1')
+    ? `/conversations/by-question/${id}`
+    : `/api/v1/conversations/by-question/${id}`;
+};
+
+const getConversationByQuestionSubtopicPath = (questionSubtopicsId) => {
+  const baseURL = String(aiApiClient?.defaults?.baseURL || '');
+  const id = encodeURIComponent(String(questionSubtopicsId ?? '').trim());
+  return baseURL.includes('/api/v1')
+    ? `/conversations/by-question-subtopic/${id}`
+    : `/api/v1/conversations/by-question-subtopic/${id}`;
+};
+
 /**
  * Service for handling AI conversations and messages
  */
 const conversationService = {
-  ask: async ({ question, curriculum_book_name, conversation_id = null, title = null }) => {
+  ask: async ({
+    question,
+    curriculum_book_name,
+    conversation_id = null,
+    title = null,
+    question_id = null,
+    question_subtopics_id = null,
+    question_subtopic_id = null
+  }) => {
     const payload = {
       question,
       curriculum_book_name,
@@ -66,11 +96,47 @@ const conversationService = {
       title,
     };
 
+    if (question_id != null && String(question_id).trim() !== '') {
+      payload.question_id = question_id;
+    }
+
+    const subtopicsId =
+      question_subtopics_id != null && String(question_subtopics_id).trim() !== ''
+        ? question_subtopics_id
+        : question_subtopic_id != null && String(question_subtopic_id).trim() !== ''
+          ? question_subtopic_id
+          : null;
+
+    if (subtopicsId != null) {
+      payload.question_subtopics_id = subtopicsId;
+    }
+
     const response = await aiApi.post(
       getConversationsAskPath(),
       payload,
       { timeout: 60000, suppressErrorToast: true }
     );
+    return response.data;
+  },
+
+  getConversation: async (conversationId) => {
+    const response = await aiApi.get(getConversationPath(conversationId), {
+      params: { _t: Date.now() }
+    });
+    return response.data;
+  },
+
+  getConversationByQuestion: async (questionId) => {
+    const response = await aiApi.get(getConversationByQuestionPath(questionId), {
+      params: { _t: Date.now() }
+    });
+    return response.data;
+  },
+
+  getConversationByQuestionSubtopic: async (questionSubtopicsId) => {
+    const response = await aiApi.get(getConversationByQuestionSubtopicPath(questionSubtopicsId), {
+      params: { _t: Date.now() }
+    });
     return response.data;
   },
 

@@ -25,12 +25,8 @@ import {
 import Card from '../components/ui/Card';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import Badge from '../components/ui/Badge';
-// here commenting
-// import aiService from '../services/aiService';
-// here commenting
-// import conversationService from '../services/conversationService';
-// here commenting
-// import questionService from '../services/questionService';
+import conversationService from '../services/conversationService';
+import questionService from '../services/questionService';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -556,19 +552,19 @@ const TeachersFeedbackPage = ({ selectedBook }) => {
     setTeacherProgressError('');
     try {
       // here commenting
-      // const response = await questionService.getQuestionsProgress({
-      //   studentusername: studentUsername,
-      //   book
-      // });
-      // const rows =
-      //   Array.isArray(response) ? response :
-      //   Array.isArray(response?.data) ? response.data :
-      //   Array.isArray(response?.results) ? response.results :
-      //   Array.isArray(response?.items) ? response.items :
-      //   Array.isArray(response?.progress) ? response.progress :
-      //   Array.isArray(response?.data?.data) ? response.data.data :
-      //   [];
-      const rows = [];
+      const response = await questionService.getQuestionsProgress({
+        studentusername: studentUsername,
+        book
+      });
+      const rows =
+        Array.isArray(response) ? response :
+        Array.isArray(response?.data) ? response.data :
+        Array.isArray(response?.results) ? response.results :
+        Array.isArray(response?.items) ? response.items :
+        Array.isArray(response?.progress) ? response.progress :
+        Array.isArray(response?.data?.data) ? response.data.data :
+        [];
+      //const rows = [];
 
       const todo = [];
       const inProgress = [];
@@ -607,6 +603,7 @@ const TeachersFeedbackPage = ({ selectedBook }) => {
         const option = {
           value: String(questionSubtopicsId ?? questionId ?? ''),
           questionSubtopicsId: String(questionSubtopicsId ?? ''),
+          questionId: String(questionId ?? ''),
           label,
           conversationId
         };
@@ -671,12 +668,22 @@ const TeachersFeedbackPage = ({ selectedBook }) => {
 
   const activeTeacherOption = selectedInProgressOption || selectedTodoOption || selectedCompletedOption;
   const activeTeacherSubtopicId = String(activeTeacherOption?.questionSubtopicsId ?? '').trim();
+  const activeTeacherQuestionId = String(activeTeacherOption?.questionId ?? '').trim();
   const activeTeacherConversationId =
     String(activeTeacherOption?.conversationId ?? '').trim() ||
     (activeTeacherSubtopicId ? String(teacherSubtopicConversations?.[activeTeacherSubtopicId] ?? '').trim() : '') ||
     '';
   const conversationIdToUse = activeTeacherConversationId || String(teacherConversationId ?? '').trim() || null;
   const isTeacherConversationDisabled = Boolean(conversationIdToUse && teacherChatDisabledByConversation?.[conversationIdToUse]);
+
+  const toPositiveIntOrNull = (val) => {
+    const raw = String(val ?? '').trim();
+    if (!raw) return null;
+    const num = Number(raw);
+    if (!Number.isFinite(num)) return null;
+    const intVal = Math.trunc(num);
+    return intVal > 0 ? intVal : null;
+  };
 
   const coerceArray = (val) => {
     if (Array.isArray(val)) return val;
@@ -744,7 +751,7 @@ const TeachersFeedbackPage = ({ selectedBook }) => {
     setMarkAsCompletedLoading(true);
     try {
       // here commenting
-      // await questionService.updateQuestionSubtopicProgress(activeTeacherSubtopicId, 'completed')
+      await questionService.updateQuestionSubtopicProgress(activeTeacherSubtopicId, 'completed')
       setTeacherChatDisabledByConversation((prev) => ({
         ...prev,
         [conversationIdToUse]: true
@@ -766,7 +773,7 @@ const TeachersFeedbackPage = ({ selectedBook }) => {
     if (!messageId || !window.confirm('Delete this message?')) return;
     try {
       // here commenting
-      // await conversationService.deleteMessage(messageId);
+      await conversationService.deleteMessage(messageId);
       toast.success('Message deleted');
       setTeacherMessages((prev) => prev.filter((m) => m.id !== messageId));
     } catch (error) {
@@ -787,14 +794,6 @@ const TeachersFeedbackPage = ({ selectedBook }) => {
     const cleaned = raw.replace(/^topic\s*:\s*/i, '').trim();
     const questionText = `Topic:${cleaned || raw}`;
 
-    const userMessage = {
-      id: Date.now(),
-      text: questionText,
-      sender: 'user',
-      timestamp: new Date(),
-    };
-
-    setTeacherMessages((prev) => [...prev, userMessage]);
     setTeacherIsLoading(true);
     setTeacherLoadingStatus('Fetching AI response...');
 
@@ -804,58 +803,80 @@ const TeachersFeedbackPage = ({ selectedBook }) => {
         (questionSubtopicsId ? String(teacherSubtopicConversations?.[questionSubtopicsId] ?? '').trim() : '') ||
         null;
 
-      // here commenting
-      // const userMsgResponse = await conversationService.createMessage({ ... })
-      const createdConversationId = existingConversationId || `local-${Date.now()}`;
-      const nextConversationId = existingConversationId || createdConversationId || null;
+      const result = await conversationService.ask({
+        question: questionText,
+        curriculum_book_name: teacherSelectedBook,
+        conversation_id: existingConversationId,
+        title: cleaned || raw || null,
+        question_id: toPositiveIntOrNull(option?.questionId),
+        question_subtopic_id: toPositiveIntOrNull(questionSubtopicsId) || null
+      });
 
-      if (questionSubtopicsId && createdConversationId && !existingConversationId) {
-        setTeacherSubtopicConversations((prev) => ({ ...prev, [questionSubtopicsId]: createdConversationId }));
+      const conversationId = String(result?.conversation_id ?? existingConversationId ?? '').trim() || null;
+      if (conversationId) setTeacherConversationId(conversationId);
+      if (questionSubtopicsId && conversationId) {
+        setTeacherSubtopicConversations((prev) => ({ ...prev, [questionSubtopicsId]: conversationId }));
       }
-      if (nextConversationId) setTeacherConversationId(nextConversationId);
 
-      const responseWrapper = {
-        ai: {
-          status: 'ok',
-          current_subtopic: cleaned || raw,
-          message: 'Frontend-only mode: service calls are commented.'
+      const userMsg = result?.user_message || null;
+      const assistantMsg = result?.assistant_message || null;
+
+      const userTimestamp = userMsg?.created_at ? new Date(userMsg.created_at) : new Date();
+      const assistantTimestamp = assistantMsg?.created_at ? new Date(assistantMsg.created_at) : new Date();
+
+      const userMessage = {
+        id: userMsg?.id || Date.now(),
+        text: String(userMsg?.content ?? questionText),
+        sender: 'user',
+        timestamp: userTimestamp,
+        conversationId
+      };
+
+      const rawAnswer = result?.ai?.answer ?? assistantMsg?.content ?? '';
+      let parsedAnswer = rawAnswer;
+      if (typeof rawAnswer === 'string') {
+        const trimmed = rawAnswer.trim();
+        if (trimmed) {
+          try {
+            parsedAnswer = JSON.parse(trimmed);
+          } catch (e) {
+            parsedAnswer = rawAnswer;
+          }
         }
-      };
-      const response = responseWrapper?.ai ?? responseWrapper;
+      }
 
-      const structuredData = findStructuredData(response);
-      const textContent =
-        typeof response === 'string'
-          ? response
-          : response?.message || response?.answer || response?.response || response?.text || '';
-
-      setTeacherLoadingStatus('Saving AI response...');
-      // here commenting
-      // await conversationService.createMessage({ ... })
-
+      const structuredData = findStructuredData(parsedAnswer);
+      const assistantText =
+        typeof parsedAnswer === 'string'
+          ? parsedAnswer
+          : parsedAnswer?.message || parsedAnswer?.answer || parsedAnswer?.response || parsedAnswer?.text || '';
       const assistantMessage = {
-        id: Date.now() + 1,
-        text: textContent || 'Frontend-only mode: service calls are commented.',
+        id: assistantMsg?.id || Date.now() + 1,
+        text: assistantText || (typeof rawAnswer === 'string' ? rawAnswer : ''),
         sender: 'ai',
-        timestamp: new Date(),
+        timestamp: assistantTimestamp,
         structuredData,
-        rawResponse: typeof response === 'object' ? JSON.stringify(response, null, 2) : response
+        rawResponse: typeof parsedAnswer === 'object' ? JSON.stringify(parsedAnswer, null, 2) : String(parsedAnswer ?? ''),
+        conversationId
       };
 
-      setTeacherMessages((prev) => [...prev, assistantMessage]);
+      setTeacherMessages((prev) => [...prev, userMessage, assistantMessage]);
 
       if (questionSubtopicsId) {
         try {
           setTeacherLoadingStatus('Updating progress...');
-          // here commenting
-          // await questionService.updateQuestionSubtopicProgress(questionSubtopicsId, 'learning')
+          await questionService.updateQuestionSubtopicProgress(questionSubtopicsId, 'learning')
         } catch (error) {}
       }
 
       setTeacherLoadingStatus('Refreshing progress...');
       await fetchTeacherProgress(teacherSelectedBook);
     } catch (error) {
-      toast.error('Failed to get response from AI. Please try again.');
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to get response from AI. Please try again.';
+      toast.error(message);
       setTeacherMessages((prev) => [
         ...prev,
         {
@@ -882,14 +903,6 @@ const TeachersFeedbackPage = ({ selectedBook }) => {
     }
 
     const userMessageText = teacherInput;
-    const userMessage = {
-      id: Date.now(),
-      text: userMessageText,
-      sender: 'user',
-      timestamp: new Date(),
-    };
-
-    setTeacherMessages((prev) => [...prev, userMessage]);
     setTeacherInput('');
     setTeacherIsLoading(true);
     setTeacherLoadingStatus('Saving message...');
@@ -914,55 +927,85 @@ const TeachersFeedbackPage = ({ selectedBook }) => {
           ? `Context: Current student progress for ${teacherSelectedBook}: ${statuses.join(', ')}.\n\nQuestion: ${userMessageText}`
           : userMessageText;
 
-      // here commenting
-      // const userMsgResponse = await conversationService.createMessage({ ... })
-      const userMsgResponse = { conversation_id: conversationIdToUse || `local-${Date.now()}` };
+      setTeacherLoadingStatus('Fetching AI response...');
 
-      if (!conversationIdToUse && userMsgResponse.conversation_id) {
-        setTeacherConversationId(userMsgResponse.conversation_id);
+      const result = await conversationService.ask({
+        question: enhancedQuery,
+        curriculum_book_name: teacherSelectedBook,
+        conversation_id: conversationIdToUse,
+        title: userMessageText || null,
+        question_id: toPositiveIntOrNull(activeTeacherQuestionId),
+        question_subtopic_id: toPositiveIntOrNull(activeTeacherSubtopicId) || null
+      });
+
+      const conversationId = String(result?.conversation_id ?? conversationIdToUse ?? '').trim() || null;
+      if (conversationId) setTeacherConversationId(conversationId);
+
+      const userMsg = result?.user_message || null;
+      const assistantMsg = result?.assistant_message || null;
+      const userTimestamp = userMsg?.created_at ? new Date(userMsg.created_at) : new Date();
+      const assistantTimestamp = assistantMsg?.created_at ? new Date(assistantMsg.created_at) : new Date();
+
+      const userMessage = {
+        id: userMsg?.id || Date.now(),
+        text: String(userMsg?.content ?? userMessageText),
+        sender: 'user',
+        timestamp: userTimestamp,
+        conversationId
+      };
+
+      const rawAnswer = result?.ai?.answer ?? assistantMsg?.content ?? '';
+      let parsedAnswer = rawAnswer;
+      if (typeof rawAnswer === 'string') {
+        const trimmed = rawAnswer.trim();
+        if (trimmed) {
+          try {
+            parsedAnswer = JSON.parse(trimmed);
+          } catch (err) {
+            parsedAnswer = rawAnswer;
+          }
+        }
       }
 
-      const nextConversationId = conversationIdToUse || userMsgResponse.conversation_id;
-
-      setTeacherLoadingStatus('Fetching AI response...');
-      // here commenting
-      // const response = await aiService.query(enhancedQuery, teacherSelectedBook, nextConversationId);
-      const response = {
-        status: 'ok',
-        current_subtopic: teacherSelectedBook,
-        message: 'Frontend-only mode: service calls are commented.'
-      };
-
-      const structuredData = findStructuredData(response);
-      const textContent =
-        typeof response === 'string'
-          ? response
-          : response?.message || response?.answer || response?.response || response?.text || '';
-
-      setTeacherLoadingStatus('Saving AI response...');
-      // here commenting
-      // await conversationService.createMessage({ ... })
+      const structuredData = findStructuredData(parsedAnswer);
+      const assistantText =
+        typeof parsedAnswer === 'string'
+          ? parsedAnswer
+          : parsedAnswer?.message || parsedAnswer?.answer || parsedAnswer?.response || parsedAnswer?.text || '';
 
       const assistantMessage = {
-        id: Date.now() + 1,
-        text: textContent || 'Frontend-only mode: service calls are commented.',
+        id: assistantMsg?.id || Date.now() + 1,
+        text: assistantText || (typeof rawAnswer === 'string' ? rawAnswer : ''),
         sender: 'ai',
-        timestamp: new Date(),
+        timestamp: assistantTimestamp,
         structuredData,
-        rawResponse: typeof response === 'object' ? JSON.stringify(response, null, 2) : response
+        rawResponse: typeof parsedAnswer === 'object' ? JSON.stringify(parsedAnswer, null, 2) : String(parsedAnswer ?? ''),
+        conversationId
       };
 
-      setTeacherMessages((prev) => [...prev, assistantMessage]);
+      setTeacherMessages((prev) => [...prev, userMessage, assistantMessage]);
     } catch (error) {
-      toast.error('Failed to get response from AI. Please try again.');
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to get response from AI. Please try again.';
+      toast.error(message);
       setTeacherMessages((prev) => [
         ...prev,
+        {
+          id: Date.now(),
+          text: userMessageText,
+          sender: 'user',
+          timestamp: new Date(),
+          conversationId: conversationIdToUse || null
+        },
         {
           id: Date.now() + 1,
           text: 'Sorry, I encountered an error processing your request.',
           sender: 'ai',
           isError: true,
           timestamp: new Date(),
+          conversationId: conversationIdToUse || null
         }
       ]);
     } finally {
