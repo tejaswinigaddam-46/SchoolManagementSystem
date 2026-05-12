@@ -17,6 +17,37 @@ export const syllabusBookService = {
       throw error.response?.data || error;
     }
   },
+  getBookByKey: async (academicYearId, subjectName, versionNo) => {
+    try {
+      const response = await api.get(
+        `/syllabus-content/books/${academicYearId}/${encodeURIComponent(subjectName)}/${versionNo}`
+      );
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+  updateBookByKey: async (academicYearId, subjectName, versionNo, data) => {
+    try {
+      const response = await api.put(
+        `/syllabus-content/books/${academicYearId}/${encodeURIComponent(subjectName)}/${versionNo}`,
+        data
+      );
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+  deleteBookByKey: async (academicYearId, subjectName, versionNo) => {
+    try {
+      const response = await api.delete(
+        `/syllabus-content/books/${academicYearId}/${encodeURIComponent(subjectName)}/${versionNo}`
+      );
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
   getBookById: async (curriculumBookId) => {
     try {
       const response = await api.get(`/syllabus-content/books/${curriculumBookId}`);
@@ -122,6 +153,49 @@ export const syllabusTopicService = {
   deleteTopic: async (topicId) => {
     try {
       const response = await api.delete(`/syllabus-content/topics/${topicId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  }
+};
+
+export const syllabusSubtopicService = {
+  getSubtopics: async (topicId) => {
+    try {
+      const response = await api.get(`/syllabus-content/topics/${topicId}/subtopics`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+  createSubtopic: async (data) => {
+    try {
+      const response = await api.post('/syllabus-content/subtopics', data);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+  getSubtopicById: async (subtopicId) => {
+    try {
+      const response = await api.get(`/syllabus-content/subtopics/${subtopicId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+  updateSubtopic: async (subtopicId, data) => {
+    try {
+      const response = await api.put(`/syllabus-content/subtopics/${subtopicId}`, data);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+  deleteSubtopic: async (subtopicId) => {
+    try {
+      const response = await api.delete(`/syllabus-content/subtopics/${subtopicId}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error;

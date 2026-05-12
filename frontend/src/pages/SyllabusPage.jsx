@@ -8,10 +8,10 @@ import { EditButton, DeleteButton, ActionButtonGroup } from '../components/ui/Ac
 import { academicService } from '../services/academicService';
 import studentService from '../services/studentService';
 import subjectService from '../services/subjectService';
-import syllabusBookService, { syllabusChapterService, syllabusTopicService } from '../services/syllabusBookService';
+import syllabusBookService, { syllabusChapterService, syllabusTopicService, syllabusSubtopicService } from '../services/syllabusBookService';
 import { PERMISSIONS } from '../config/permissions';
 
-const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setFormData, canViewCourse, canCreateCourse, canEditCourse, canDeleteCourse, canViewChapters, canCreateChapters, canEditChapters, canDeleteChapters, canViewTopics, canCreateTopics, canEditTopics, canDeleteTopics }) => {
+const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setFormData, canViewCourse, canCreateCourse, canEditCourse, canDeleteCourse, canViewChapters, canCreateChapters, canEditChapters, canDeleteChapters, canViewTopics, canCreateTopics, canEditTopics, canDeleteTopics, canViewSubtopics, canCreateSubtopics, canEditSubtopics, canDeleteSubtopics }) => {
   const [divisionTab, setDivisionTab] = useState(null);
   const [selectedCurriculumId, setSelectedCurriculumId] = useState(null);
   const [bookView, setBookView] = useState('list'); // 'list' | 'create' | 'edit'
@@ -48,6 +48,18 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
     sequence_order: '',
     default_hours: ''
   });
+  const [expandedTopicId, setExpandedTopicId] = useState(null);
+  const [subtopicsByTopicId, setSubtopicsByTopicId] = useState({});
+  const [subtopicsLoadingByTopicId, setSubtopicsLoadingByTopicId] = useState({});
+  const [subtopicActionLoading, setSubtopicActionLoading] = useState(false);
+  const [subtopicView, setSubtopicView] = useState('list'); // 'list' | 'create' | 'edit'
+  const [editingSubtopicId, setEditingSubtopicId] = useState(null);
+  const [subtopicForm, setSubtopicForm] = useState({
+    subtopic_title: '',
+    subtopic_description: '',
+    sequence_order: '',
+    default_hours: ''
+  });
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -64,10 +76,15 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
       setEditingChapterId(null);
       setChapters([]);
       setExpandedChapterId(null);
+      setExpandedTopicId(null);
       setTopicsByChapterId({});
       setTopicsLoadingByChapterId({});
       setTopicView('list');
       setEditingTopicId(null);
+      setSubtopicsByTopicId({});
+      setSubtopicsLoadingByTopicId({});
+      setSubtopicView('list');
+      setEditingSubtopicId(null);
       setChapterForm({
         chapter_title: '',
         chapter_description: '',
@@ -77,6 +94,12 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
       setTopicForm({
         topic_title: '',
         topic_description: '',
+        sequence_order: '',
+        default_hours: ''
+      });
+      setSubtopicForm({
+        subtopic_title: '',
+        subtopic_description: '',
         sequence_order: '',
         default_hours: ''
       });
@@ -274,9 +297,31 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
     setChapterView('list');
     setEditingChapterId(null);
     setChapters([]);
+    setExpandedChapterId(null);
+    setExpandedTopicId(null);
+    setTopicsByChapterId({});
+    setTopicsLoadingByChapterId({});
+    setTopicView('list');
+    setEditingTopicId(null);
+    setSubtopicsByTopicId({});
+    setSubtopicsLoadingByTopicId({});
+    setSubtopicView('list');
+    setEditingSubtopicId(null);
     setChapterForm({
       chapter_title: '',
       chapter_description: '',
+      sequence_order: '',
+      default_hours: ''
+    });
+    setTopicForm({
+      topic_title: '',
+      topic_description: '',
+      sequence_order: '',
+      default_hours: ''
+    });
+    setSubtopicForm({
+      subtopic_title: '',
+      subtopic_description: '',
       sequence_order: '',
       default_hours: ''
     });
@@ -287,9 +332,31 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
     setChapterView('list');
     setEditingChapterId(null);
     setChapters([]);
+    setExpandedChapterId(null);
+    setExpandedTopicId(null);
+    setTopicsByChapterId({});
+    setTopicsLoadingByChapterId({});
+    setTopicView('list');
+    setEditingTopicId(null);
+    setSubtopicsByTopicId({});
+    setSubtopicsLoadingByTopicId({});
+    setSubtopicView('list');
+    setEditingSubtopicId(null);
     setChapterForm({
       chapter_title: '',
       chapter_description: '',
+      sequence_order: '',
+      default_hours: ''
+    });
+    setTopicForm({
+      topic_title: '',
+      topic_description: '',
+      sequence_order: '',
+      default_hours: ''
+    });
+    setSubtopicForm({
+      subtopic_title: '',
+      subtopic_description: '',
       sequence_order: '',
       default_hours: ''
     });
@@ -300,9 +367,30 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
     setEditingChapterId(null);
     setChapters([]);
     setExpandedChapterId(null);
+    setExpandedTopicId(null);
+    setTopicsByChapterId({});
+    setTopicsLoadingByChapterId({});
+    setTopicView('list');
+    setEditingTopicId(null);
+    setSubtopicsByTopicId({});
+    setSubtopicsLoadingByTopicId({});
+    setSubtopicView('list');
+    setEditingSubtopicId(null);
     setChapterForm({
       chapter_title: '',
       chapter_description: '',
+      sequence_order: '',
+      default_hours: ''
+    });
+    setTopicForm({
+      topic_title: '',
+      topic_description: '',
+      sequence_order: '',
+      default_hours: ''
+    });
+    setSubtopicForm({
+      subtopic_title: '',
+      subtopic_description: '',
       sequence_order: '',
       default_hours: ''
     });
@@ -526,11 +614,20 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
     const chapterIdStr = String(chapterId);
     const nextExpanded = expandedChapterId === chapterIdStr ? null : chapterIdStr;
     setExpandedChapterId(nextExpanded);
+    setExpandedTopicId(null);
     setTopicView('list');
     setEditingTopicId(null);
     setTopicForm({
       topic_title: '',
       topic_description: '',
+      sequence_order: '',
+      default_hours: ''
+    });
+    setSubtopicView('list');
+    setEditingSubtopicId(null);
+    setSubtopicForm({
+      subtopic_title: '',
+      subtopic_description: '',
       sequence_order: '',
       default_hours: ''
     });
@@ -690,6 +787,198 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
       toast.error(error?.message || 'Failed to delete topic');
     } finally {
       setTopicActionLoading(false);
+    }
+  };
+
+  const fetchSubtopicsForTopic = async (topicId) => {
+    const topicIdStr = String(topicId || '').trim();
+    if (!topicIdStr) return;
+    if (!canViewSubtopics) return;
+
+    try {
+      setSubtopicsLoadingByTopicId((prev) => ({ ...prev, [topicIdStr]: true }));
+      const response = await syllabusSubtopicService.getSubtopics(topicIdStr);
+      const rows = response?.data?.subtopics || response?.data || response?.subtopics || [];
+      setSubtopicsByTopicId((prev) => ({ ...prev, [topicIdStr]: Array.isArray(rows) ? rows : [] }));
+    } catch (error) {
+      console.error('Error fetching subtopics:', error);
+      toast.error(error?.message || 'Failed to load subtopics');
+      setSubtopicsByTopicId((prev) => ({ ...prev, [topicIdStr]: [] }));
+    } finally {
+      setSubtopicsLoadingByTopicId((prev) => ({ ...prev, [topicIdStr]: false }));
+    }
+  };
+
+  const toggleTopicExpanded = async (topic) => {
+    const topicId = topic?.topic_id ?? topic?.topicId ?? topic?.id ?? null;
+    if (!topicId) return;
+    const topicIdStr = String(topicId);
+    const nextExpanded = expandedTopicId === topicIdStr ? null : topicIdStr;
+    setExpandedTopicId(nextExpanded);
+    setSubtopicView('list');
+    setEditingSubtopicId(null);
+    setSubtopicForm({
+      subtopic_title: '',
+      subtopic_description: '',
+      sequence_order: '',
+      default_hours: ''
+    });
+
+    if (nextExpanded && subtopicsByTopicId[topicIdStr] === undefined) {
+      await fetchSubtopicsForTopic(topicIdStr);
+    }
+  };
+
+  const startCreateSubtopic = () => {
+    setEditingSubtopicId(null);
+    setSubtopicForm({
+      subtopic_title: '',
+      subtopic_description: '',
+      sequence_order: '',
+      default_hours: ''
+    });
+    setSubtopicView('create');
+  };
+
+  const startEditSubtopic = (subtopic) => {
+    const subtopicId = subtopic?.subtopic_id ?? subtopic?.subtopicId ?? subtopic?.id ?? null;
+    if (!subtopicId) {
+      toast.error('Invalid subtopic id');
+      return;
+    }
+    setEditingSubtopicId(String(subtopicId));
+    setSubtopicForm({
+      subtopic_title: String(subtopic?.subtopic_title ?? subtopic?.subtopicTitle ?? '').trim(),
+      subtopic_description: String(subtopic?.subtopic_description ?? subtopic?.subtopicDescription ?? '').trim(),
+      sequence_order: String(subtopic?.sequence_order ?? subtopic?.sequenceOrder ?? 0),
+      default_hours: subtopic?.default_hours ?? subtopic?.defaultHours ?? ''
+    });
+    setSubtopicView('edit');
+  };
+
+  const validateSubtopicForm = () => {
+    const topicIdStr = String(expandedTopicId || '').trim();
+    if (!topicIdStr) {
+      toast.error('Please select a Topic');
+      return null;
+    }
+    const subtopicTitle = String(subtopicForm.subtopic_title || '').trim();
+    if (!subtopicTitle) {
+      toast.error('Please enter Subtopic Title');
+      return null;
+    }
+    const seqStr = String(subtopicForm.sequence_order ?? '').trim();
+    const sequenceOrder = seqStr === '' ? 0 : Number.parseInt(seqStr, 10);
+    if (!Number.isInteger(sequenceOrder) || sequenceOrder < 0) {
+      toast.error('Sequence Order must be an integer >= 0');
+      return null;
+    }
+    const hoursStr = String(subtopicForm.default_hours ?? '').trim();
+    const defaultHours = hoursStr === '' ? undefined : Number.parseFloat(hoursStr);
+    if (hoursStr !== '' && (Number.isNaN(defaultHours) || defaultHours < 0)) {
+      toast.error('Default Hours must be a number >= 0');
+      return null;
+    }
+    return {
+      topic_id: Number.parseInt(topicIdStr, 10),
+      subtopic_title: subtopicTitle,
+      subtopic_description: String(subtopicForm.subtopic_description ?? '').trim() || null,
+      sequence_order: sequenceOrder,
+      default_hours: defaultHours
+    };
+  };
+
+  const handleCreateSubtopic = async () => {
+    if (!canCreateSubtopics) {
+      toast.error('You do not have permission to add subtopics');
+      return;
+    }
+    const payload = validateSubtopicForm();
+    if (!payload) return;
+
+    try {
+      setSubtopicActionLoading(true);
+      const response = await syllabusSubtopicService.createSubtopic(payload);
+      if (response?.success) {
+        toast.success(response?.message || 'Subtopic created successfully');
+        setSubtopicView('list');
+        await fetchSubtopicsForTopic(payload.topic_id);
+      } else {
+        toast.error(response?.message || 'Failed to create subtopic');
+      }
+    } catch (error) {
+      console.error('Error creating subtopic:', error);
+      toast.error(error?.message || 'Failed to create subtopic');
+    } finally {
+      setSubtopicActionLoading(false);
+    }
+  };
+
+  const handleUpdateSubtopic = async () => {
+    if (!canEditSubtopics) {
+      toast.error('You do not have permission to edit subtopics');
+      return;
+    }
+    if (!editingSubtopicId) {
+      toast.error('No subtopic selected for edit');
+      return;
+    }
+    const payload = validateSubtopicForm();
+    if (!payload) return;
+
+    try {
+      setSubtopicActionLoading(true);
+      const updatePayload = {
+        subtopic_title: payload.subtopic_title,
+        subtopic_description: payload.subtopic_description,
+        sequence_order: payload.sequence_order,
+        default_hours: payload.default_hours
+      };
+      const response = await syllabusSubtopicService.updateSubtopic(editingSubtopicId, updatePayload);
+      if (response?.success) {
+        toast.success(response?.message || 'Subtopic updated successfully');
+        setSubtopicView('list');
+        setEditingSubtopicId(null);
+        await fetchSubtopicsForTopic(payload.topic_id);
+      } else {
+        toast.error(response?.message || 'Failed to update subtopic');
+      }
+    } catch (error) {
+      console.error('Error updating subtopic:', error);
+      toast.error(error?.message || 'Failed to update subtopic');
+    } finally {
+      setSubtopicActionLoading(false);
+    }
+  };
+
+  const handleDeleteSubtopic = async (subtopic) => {
+    if (!canDeleteSubtopics) {
+      toast.error('You do not have permission to delete subtopics');
+      return;
+    }
+    const topicIdStr = String(expandedTopicId || '').trim();
+    const subtopicId = subtopic?.subtopic_id ?? subtopic?.subtopicId ?? subtopic?.id ?? null;
+    if (!subtopicId) {
+      toast.error('Invalid subtopic id');
+      return;
+    }
+
+    try {
+      setSubtopicActionLoading(true);
+      const response = await syllabusSubtopicService.deleteSubtopic(String(subtopicId));
+      if (response?.success) {
+        toast.success(response?.message || 'Subtopic deleted successfully');
+        if (topicIdStr) {
+          await fetchSubtopicsForTopic(topicIdStr);
+        }
+      } else {
+        toast.error(response?.message || 'Failed to delete subtopic');
+      }
+    } catch (error) {
+      console.error('Error deleting subtopic:', error);
+      toast.error(error?.message || 'Failed to delete subtopic');
+    } finally {
+      setSubtopicActionLoading(false);
     }
   };
 
@@ -1472,39 +1761,266 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
                                                         <tbody className="bg-white divide-y divide-secondary-200">
                                                           {topics.map((t, tIdx) => {
                                                             const topicId = t?.topic_id ?? t?.topicId ?? t?.id ?? null;
+                                                            const topicIdStr = topicId ? String(topicId) : '';
                                                             const tTitle = String(t?.topic_title ?? t?.topicTitle ?? '').trim();
                                                             const tOrder = t?.sequence_order ?? t?.sequenceOrder ?? 0;
                                                             const tHours = t?.default_hours ?? t?.defaultHours ?? '';
+                                                            const isTopicExpanded = topicIdStr && expandedTopicId === topicIdStr;
+                                                            const subtopics = topicIdStr ? subtopicsByTopicId[topicIdStr] : undefined;
+                                                            const subtopicsLoading = topicIdStr ? subtopicsLoadingByTopicId[topicIdStr] : false;
 
                                                             return (
-                                                              <tr key={topicId ? String(topicId) : `${tIdx}`} className="hover:bg-secondary-50 transition-colors">
-                                                                <td className="px-4 py-2 whitespace-nowrap text-sm font-semibold text-secondary-900">
-                                                                  {String(tOrder)}
-                                                                </td>
-                                                                <td className="px-4 py-2 whitespace-nowrap text-sm text-secondary-700 font-medium">
-                                                                  {tTitle || '—'}
-                                                                </td>
-                                                                <td className="px-4 py-2 whitespace-nowrap text-sm text-secondary-700 font-medium">
-                                                                  {tHours === null || tHours === undefined || String(tHours) === '' ? '—' : String(tHours)}
-                                                                </td>
-                                                                {(canEditTopics || canDeleteTopics) && (
-                                                                  <td className="px-4 py-2 whitespace-nowrap text-sm font-medium">
-                                                                    <ActionButtonGroup>
-                                                                      {canEditTopics && (
-                                                                        <EditButton onClick={() => startEditTopic(t)} title="Edit topic" />
-                                                                      )}
-                                                                      {canDeleteTopics && (
-                                                                        <DeleteButton
-                                                                          onClick={() => handleDeleteTopic(t)}
-                                                                          title="Delete topic"
-                                                                          confirmMessage={`Are you sure you want to delete ${tTitle || 'this topic'}?`}
-                                                                          disabled={topicActionLoading}
-                                                                        />
-                                                                      )}
-                                                                    </ActionButtonGroup>
+                                                              <React.Fragment key={topicIdStr ? topicIdStr : `${tIdx}`}>
+                                                                <tr className="hover:bg-secondary-50 transition-colors">
+                                                                  <td className="px-4 py-2 whitespace-nowrap text-sm font-semibold text-secondary-900">
+                                                                    {String(tOrder)}
                                                                   </td>
+                                                                  <td className="px-4 py-2 whitespace-nowrap text-sm text-secondary-700 font-medium">
+                                                                    <button
+                                                                      type="button"
+                                                                      onClick={() => toggleTopicExpanded(t)}
+                                                                      className="inline-flex items-center gap-2"
+                                                                      disabled={!topicIdStr}
+                                                                    >
+                                                                      {isTopicExpanded ? (
+                                                                        <ChevronDown className="w-4 h-4 text-secondary-600" />
+                                                                      ) : (
+                                                                        <ChevronRight className="w-4 h-4 text-secondary-600" />
+                                                                      )}
+                                                                      <span>{tTitle || '—'}</span>
+                                                                    </button>
+                                                                  </td>
+                                                                  <td className="px-4 py-2 whitespace-nowrap text-sm text-secondary-700 font-medium">
+                                                                    {tHours === null || tHours === undefined || String(tHours) === '' ? '—' : String(tHours)}
+                                                                  </td>
+                                                                  {(canEditTopics || canDeleteTopics) && (
+                                                                    <td className="px-4 py-2 whitespace-nowrap text-sm font-medium">
+                                                                      <ActionButtonGroup>
+                                                                        {canEditTopics && (
+                                                                          <EditButton onClick={() => startEditTopic(t)} title="Edit topic" />
+                                                                        )}
+                                                                        {canDeleteTopics && (
+                                                                          <DeleteButton
+                                                                            onClick={() => handleDeleteTopic(t)}
+                                                                            title="Delete topic"
+                                                                            confirmMessage={`Are you sure you want to delete ${tTitle || 'this topic'}?`}
+                                                                            disabled={topicActionLoading}
+                                                                          />
+                                                                        )}
+                                                                      </ActionButtonGroup>
+                                                                    </td>
+                                                                  )}
+                                                                </tr>
+                                                                {isTopicExpanded && (
+                                                                  <tr>
+                                                                    <td
+                                                                      colSpan={(canEditTopics || canDeleteTopics) ? 4 : 3}
+                                                                      className="px-4 py-3 bg-secondary-50/30"
+                                                                    >
+                                                                      {!canViewSubtopics ? (
+                                                                        <div className="text-sm text-secondary-700">
+                                                                          You do not have permission to view subtopics.
+                                                                        </div>
+                                                                      ) : (
+                                                                        <div className="space-y-4">
+                                                                          <div className="flex items-center justify-between">
+                                                                            <div className="font-semibold text-secondary-900">Subtopics</div>
+                                                                            {subtopicView === 'list' && canCreateSubtopics && (
+                                                                              <button
+                                                                                type="button"
+                                                                                className="btn-primary"
+                                                                                onClick={startCreateSubtopic}
+                                                                                disabled={subtopicActionLoading}
+                                                                              >
+                                                                                Add Subtopic
+                                                                              </button>
+                                                                            )}
+                                                                          </div>
+
+                                                                          {subtopicView === 'list' ? (
+                                                                            subtopicsLoading ? (
+                                                                              <div className="flex items-center">
+                                                                                <LoadingSpinner className="w-4 h-4" />
+                                                                                <span className="ml-2 text-gray-500">Loading subtopics...</span>
+                                                                              </div>
+                                                                            ) : !Array.isArray(subtopics) || subtopics.length === 0 ? (
+                                                                              <div className="text-sm text-secondary-700">No subtopics found.</div>
+                                                                            ) : (
+                                                                              <div className="overflow-x-auto bg-white rounded-lg border border-secondary-200">
+                                                                                <table className="min-w-full divide-y divide-secondary-200">
+                                                                                  <thead className="bg-secondary-50/50">
+                                                                                    <tr>
+                                                                                      <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">
+                                                                                        Order
+                                                                                      </th>
+                                                                                      <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">
+                                                                                        Title
+                                                                                      </th>
+                                                                                      <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">
+                                                                                        Hours
+                                                                                      </th>
+                                                                                      {(canEditSubtopics || canDeleteSubtopics) && (
+                                                                                        <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">
+                                                                                          Actions
+                                                                                        </th>
+                                                                                      )}
+                                                                                    </tr>
+                                                                                  </thead>
+                                                                                  <tbody className="bg-white divide-y divide-secondary-200">
+                                                                                    {subtopics.map((s, sIdx) => {
+                                                                                      const subtopicId = s?.subtopic_id ?? s?.subtopicId ?? s?.id ?? null;
+                                                                                      const sTitle = String(s?.subtopic_title ?? s?.subtopicTitle ?? '').trim();
+                                                                                      const sOrder = s?.sequence_order ?? s?.sequenceOrder ?? 0;
+                                                                                      const sHours = s?.default_hours ?? s?.defaultHours ?? '';
+
+                                                                                      return (
+                                                                                        <tr key={subtopicId ? String(subtopicId) : `${sIdx}`} className="hover:bg-secondary-50 transition-colors">
+                                                                                          <td className="px-4 py-2 whitespace-nowrap text-sm font-semibold text-secondary-900">
+                                                                                            {String(sOrder)}
+                                                                                          </td>
+                                                                                          <td className="px-4 py-2 whitespace-nowrap text-sm text-secondary-700 font-medium">
+                                                                                            {sTitle || '—'}
+                                                                                          </td>
+                                                                                          <td className="px-4 py-2 whitespace-nowrap text-sm text-secondary-700 font-medium">
+                                                                                            {sHours === null || sHours === undefined || String(sHours) === '' ? '—' : String(sHours)}
+                                                                                          </td>
+                                                                                          {(canEditSubtopics || canDeleteSubtopics) && (
+                                                                                            <td className="px-4 py-2 whitespace-nowrap text-sm font-medium">
+                                                                                              <ActionButtonGroup>
+                                                                                                {canEditSubtopics && (
+                                                                                                  <EditButton onClick={() => startEditSubtopic(s)} title="Edit subtopic" />
+                                                                                                )}
+                                                                                                {canDeleteSubtopics && (
+                                                                                                  <DeleteButton
+                                                                                                    onClick={() => handleDeleteSubtopic(s)}
+                                                                                                    title="Delete subtopic"
+                                                                                                    confirmMessage={`Are you sure you want to delete ${sTitle || 'this subtopic'}?`}
+                                                                                                    disabled={subtopicActionLoading}
+                                                                                                  />
+                                                                                                )}
+                                                                                              </ActionButtonGroup>
+                                                                                            </td>
+                                                                                          )}
+                                                                                        </tr>
+                                                                                      );
+                                                                                    })}
+                                                                                  </tbody>
+                                                                                </table>
+                                                                              </div>
+                                                                            )
+                                                                          ) : (
+                                                                            <div className="bg-white rounded-lg border border-secondary-200">
+                                                                              <div className="p-4 sm:p-6">
+                                                                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                                                                                  <h3 className="text-lg font-bold text-secondary-900">
+                                                                                    {subtopicView === 'create' ? 'Add New Subtopic' : 'Edit Subtopic'}
+                                                                                  </h3>
+                                                                                  <button
+                                                                                    type="button"
+                                                                                    onClick={() => {
+                                                                                      setSubtopicView('list');
+                                                                                      setEditingSubtopicId(null);
+                                                                                    }}
+                                                                                    className="btn-secondary flex items-center gap-2 w-full sm:w-auto justify-center"
+                                                                                  >
+                                                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                                                                                    </svg>
+                                                                                    Back to Subtopics
+                                                                                  </button>
+                                                                                </div>
+
+                                                                                {subtopicActionLoading && (
+                                                                                  <div className="mb-6 p-3 bg-primary-50 border-l-4 border-primary-400">
+                                                                                    <div className="flex items-center">
+                                                                                      <LoadingSpinner className="w-4 h-4 mr-2" />
+                                                                                      <p className="text-sm text-primary-700">
+                                                                                        {subtopicView === 'create' ? 'Creating subtopic...' : 'Updating subtopic...'}
+                                                                                      </p>
+                                                                                    </div>
+                                                                                  </div>
+                                                                                )}
+
+                                                                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                                                                  <div className="md:col-span-3">
+                                                                                    <label className="block text-sm font-medium text-gray-700 mb-1">Subtopic Title</label>
+                                                                                    <input
+                                                                                      type="text"
+                                                                                      value={subtopicForm.subtopic_title}
+                                                                                      onChange={(e) => setSubtopicForm((prev) => ({ ...prev, subtopic_title: e.target.value }))}
+                                                                                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                                                      placeholder="Enter subtopic title"
+                                                                                    />
+                                                                                  </div>
+
+                                                                                  <div className="md:col-span-1">
+                                                                                    <label className="block text-sm font-medium text-gray-700 mb-1">Order</label>
+                                                                                    <input
+                                                                                      type="number"
+                                                                                      value={subtopicForm.sequence_order}
+                                                                                      onChange={(e) => setSubtopicForm((prev) => ({ ...prev, sequence_order: e.target.value }))}
+                                                                                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                                                      min={0}
+                                                                                      step={1}
+                                                                                      placeholder="0"
+                                                                                    />
+                                                                                  </div>
+
+                                                                                  <div className="md:col-span-3">
+                                                                                    <label className="block text-sm font-medium text-gray-700 mb-1">Subtopic Description</label>
+                                                                                    <textarea
+                                                                                      value={subtopicForm.subtopic_description}
+                                                                                      onChange={(e) => setSubtopicForm((prev) => ({ ...prev, subtopic_description: e.target.value }))}
+                                                                                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                                                      rows={3}
+                                                                                      placeholder="Enter subtopic description (optional)"
+                                                                                    />
+                                                                                  </div>
+
+                                                                                  <div className="md:col-span-1">
+                                                                                    <label className="block text-sm font-medium text-gray-700 mb-1">Default Hours</label>
+                                                                                    <input
+                                                                                      type="number"
+                                                                                      value={subtopicForm.default_hours}
+                                                                                      onChange={(e) => setSubtopicForm((prev) => ({ ...prev, default_hours: e.target.value }))}
+                                                                                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                                                      min={0}
+                                                                                      step={0.25}
+                                                                                      placeholder="0"
+                                                                                    />
+                                                                                  </div>
+                                                                                </div>
+
+                                                                                <div className="mt-6 flex flex-wrap gap-2">
+                                                                                  {subtopicView === 'create' ? (
+                                                                                    <button
+                                                                                      type="button"
+                                                                                      className="btn-primary"
+                                                                                      onClick={handleCreateSubtopic}
+                                                                                      disabled={subtopicActionLoading}
+                                                                                    >
+                                                                                      Add Subtopic
+                                                                                    </button>
+                                                                                  ) : (
+                                                                                    <button
+                                                                                      type="button"
+                                                                                      className="btn-primary"
+                                                                                      onClick={handleUpdateSubtopic}
+                                                                                      disabled={subtopicActionLoading}
+                                                                                    >
+                                                                                      Update Subtopic
+                                                                                    </button>
+                                                                                  )}
+                                                                                </div>
+                                                                              </div>
+                                                                            </div>
+                                                                          )}
+                                                                        </div>
+                                                                      )}
+                                                                    </td>
+                                                                  </tr>
                                                                 )}
-                                                              </tr>
+                                                              </React.Fragment>
                                                             );
                                                           })}
                                                         </tbody>
@@ -1823,6 +2339,10 @@ export default function SyllabusPage() {
   const canEditTopics = !!hasPermission && hasPermission(PERMISSIONS.SYLLABUS_TOPIC_EDIT);
   const canDeleteTopics = !!hasPermission && hasPermission(PERMISSIONS.SYLLABUS_TOPIC_DELETE);
   const canViewTopics = !!hasPermission && hasPermission(PERMISSIONS.SYLLABUS_TOPIC_LIST_READ);
+  const canCreateSubtopics = !!hasPermission && hasPermission(PERMISSIONS.SYLLABUS_SUBTOPIC_CREATE);
+  const canEditSubtopics = !!hasPermission && hasPermission(PERMISSIONS.SYLLABUS_SUBTOPIC_EDIT);
+  const canDeleteSubtopics = !!hasPermission && hasPermission(PERMISSIONS.SYLLABUS_SUBTOPIC_DELETE);
+  const canViewSubtopics = !!hasPermission && hasPermission(PERMISSIONS.SYLLABUS_SUBTOPIC_LIST_READ);
 
   const renderAccessDenied = () => (
     <div className="max-w-4xl mx-auto">
@@ -1837,7 +2357,7 @@ export default function SyllabusPage() {
           </div>
           <h3 className="text-lg font-bold text-secondary-900 mb-2">Access Restricted</h3>
           <p className="text-secondary-600 mb-4">
-            You do not have permission to access syllabus content. Only users with syllabus book or chapter permissions can view or manage syllabus content.
+            You do not have permission to access syllabus content. Only users with syllabus permissions can view or manage syllabus content.
           </p>
         </div>
       </div>
@@ -1854,7 +2374,7 @@ export default function SyllabusPage() {
   useEffect(() => {
     const fetchDropdowns = async () => {
       try {
-        if (!canViewCourse && !canCreateCourse && !canEditCourse && !canDeleteCourse && !canViewChapters && !canCreateChapters && !canEditChapters && !canDeleteChapters && !canViewTopics && !canCreateTopics && !canEditTopics && !canDeleteTopics) {
+        if (!canViewCourse && !canCreateCourse && !canEditCourse && !canDeleteCourse && !canViewChapters && !canCreateChapters && !canEditChapters && !canDeleteChapters && !canViewTopics && !canCreateTopics && !canEditTopics && !canDeleteTopics && !canViewSubtopics && !canCreateSubtopics && !canEditSubtopics && !canDeleteSubtopics) {
           setAcademicYears([]);
           setSubjects([]);
           return;
@@ -1894,7 +2414,7 @@ export default function SyllabusPage() {
     };
 
     fetchDropdowns();
-  }, [getCampusId, canViewCourse, canCreateCourse, canEditCourse, canDeleteCourse, canViewChapters, canCreateChapters, canEditChapters, canDeleteChapters, canViewTopics, canCreateTopics, canEditTopics, canDeleteTopics]);
+  }, [getCampusId, canViewCourse, canCreateCourse, canEditCourse, canDeleteCourse, canViewChapters, canCreateChapters, canEditChapters, canDeleteChapters, canViewTopics, canCreateTopics, canEditTopics, canDeleteTopics, canViewSubtopics, canCreateSubtopics, canEditSubtopics, canDeleteSubtopics]);
 
   return (
     <div className="p-4 md:p-6 space-y-6">
@@ -1905,7 +2425,7 @@ export default function SyllabusPage() {
         </div>
       </div>
 
-      {!canViewCourse && !canCreateCourse && !canEditCourse && !canDeleteCourse && !canViewChapters && !canCreateChapters && !canEditChapters && !canDeleteChapters && !canViewTopics && !canCreateTopics && !canEditTopics && !canDeleteTopics ? (
+      {!canViewCourse && !canCreateCourse && !canEditCourse && !canDeleteCourse && !canViewChapters && !canCreateChapters && !canEditChapters && !canDeleteChapters && !canViewTopics && !canCreateTopics && !canEditTopics && !canDeleteTopics && !canViewSubtopics && !canCreateSubtopics && !canEditSubtopics && !canDeleteSubtopics ? (
         renderAccessDenied()
       ) : loading ? (
         <div className="flex items-center justify-center py-12">
@@ -1961,6 +2481,10 @@ export default function SyllabusPage() {
                   canCreateTopics={canCreateTopics}
                   canEditTopics={canEditTopics}
                   canDeleteTopics={canDeleteTopics}
+                  canViewSubtopics={canViewSubtopics}
+                  canCreateSubtopics={canCreateSubtopics}
+                  canEditSubtopics={canEditSubtopics}
+                  canDeleteSubtopics={canDeleteSubtopics}
                 />
               ) : (
                 <SyllabusProgress academicYears={academicYears} subjects={subjects} formData={formData} />

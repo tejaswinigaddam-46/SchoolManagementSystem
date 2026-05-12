@@ -125,6 +125,13 @@ export const PERMISSIONS = {
   SYLLABUS_TOPIC_EDIT: 'syllabus_topic_edit',
   SYLLABUS_TOPIC_DELETE: 'syllabus_topic_delete',
 
+  // Syllabus subtopics (per-route)
+  SYLLABUS_SUBTOPIC_LIST_READ: 'syllabus_subtopic_list_read',
+  SYLLABUS_SUBTOPIC_CREATE: 'syllabus_subtopic_create',
+  SYLLABUS_SUBTOPIC_ITEM_READ: 'syllabus_subtopic_item_read',
+  SYLLABUS_SUBTOPIC_EDIT: 'syllabus_subtopic_edit',
+  SYLLABUS_SUBTOPIC_DELETE: 'syllabus_subtopic_delete',
+
   // Tenants (per-route)
   TENANT_LIST_READ: 'tenant_list_read',
   TENANT_ITEM_READ: 'tenant_item_read',
