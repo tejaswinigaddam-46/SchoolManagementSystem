@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-hot-toast';
-import { BookOpen, BookPlus, ListOrdered, TrendingUp } from 'lucide-react';
+import { BookOpen, BookPlus, ListOrdered, TrendingUp, ChevronRight, ChevronDown } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import Card from '../components/ui/Card';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
@@ -8,10 +8,10 @@ import { EditButton, DeleteButton, ActionButtonGroup } from '../components/ui/Ac
 import { academicService } from '../services/academicService';
 import studentService from '../services/studentService';
 import subjectService from '../services/subjectService';
-import syllabusBookService, { syllabusChapterService } from '../services/syllabusBookService';
+import syllabusBookService, { syllabusChapterService, syllabusTopicService } from '../services/syllabusBookService';
 import { PERMISSIONS } from '../config/permissions';
 
-const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setFormData, canViewCourse, canCreateCourse, canEditCourse, canDeleteCourse, canViewChapters, canCreateChapters, canEditChapters, canDeleteChapters }) => {
+const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setFormData, canViewCourse, canCreateCourse, canEditCourse, canDeleteCourse, canViewChapters, canCreateChapters, canEditChapters, canDeleteChapters, canViewTopics, canCreateTopics, canEditTopics, canDeleteTopics }) => {
   const [divisionTab, setDivisionTab] = useState(null);
   const [selectedCurriculumId, setSelectedCurriculumId] = useState(null);
   const [bookView, setBookView] = useState('list'); // 'list' | 'create' | 'edit'
@@ -36,6 +36,18 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
     sequence_order: '',
     default_hours: ''
   });
+  const [expandedChapterId, setExpandedChapterId] = useState(null);
+  const [topicsByChapterId, setTopicsByChapterId] = useState({});
+  const [topicsLoadingByChapterId, setTopicsLoadingByChapterId] = useState({});
+  const [topicActionLoading, setTopicActionLoading] = useState(false);
+  const [topicView, setTopicView] = useState('list'); // 'list' | 'create' | 'edit'
+  const [editingTopicId, setEditingTopicId] = useState(null);
+  const [topicForm, setTopicForm] = useState({
+    topic_title: '',
+    topic_description: '',
+    sequence_order: '',
+    default_hours: ''
+  });
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -51,9 +63,20 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
       setChapterView('list');
       setEditingChapterId(null);
       setChapters([]);
+      setExpandedChapterId(null);
+      setTopicsByChapterId({});
+      setTopicsLoadingByChapterId({});
+      setTopicView('list');
+      setEditingTopicId(null);
       setChapterForm({
         chapter_title: '',
         chapter_description: '',
+        sequence_order: '',
+        default_hours: ''
+      });
+      setTopicForm({
+        topic_title: '',
+        topic_description: '',
         sequence_order: '',
         default_hours: ''
       });
@@ -276,6 +299,7 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
     setChapterView('list');
     setEditingChapterId(null);
     setChapters([]);
+    setExpandedChapterId(null);
     setChapterForm({
       chapter_title: '',
       chapter_description: '',
@@ -474,6 +498,198 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
       toast.error(error?.message || 'Failed to delete chapter');
     } finally {
       setChapterActionLoading(false);
+    }
+  };
+
+  const fetchTopicsForChapter = async (chapterId) => {
+    const chapterIdStr = String(chapterId || '').trim();
+    if (!chapterIdStr) return;
+    if (!canViewTopics) return;
+
+    try {
+      setTopicsLoadingByChapterId((prev) => ({ ...prev, [chapterIdStr]: true }));
+      const response = await syllabusTopicService.getTopics(chapterIdStr);
+      const rows = response?.data?.topics || response?.data || response?.topics || [];
+      setTopicsByChapterId((prev) => ({ ...prev, [chapterIdStr]: Array.isArray(rows) ? rows : [] }));
+    } catch (error) {
+      console.error('Error fetching topics:', error);
+      toast.error(error?.message || 'Failed to load topics');
+      setTopicsByChapterId((prev) => ({ ...prev, [chapterIdStr]: [] }));
+    } finally {
+      setTopicsLoadingByChapterId((prev) => ({ ...prev, [chapterIdStr]: false }));
+    }
+  };
+
+  const toggleChapterExpanded = async (chapter) => {
+    const chapterId = chapter?.chapter_id ?? chapter?.chapterId ?? chapter?.id ?? null;
+    if (!chapterId) return;
+    const chapterIdStr = String(chapterId);
+    const nextExpanded = expandedChapterId === chapterIdStr ? null : chapterIdStr;
+    setExpandedChapterId(nextExpanded);
+    setTopicView('list');
+    setEditingTopicId(null);
+    setTopicForm({
+      topic_title: '',
+      topic_description: '',
+      sequence_order: '',
+      default_hours: ''
+    });
+
+    if (nextExpanded && topicsByChapterId[chapterIdStr] === undefined) {
+      await fetchTopicsForChapter(chapterIdStr);
+    }
+  };
+
+  const startCreateTopic = () => {
+    setEditingTopicId(null);
+    setTopicForm({
+      topic_title: '',
+      topic_description: '',
+      sequence_order: '',
+      default_hours: ''
+    });
+    setTopicView('create');
+  };
+
+  const startEditTopic = (topic) => {
+    const topicId = topic?.topic_id ?? topic?.topicId ?? topic?.id ?? null;
+    if (!topicId) {
+      toast.error('Invalid topic id');
+      return;
+    }
+    setEditingTopicId(String(topicId));
+    setTopicForm({
+      topic_title: String(topic?.topic_title ?? topic?.topicTitle ?? '').trim(),
+      topic_description: String(topic?.topic_description ?? topic?.topicDescription ?? '').trim(),
+      sequence_order: String(topic?.sequence_order ?? topic?.sequenceOrder ?? 0),
+      default_hours: topic?.default_hours ?? topic?.defaultHours ?? ''
+    });
+    setTopicView('edit');
+  };
+
+  const validateTopicForm = () => {
+    const chapterIdStr = String(expandedChapterId || '').trim();
+    if (!chapterIdStr) {
+      toast.error('Please select a Chapter');
+      return null;
+    }
+    const topicTitle = String(topicForm.topic_title || '').trim();
+    if (!topicTitle) {
+      toast.error('Please enter Topic Title');
+      return null;
+    }
+    const seqStr = String(topicForm.sequence_order ?? '').trim();
+    const sequenceOrder = seqStr === '' ? 0 : Number.parseInt(seqStr, 10);
+    if (!Number.isInteger(sequenceOrder) || sequenceOrder < 0) {
+      toast.error('Sequence Order must be an integer >= 0');
+      return null;
+    }
+    const hoursStr = String(topicForm.default_hours ?? '').trim();
+    const defaultHours = hoursStr === '' ? undefined : Number.parseFloat(hoursStr);
+    if (hoursStr !== '' && (Number.isNaN(defaultHours) || defaultHours < 0)) {
+      toast.error('Default Hours must be a number >= 0');
+      return null;
+    }
+    return {
+      chapter_id: Number.parseInt(chapterIdStr, 10),
+      topic_title: topicTitle,
+      topic_description: String(topicForm.topic_description ?? '').trim() || null,
+      sequence_order: sequenceOrder,
+      default_hours: defaultHours
+    };
+  };
+
+  const handleCreateTopic = async () => {
+    if (!canCreateTopics) {
+      toast.error('You do not have permission to add topics');
+      return;
+    }
+    const payload = validateTopicForm();
+    if (!payload) return;
+
+    try {
+      setTopicActionLoading(true);
+      const response = await syllabusTopicService.createTopic(payload);
+      if (response?.success) {
+        toast.success(response?.message || 'Topic created successfully');
+        setTopicView('list');
+        await fetchTopicsForChapter(payload.chapter_id);
+      } else {
+        toast.error(response?.message || 'Failed to create topic');
+      }
+    } catch (error) {
+      console.error('Error creating topic:', error);
+      toast.error(error?.message || 'Failed to create topic');
+    } finally {
+      setTopicActionLoading(false);
+    }
+  };
+
+  const handleUpdateTopic = async () => {
+    if (!canEditTopics) {
+      toast.error('You do not have permission to edit topics');
+      return;
+    }
+    if (!editingTopicId) {
+      toast.error('No topic selected for edit');
+      return;
+    }
+    const payload = validateTopicForm();
+    if (!payload) return;
+
+    try {
+      setTopicActionLoading(true);
+      const updatePayload = {
+        topic_title: payload.topic_title,
+        topic_description: payload.topic_description,
+        sequence_order: payload.sequence_order,
+        default_hours: payload.default_hours
+      };
+      const response = await syllabusTopicService.updateTopic(editingTopicId, updatePayload);
+      if (response?.success) {
+        toast.success(response?.message || 'Topic updated successfully');
+        setTopicView('list');
+        setEditingTopicId(null);
+        await fetchTopicsForChapter(payload.chapter_id);
+      } else {
+        toast.error(response?.message || 'Failed to update topic');
+      }
+    } catch (error) {
+      console.error('Error updating topic:', error);
+      toast.error(error?.message || 'Failed to update topic');
+    } finally {
+      setTopicActionLoading(false);
+    }
+  };
+
+  const handleDeleteTopic = async (topic) => {
+    if (!canDeleteTopics) {
+      toast.error('You do not have permission to delete topics');
+      return;
+    }
+    const chapterIdStr = String(expandedChapterId || '').trim();
+    const topicId = topic?.topic_id ?? topic?.topicId ?? topic?.id ?? null;
+    if (!topicId) {
+      toast.error('Invalid topic id');
+      return;
+    }
+
+    try {
+      setTopicActionLoading(true);
+      const response = await syllabusTopicService.deleteTopic(String(topicId));
+      if (response?.success) {
+        toast.success(response?.message || 'Topic deleted successfully');
+        if (chapterIdStr) {
+          await fetchTopicsForChapter(chapterIdStr);
+        }
+      } else {
+        toast.error(response?.message || 'Failed to delete topic');
+      }
+    } catch (error) {
+      console.error('Error deleting topic:', error);
+      toast.error(error?.message || 'Failed to delete topic');
+    } finally {
+      setTopicActionLoading(false);
     }
   };
 
@@ -1124,6 +1340,9 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
                               <thead className="bg-secondary-50/50">
                                 <tr>
                                   <th className="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">
+                                    Topics
+                                  </th>
+                                  <th className="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">
                                     Order
                                   </th>
                                   <th className="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">
@@ -1142,39 +1361,269 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
                               <tbody className="bg-white divide-y divide-secondary-200">
                                 {chapters.map((c, idx) => {
                                   const chapterId = c?.chapter_id ?? c?.chapterId ?? c?.id ?? null;
+                                  const chapterIdStr = chapterId ? String(chapterId) : '';
                                   const title = String(c?.chapter_title ?? c?.chapterTitle ?? '').trim();
                                   const order = c?.sequence_order ?? c?.sequenceOrder ?? 0;
                                   const hours = c?.default_hours ?? c?.defaultHours ?? '';
+                                  const isExpanded = chapterIdStr && expandedChapterId === chapterIdStr;
+                                  const topics = chapterIdStr ? topicsByChapterId[chapterIdStr] : undefined;
+                                  const topicsLoading = chapterIdStr ? topicsLoadingByChapterId[chapterIdStr] : false;
 
                                   return (
-                                    <tr key={chapterId ? String(chapterId) : `${idx}`} className="hover:bg-secondary-50 transition-colors">
-                                      <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-secondary-900">
-                                        {String(order)}
-                                      </td>
-                                      <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-700 font-medium">
-                                        {title || '—'}
-                                      </td>
-                                      <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-700 font-medium">
-                                        {hours === null || hours === undefined || String(hours) === '' ? '—' : String(hours)}
-                                      </td>
-                                      {(canEditChapters || canDeleteChapters) && (
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                          <ActionButtonGroup>
-                                            {canEditChapters && (
-                                              <EditButton onClick={() => startEditChapter(c)} title="Edit chapter" />
+                                    <React.Fragment key={chapterIdStr ? chapterIdStr : `${idx}`}>
+                                      <tr className="hover:bg-secondary-50 transition-colors">
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-secondary-900">
+                                          <button
+                                            type="button"
+                                            onClick={() => toggleChapterExpanded(c)}
+                                            className="inline-flex items-center gap-2"
+                                            disabled={!chapterIdStr}
+                                          >
+                                            {isExpanded ? (
+                                              <ChevronDown className="w-4 h-4 text-secondary-600" />
+                                            ) : (
+                                              <ChevronRight className="w-4 h-4 text-secondary-600" />
                                             )}
-                                            {canDeleteChapters && (
-                                              <DeleteButton
-                                                onClick={() => handleDeleteChapter(c)}
-                                                title="Delete chapter"
-                                                confirmMessage={`Are you sure you want to delete ${title || 'this chapter'}?`}
-                                                disabled={chapterActionLoading}
-                                              />
-                                            )}
-                                          </ActionButtonGroup>
+                                            <span className="text-secondary-700 font-medium">Topics</span>
+                                          </button>
                                         </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-secondary-900">
+                                          {String(order)}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-700 font-medium">
+                                          {title || '—'}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-700 font-medium">
+                                          {hours === null || hours === undefined || String(hours) === '' ? '—' : String(hours)}
+                                        </td>
+                                        {(canEditChapters || canDeleteChapters) && (
+                                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                            <ActionButtonGroup>
+                                              {canEditChapters && (
+                                                <EditButton onClick={() => startEditChapter(c)} title="Edit chapter" />
+                                              )}
+                                              {canDeleteChapters && (
+                                                <DeleteButton
+                                                  onClick={() => handleDeleteChapter(c)}
+                                                  title="Delete chapter"
+                                                  confirmMessage={`Are you sure you want to delete ${title || 'this chapter'}?`}
+                                                  disabled={chapterActionLoading}
+                                                />
+                                              )}
+                                            </ActionButtonGroup>
+                                          </td>
+                                        )}
+                                      </tr>
+                                      {isExpanded && (
+                                        <tr>
+                                          <td
+                                            colSpan={(canEditChapters || canDeleteChapters) ? 5 : 4}
+                                            className="px-6 py-4 bg-secondary-50/30"
+                                          >
+                                            {!canViewTopics ? (
+                                              <div className="text-sm text-secondary-700">
+                                                You do not have permission to view topics.
+                                              </div>
+                                            ) : (
+                                              <div className="space-y-4">
+                                                <div className="flex items-center justify-between">
+                                                  <div className="font-semibold text-secondary-900">Topics</div>
+                                                  {topicView === 'list' && canCreateTopics && (
+                                                    <button
+                                                      type="button"
+                                                      className="btn-primary"
+                                                      onClick={startCreateTopic}
+                                                      disabled={topicActionLoading}
+                                                    >
+                                                      Add Topic
+                                                    </button>
+                                                  )}
+                                                </div>
+
+                                                {topicView === 'list' ? (
+                                                  topicsLoading ? (
+                                                    <div className="flex items-center">
+                                                      <LoadingSpinner className="w-4 h-4" />
+                                                      <span className="ml-2 text-gray-500">Loading topics...</span>
+                                                    </div>
+                                                  ) : !Array.isArray(topics) || topics.length === 0 ? (
+                                                    <div className="text-sm text-secondary-700">No topics found.</div>
+                                                  ) : (
+                                                    <div className="overflow-x-auto bg-white rounded-lg border border-secondary-200">
+                                                      <table className="min-w-full divide-y divide-secondary-200">
+                                                        <thead className="bg-secondary-50/50">
+                                                          <tr>
+                                                            <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">
+                                                              Order
+                                                            </th>
+                                                            <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">
+                                                              Title
+                                                            </th>
+                                                            <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">
+                                                              Hours
+                                                            </th>
+                                                            {(canEditTopics || canDeleteTopics) && (
+                                                              <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">
+                                                                Actions
+                                                              </th>
+                                                            )}
+                                                          </tr>
+                                                        </thead>
+                                                        <tbody className="bg-white divide-y divide-secondary-200">
+                                                          {topics.map((t, tIdx) => {
+                                                            const topicId = t?.topic_id ?? t?.topicId ?? t?.id ?? null;
+                                                            const tTitle = String(t?.topic_title ?? t?.topicTitle ?? '').trim();
+                                                            const tOrder = t?.sequence_order ?? t?.sequenceOrder ?? 0;
+                                                            const tHours = t?.default_hours ?? t?.defaultHours ?? '';
+
+                                                            return (
+                                                              <tr key={topicId ? String(topicId) : `${tIdx}`} className="hover:bg-secondary-50 transition-colors">
+                                                                <td className="px-4 py-2 whitespace-nowrap text-sm font-semibold text-secondary-900">
+                                                                  {String(tOrder)}
+                                                                </td>
+                                                                <td className="px-4 py-2 whitespace-nowrap text-sm text-secondary-700 font-medium">
+                                                                  {tTitle || '—'}
+                                                                </td>
+                                                                <td className="px-4 py-2 whitespace-nowrap text-sm text-secondary-700 font-medium">
+                                                                  {tHours === null || tHours === undefined || String(tHours) === '' ? '—' : String(tHours)}
+                                                                </td>
+                                                                {(canEditTopics || canDeleteTopics) && (
+                                                                  <td className="px-4 py-2 whitespace-nowrap text-sm font-medium">
+                                                                    <ActionButtonGroup>
+                                                                      {canEditTopics && (
+                                                                        <EditButton onClick={() => startEditTopic(t)} title="Edit topic" />
+                                                                      )}
+                                                                      {canDeleteTopics && (
+                                                                        <DeleteButton
+                                                                          onClick={() => handleDeleteTopic(t)}
+                                                                          title="Delete topic"
+                                                                          confirmMessage={`Are you sure you want to delete ${tTitle || 'this topic'}?`}
+                                                                          disabled={topicActionLoading}
+                                                                        />
+                                                                      )}
+                                                                    </ActionButtonGroup>
+                                                                  </td>
+                                                                )}
+                                                              </tr>
+                                                            );
+                                                          })}
+                                                        </tbody>
+                                                      </table>
+                                                    </div>
+                                                  )
+                                                ) : (
+                                                  <div className="bg-white rounded-lg border border-secondary-200">
+                                                    <div className="p-4 sm:p-6">
+                                                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                                                        <h3 className="text-lg font-bold text-secondary-900">
+                                                          {topicView === 'create' ? 'Add New Topic' : 'Edit Topic'}
+                                                        </h3>
+                                                        <button
+                                                          type="button"
+                                                          onClick={() => {
+                                                            setTopicView('list');
+                                                            setEditingTopicId(null);
+                                                          }}
+                                                          className="btn-secondary flex items-center gap-2 w-full sm:w-auto justify-center"
+                                                        >
+                                                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                                                          </svg>
+                                                          Back to Topics
+                                                        </button>
+                                                      </div>
+
+                                                      {topicActionLoading && (
+                                                        <div className="mb-6 p-3 bg-primary-50 border-l-4 border-primary-400">
+                                                          <div className="flex items-center">
+                                                            <LoadingSpinner className="w-4 h-4 mr-2" />
+                                                            <p className="text-sm text-primary-700">
+                                                              {topicView === 'create' ? 'Creating topic...' : 'Updating topic...'}
+                                                            </p>
+                                                          </div>
+                                                        </div>
+                                                      )}
+
+                                                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                                        <div className="md:col-span-3">
+                                                          <label className="block text-sm font-medium text-gray-700 mb-1">Topic Title</label>
+                                                          <input
+                                                            type="text"
+                                                            value={topicForm.topic_title}
+                                                            onChange={(e) => setTopicForm((prev) => ({ ...prev, topic_title: e.target.value }))}
+                                                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                            placeholder="Enter topic title"
+                                                          />
+                                                        </div>
+
+                                                        <div className="md:col-span-1">
+                                                          <label className="block text-sm font-medium text-gray-700 mb-1">Order</label>
+                                                          <input
+                                                            type="number"
+                                                            value={topicForm.sequence_order}
+                                                            onChange={(e) => setTopicForm((prev) => ({ ...prev, sequence_order: e.target.value }))}
+                                                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                            min={0}
+                                                            step={1}
+                                                            placeholder="0"
+                                                          />
+                                                        </div>
+
+                                                        <div className="md:col-span-3">
+                                                          <label className="block text-sm font-medium text-gray-700 mb-1">Topic Description</label>
+                                                          <textarea
+                                                            value={topicForm.topic_description}
+                                                            onChange={(e) => setTopicForm((prev) => ({ ...prev, topic_description: e.target.value }))}
+                                                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                            rows={3}
+                                                            placeholder="Enter topic description (optional)"
+                                                          />
+                                                        </div>
+
+                                                        <div className="md:col-span-1">
+                                                          <label className="block text-sm font-medium text-gray-700 mb-1">Default Hours</label>
+                                                          <input
+                                                            type="number"
+                                                            value={topicForm.default_hours}
+                                                            onChange={(e) => setTopicForm((prev) => ({ ...prev, default_hours: e.target.value }))}
+                                                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                            min={0}
+                                                            step={0.25}
+                                                            placeholder="0"
+                                                          />
+                                                        </div>
+                                                      </div>
+
+                                                      <div className="mt-6 flex flex-wrap gap-2">
+                                                        {topicView === 'create' ? (
+                                                          <button
+                                                            type="button"
+                                                            className="btn-primary"
+                                                            onClick={handleCreateTopic}
+                                                            disabled={topicActionLoading}
+                                                          >
+                                                            Add Topic
+                                                          </button>
+                                                        ) : (
+                                                          <button
+                                                            type="button"
+                                                            className="btn-primary"
+                                                            onClick={handleUpdateTopic}
+                                                            disabled={topicActionLoading}
+                                                          >
+                                                            Update Topic
+                                                          </button>
+                                                        )}
+                                                      </div>
+                                                    </div>
+                                                  </div>
+                                                )}
+                                              </div>
+                                            )}
+                                          </td>
+                                        </tr>
                                       )}
-                                    </tr>
+                                    </React.Fragment>
                                   );
                                 })}
                               </tbody>
@@ -1370,6 +1819,10 @@ export default function SyllabusPage() {
   const canEditChapters = !!hasPermission && hasPermission(PERMISSIONS.SYLLABUS_CHAPTER_EDIT);
   const canDeleteChapters = !!hasPermission && hasPermission(PERMISSIONS.SYLLABUS_CHAPTER_DELETE);
   const canViewChapters = !!hasPermission && hasPermission(PERMISSIONS.SYLLABUS_CHAPTER_LIST_READ);
+  const canCreateTopics = !!hasPermission && hasPermission(PERMISSIONS.SYLLABUS_TOPIC_CREATE);
+  const canEditTopics = !!hasPermission && hasPermission(PERMISSIONS.SYLLABUS_TOPIC_EDIT);
+  const canDeleteTopics = !!hasPermission && hasPermission(PERMISSIONS.SYLLABUS_TOPIC_DELETE);
+  const canViewTopics = !!hasPermission && hasPermission(PERMISSIONS.SYLLABUS_TOPIC_LIST_READ);
 
   const renderAccessDenied = () => (
     <div className="max-w-4xl mx-auto">
@@ -1401,7 +1854,7 @@ export default function SyllabusPage() {
   useEffect(() => {
     const fetchDropdowns = async () => {
       try {
-        if (!canViewCourse && !canCreateCourse && !canEditCourse && !canDeleteCourse && !canViewChapters && !canCreateChapters && !canEditChapters && !canDeleteChapters) {
+        if (!canViewCourse && !canCreateCourse && !canEditCourse && !canDeleteCourse && !canViewChapters && !canCreateChapters && !canEditChapters && !canDeleteChapters && !canViewTopics && !canCreateTopics && !canEditTopics && !canDeleteTopics) {
           setAcademicYears([]);
           setSubjects([]);
           return;
@@ -1441,7 +1894,7 @@ export default function SyllabusPage() {
     };
 
     fetchDropdowns();
-  }, [getCampusId, canViewCourse, canCreateCourse, canEditCourse, canDeleteCourse, canViewChapters, canCreateChapters, canEditChapters, canDeleteChapters]);
+  }, [getCampusId, canViewCourse, canCreateCourse, canEditCourse, canDeleteCourse, canViewChapters, canCreateChapters, canEditChapters, canDeleteChapters, canViewTopics, canCreateTopics, canEditTopics, canDeleteTopics]);
 
   return (
     <div className="p-4 md:p-6 space-y-6">
@@ -1452,7 +1905,7 @@ export default function SyllabusPage() {
         </div>
       </div>
 
-      {!canViewCourse && !canCreateCourse && !canEditCourse && !canDeleteCourse && !canViewChapters && !canCreateChapters && !canEditChapters && !canDeleteChapters ? (
+      {!canViewCourse && !canCreateCourse && !canEditCourse && !canDeleteCourse && !canViewChapters && !canCreateChapters && !canEditChapters && !canDeleteChapters && !canViewTopics && !canCreateTopics && !canEditTopics && !canDeleteTopics ? (
         renderAccessDenied()
       ) : loading ? (
         <div className="flex items-center justify-center py-12">
@@ -1504,6 +1957,10 @@ export default function SyllabusPage() {
                   canCreateChapters={canCreateChapters}
                   canEditChapters={canEditChapters}
                   canDeleteChapters={canDeleteChapters}
+                  canViewTopics={canViewTopics}
+                  canCreateTopics={canCreateTopics}
+                  canEditTopics={canEditTopics}
+                  canDeleteTopics={canDeleteTopics}
                 />
               ) : (
                 <SyllabusProgress academicYears={academicYears} subjects={subjects} formData={formData} />

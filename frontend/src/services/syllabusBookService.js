@@ -86,4 +86,47 @@ export const syllabusChapterService = {
   }
 };
 
+export const syllabusTopicService = {
+  getTopics: async (chapterId) => {
+    try {
+      const response = await api.get(`/syllabus-content/chapters/${chapterId}/topics`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+  createTopic: async (data) => {
+    try {
+      const response = await api.post('/syllabus-content/topics', data);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+  getTopicById: async (topicId) => {
+    try {
+      const response = await api.get(`/syllabus-content/topics/${topicId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+  updateTopic: async (topicId, data) => {
+    try {
+      const response = await api.put(`/syllabus-content/topics/${topicId}`, data);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+  deleteTopic: async (topicId) => {
+    try {
+      const response = await api.delete(`/syllabus-content/topics/${topicId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  }
+};
+
 export default syllabusBookService;
