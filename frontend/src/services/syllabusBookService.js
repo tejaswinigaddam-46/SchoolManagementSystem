@@ -203,4 +203,15 @@ export const syllabusSubtopicService = {
   }
 };
 
+export const syllabusPlanService = {
+  createPlan: async (data) => {
+    try {
+      const response = await api.post('/syllabus-tracking/plans', data);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  }
+};
+
 export default syllabusBookService;

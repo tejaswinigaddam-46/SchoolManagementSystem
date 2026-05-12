@@ -8,10 +8,12 @@ import { EditButton, DeleteButton, ActionButtonGroup } from '../components/ui/Ac
 import { academicService } from '../services/academicService';
 import studentService from '../services/studentService';
 import subjectService from '../services/subjectService';
-import syllabusBookService, { syllabusChapterService, syllabusTopicService, syllabusSubtopicService } from '../services/syllabusBookService';
+import classService from '../services/classService';
+import { sectionService } from '../services/sectionService';
+import syllabusBookService, { syllabusChapterService, syllabusTopicService, syllabusSubtopicService, syllabusPlanService } from '../services/syllabusBookService';
 import { PERMISSIONS } from '../config/permissions';
 
-const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setFormData, canViewCourse, canCreateCourse, canEditCourse, canDeleteCourse, canViewChapters, canCreateChapters, canEditChapters, canDeleteChapters, canViewTopics, canCreateTopics, canEditTopics, canDeleteTopics, canViewSubtopics, canCreateSubtopics, canEditSubtopics, canDeleteSubtopics }) => {
+const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setFormData, canViewCourse, canCreateCourse, canEditCourse, canDeleteCourse, canViewChapters, canCreateChapters, canEditChapters, canDeleteChapters, canViewTopics, canCreateTopics, canEditTopics, canDeleteTopics, canViewSubtopics, canCreateSubtopics, canEditSubtopics, canDeleteSubtopics, canCreatePlan }) => {
   const [divisionTab, setDivisionTab] = useState(null);
   const [selectedCurriculumId, setSelectedCurriculumId] = useState(null);
   const [bookView, setBookView] = useState('list'); // 'list' | 'create' | 'edit'
@@ -60,6 +62,13 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
     sequence_order: '',
     default_hours: ''
   });
+  const [assignClassId, setAssignClassId] = useState('');
+  const [assignSelectedSectionIds, setAssignSelectedSectionIds] = useState([]);
+  const [assignClassesLoading, setAssignClassesLoading] = useState(false);
+  const [assignClasses, setAssignClasses] = useState([]);
+  const [assignSectionsLoading, setAssignSectionsLoading] = useState(false);
+  const [assignSections, setAssignSections] = useState([]);
+  const [assignPlanLoading, setAssignPlanLoading] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -71,7 +80,7 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
       setBookView('list');
       setEditingCurriculumBookId(null);
     }
-    if (divisionTab !== 'chapters') {
+    if (divisionTab !== 'chapters' && divisionTab !== 'assign') {
       setChapterView('list');
       setEditingChapterId(null);
       setChapters([]);
@@ -103,6 +112,19 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
         sequence_order: '',
         default_hours: ''
       });
+    }
+    if (divisionTab !== 'assign') {
+      setAssignClassId('');
+      setAssignSelectedSectionIds([]);
+      setAssignSections([]);
+    }
+    if (divisionTab === 'assign') {
+      setChapterView('list');
+      setTopicView('list');
+      setSubtopicView('list');
+      setEditingChapterId(null);
+      setEditingTopicId(null);
+      setEditingSubtopicId(null);
     }
   }, [divisionTab]);
 
@@ -285,10 +307,219 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
   };
 
   useEffect(() => {
-    if (divisionTab !== 'chapters') return;
+    if (divisionTab !== 'chapters' && divisionTab !== 'assign') return;
     if (!canViewCourse) return;
     fetchChapterBooks();
   }, [divisionTab, chapterAcademicYearId, canViewCourse]);
+
+  useEffect(() => {
+    if (divisionTab !== 'assign') return;
+    if (assignClasses.length > 0) return;
+
+    const loadClasses = async () => {
+      try {
+        setAssignClassesLoading(true);
+        const res = await sectionService.getFilterOptions();
+        const classes = res?.success ? (res.data?.classes || []) : [];
+        setAssignClasses(Array.isArray(classes) ? classes : []);
+      } catch (error) {
+        console.error('Failed to load classes:', error);
+        setAssignClasses([]);
+      } finally {
+        setAssignClassesLoading(false);
+      }
+    };
+
+    loadClasses();
+  }, [divisionTab, assignClasses.length]);
+
+  useEffect(() => {
+    if (divisionTab !== 'assign') return;
+    setAssignClassId('');
+    setAssignSelectedSectionIds([]);
+    setAssignSections([]);
+  }, [divisionTab, chapterAcademicYearId]);
+
+  useEffect(() => {
+    if (divisionTab !== 'assign') return;
+    if (!assignClassId) {
+      setAssignSections([]);
+      setAssignSelectedSectionIds([]);
+      return;
+    }
+
+    const loadSections = async () => {
+      try {
+        setAssignSectionsLoading(true);
+        const response = await sectionService.getAllSections({ class_id: assignClassId });
+        let sectionList = [];
+        if (response?.success && Array.isArray(response.data)) {
+          sectionList = response.data;
+        } else if (response?.data?.sections && Array.isArray(response.data.sections)) {
+          sectionList = response.data.sections;
+        } else if (Array.isArray(response)) {
+          sectionList = response;
+        } else if (response?.data && Array.isArray(response.data)) {
+          sectionList = response.data;
+        } else if (response?.sections && Array.isArray(response.sections)) {
+          sectionList = response.sections;
+        }
+        setAssignSections(sectionList || []);
+      } catch (error) {
+        console.error('Failed to load sections:', error);
+        setAssignSections([]);
+      } finally {
+        setAssignSectionsLoading(false);
+      }
+    };
+
+    loadSections();
+  }, [divisionTab, assignClassId]);
+
+  const buildPlanTreeForSelectedBook = async () => {
+    const bookIdStr = String(chapterCurriculumBookId || '').trim();
+    if (!bookIdStr) return [];
+
+    const response = await syllabusChapterService.getChapters({ curriculum_book_id: bookIdStr });
+    const chapterRows = response?.data?.chapters || response?.data || response?.chapters || [];
+    const normalizedChapters = Array.isArray(chapterRows) ? chapterRows : [];
+
+    const topicsByChapter = {};
+    const subtopicsByTopic = {};
+
+    await Promise.all(
+      normalizedChapters.map(async (ch) => {
+        const chapterId = ch?.chapter_id ?? ch?.chapterId ?? ch?.id ?? null;
+        const chapterIdStr = String(chapterId || '').trim();
+        if (!chapterIdStr) {
+          topicsByChapter[chapterIdStr] = [];
+          return;
+        }
+
+        if (Array.isArray(topicsByChapterId[chapterIdStr])) {
+          topicsByChapter[chapterIdStr] = topicsByChapterId[chapterIdStr];
+        } else {
+          const topicRes = await syllabusTopicService.getTopics(chapterIdStr);
+          const topicRows = topicRes?.data?.topics || topicRes?.data || topicRes?.topics || [];
+          const normalizedTopics = Array.isArray(topicRows) ? topicRows : [];
+          topicsByChapter[chapterIdStr] = normalizedTopics;
+          setTopicsByChapterId((prev) => ({ ...prev, [chapterIdStr]: normalizedTopics }));
+        }
+
+        await Promise.all(
+          (topicsByChapter[chapterIdStr] || []).map(async (tp) => {
+            const topicId = tp?.topic_id ?? tp?.topicId ?? tp?.id ?? null;
+            const topicIdStr = String(topicId || '').trim();
+            if (!topicIdStr) {
+              subtopicsByTopic[topicIdStr] = [];
+              return;
+            }
+
+            if (Array.isArray(subtopicsByTopicId[topicIdStr])) {
+              subtopicsByTopic[topicIdStr] = subtopicsByTopicId[topicIdStr];
+            } else {
+              const subRes = await syllabusSubtopicService.getSubtopics(topicIdStr);
+              const subRows = subRes?.data?.subtopics || subRes?.data || subRes?.subtopics || [];
+              const normalizedSubs = Array.isArray(subRows) ? subRows : [];
+              subtopicsByTopic[topicIdStr] = normalizedSubs;
+              setSubtopicsByTopicId((prev) => ({ ...prev, [topicIdStr]: normalizedSubs }));
+            }
+          })
+        );
+      })
+    );
+
+    const planTree = normalizedChapters
+      .map((ch) => {
+        const chapterId = ch?.chapter_id ?? ch?.chapterId ?? ch?.id ?? null;
+        const chapterIdStr = String(chapterId || '').trim();
+        if (!chapterIdStr) return null;
+        const topicRows = topicsByChapter[chapterIdStr] || [];
+        return {
+          chapter_id: Number(chapterIdStr),
+          topics: (topicRows || [])
+            .map((tp) => {
+              const topicId = tp?.topic_id ?? tp?.topicId ?? tp?.id ?? null;
+              const topicIdStr = String(topicId || '').trim();
+              if (!topicIdStr) return null;
+              const subRows = subtopicsByTopic[topicIdStr] || [];
+              return {
+                topic_id: Number(topicIdStr),
+                subtopics: (subRows || [])
+                  .map((st) => {
+                    const subId = st?.subtopic_id ?? st?.subtopicId ?? st?.id ?? null;
+                    const subIdStr = String(subId || '').trim();
+                    if (!subIdStr) return null;
+                    return { subtopic_id: Number(subIdStr) };
+                  })
+                  .filter(Boolean)
+              };
+            })
+            .filter(Boolean)
+        };
+      })
+      .filter(Boolean);
+
+    return planTree;
+  };
+
+  const handleCreatePlan = async () => {
+    if (!canCreatePlan) {
+      toast.error('You do not have permission to create plans');
+      return;
+    }
+    const ayStr = String(chapterAcademicYearId || '').trim();
+    const academicYearId = Number.parseInt(ayStr, 10);
+    if (!Number.isInteger(academicYearId) || academicYearId < 1) {
+      toast.error('Please select a valid Academic Year');
+      return;
+    }
+    const subjectName = String(selectedChapterSubjectName || '').trim();
+    if (!subjectName) {
+      toast.error('Please select a Subject');
+      return;
+    }
+    const sectionIds = (assignSelectedSectionIds || []).map((x) => String(x || '').trim()).filter(Boolean);
+    if (sectionIds.length === 0) {
+      toast.error('Please select at least one Section');
+      return;
+    }
+
+    try {
+      setAssignPlanLoading(true);
+      const planTree = await buildPlanTreeForSelectedBook();
+      if (!Array.isArray(planTree) || planTree.length === 0) {
+        toast.error('No chapters found for this book');
+        return;
+      }
+
+      const results = await Promise.allSettled(
+        sectionIds.map((sectionId) =>
+          syllabusPlanService.createPlan({
+            academic_year_id: academicYearId,
+            section_id: Number(sectionId),
+            subject_name: subjectName,
+            chapters: planTree
+          })
+        )
+      );
+
+      const succeeded = results.filter((r) => r.status === 'fulfilled' && r.value?.success).length;
+      const failed = results.length - succeeded;
+
+      if (failed === 0) {
+        toast.success(`Plan created for ${succeeded} section${succeeded === 1 ? '' : 's'}`);
+      } else {
+        const firstError = results.find((r) => r.status === 'rejected')?.reason;
+        toast.error(firstError?.message || `Plan created for ${succeeded} section(s), failed for ${failed}`);
+      }
+    } catch (error) {
+      console.error('Failed to create plan:', error);
+      toast.error(error?.message || 'Failed to create plan');
+    } finally {
+      setAssignPlanLoading(false);
+    }
+  };
 
   useEffect(() => {
     setChapterSubjectId('');
@@ -433,8 +664,8 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
   };
 
   useEffect(() => {
-    if (divisionTab !== 'chapters') return;
-    if (chapterView !== 'list') return;
+    if (divisionTab !== 'chapters' && divisionTab !== 'assign') return;
+    if (divisionTab === 'chapters' && chapterView !== 'list') return;
     if (!String(chapterCurriculumBookId || '').trim()) return;
     fetchChapters();
   }, [divisionTab, chapterView, chapterCurriculumBookId, canViewChapters]);
@@ -1170,7 +1401,7 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
             <div className="mb-4">
               <h2 className="text-lg font-semibold text-gray-800">Syllabus Division</h2>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl">
               <Card hover onClick={() => setDivisionTab('book')} className="transition-shadow">
                 <div className="p-8 flex flex-col items-center text-center">
                   <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mb-4">
@@ -1190,13 +1421,23 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
                   <p className="text-secondary-600">Add chapters for the selected book</p>
                 </div>
               </Card>
+
+              <Card hover onClick={() => setDivisionTab('assign')} className="transition-shadow">
+                <div className="p-8 flex flex-col items-center text-center">
+                  <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mb-4">
+                    <BookOpen className="w-8 h-8 text-primary-600" />
+                  </div>
+                  <h2 className="text-xl font-semibold text-secondary-900 mb-2">Assign Syllabus</h2>
+                  <p className="text-secondary-600">View syllabus and select class & sections</p>
+                </div>
+              </Card>
             </div>
           </>
         ) : (
           <div className="space-y-4">
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-lg font-semibold text-gray-800">
-                {divisionTab === 'book' ? 'Add Book' : 'Add Chapters'}
+                {divisionTab === 'book' ? 'Add Book' : divisionTab === 'chapters' ? 'Add Chapters' : 'Assign Syllabus to Sections'}
               </h2>
               <button type="button" onClick={() => setDivisionTab(null)} className="btn-secondary">
                 Back
@@ -1482,12 +1723,16 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
               <div className="bg-white rounded-xl border border-secondary-200 shadow-soft overflow-hidden">
                 <div className="p-6 border-b border-secondary-200 bg-secondary-50/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                   <div>
-                    <h2 className="text-xl font-bold text-secondary-900">Chapters</h2>
+                    <h2 className="text-xl font-bold text-secondary-900">
+                      {divisionTab === 'chapters' ? 'Chapters' : 'Assign Syllabus'}
+                    </h2>
                     <p className="text-secondary-600 text-sm font-medium">
-                      Select academic year, subject and book to manage chapters
+                      {divisionTab === 'chapters'
+                        ? 'Select academic year, subject and book to manage chapters'
+                        : 'Select academic year, subject and book to view syllabus and select class & sections'}
                     </p>
                   </div>
-                  {chapterView === 'list' && canCreateChapters && String(chapterCurriculumBookId || '').trim() && (
+                  {divisionTab === 'chapters' && chapterView === 'list' && canCreateChapters && String(chapterCurriculumBookId || '').trim() && (
                     <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                       <button
                         type="button"
@@ -1610,7 +1855,7 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
                     </div>
                   ) : (
                     <>
-                      {chapterView === 'list' ? (
+                      {chapterView === 'list' || divisionTab === 'assign' ? (
                         chaptersLoading ? (
                           <div className="flex justify-center items-center py-12">
                             <LoadingSpinner className="w-8 h-8" />
@@ -1640,7 +1885,7 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
                                   <th className="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">
                                     Hours
                                   </th>
-                                  {(canEditChapters || canDeleteChapters) && (
+                                  {divisionTab === 'chapters' && (canEditChapters || canDeleteChapters) && (
                                     <th className="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">
                                       Actions
                                     </th>
@@ -1685,7 +1930,7 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-700 font-medium">
                                           {hours === null || hours === undefined || String(hours) === '' ? '—' : String(hours)}
                                         </td>
-                                        {(canEditChapters || canDeleteChapters) && (
+                                        {divisionTab === 'chapters' && (canEditChapters || canDeleteChapters) && (
                                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                             <ActionButtonGroup>
                                               {canEditChapters && (
@@ -1706,7 +1951,7 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
                                       {isExpanded && (
                                         <tr>
                                           <td
-                                            colSpan={(canEditChapters || canDeleteChapters) ? 5 : 4}
+                                            colSpan={divisionTab === 'chapters' && (canEditChapters || canDeleteChapters) ? 5 : 4}
                                             className="px-6 py-4 bg-secondary-50/30"
                                           >
                                             {!canViewTopics ? (
@@ -1717,7 +1962,7 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
                                               <div className="space-y-4">
                                                 <div className="flex items-center justify-between">
                                                   <div className="font-semibold text-secondary-900">Topics</div>
-                                                  {topicView === 'list' && canCreateTopics && (
+                                                  {divisionTab === 'chapters' && topicView === 'list' && canCreateTopics && (
                                                     <button
                                                       type="button"
                                                       className="btn-primary"
@@ -1729,7 +1974,7 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
                                                   )}
                                                 </div>
 
-                                                {topicView === 'list' ? (
+                                                {topicView === 'list' || divisionTab === 'assign' ? (
                                                   topicsLoading ? (
                                                     <div className="flex items-center">
                                                       <LoadingSpinner className="w-4 h-4" />
@@ -1751,7 +1996,7 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
                                                             <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">
                                                               Hours
                                                             </th>
-                                                            {(canEditTopics || canDeleteTopics) && (
+                                                            {divisionTab === 'chapters' && (canEditTopics || canDeleteTopics) && (
                                                               <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">
                                                                 Actions
                                                               </th>
@@ -1793,7 +2038,7 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
                                                                   <td className="px-4 py-2 whitespace-nowrap text-sm text-secondary-700 font-medium">
                                                                     {tHours === null || tHours === undefined || String(tHours) === '' ? '—' : String(tHours)}
                                                                   </td>
-                                                                  {(canEditTopics || canDeleteTopics) && (
+                                                                  {divisionTab === 'chapters' && (canEditTopics || canDeleteTopics) && (
                                                                     <td className="px-4 py-2 whitespace-nowrap text-sm font-medium">
                                                                       <ActionButtonGroup>
                                                                         {canEditTopics && (
@@ -1814,7 +2059,7 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
                                                                 {isTopicExpanded && (
                                                                   <tr>
                                                                     <td
-                                                                      colSpan={(canEditTopics || canDeleteTopics) ? 4 : 3}
+                                                                      colSpan={divisionTab === 'chapters' && (canEditTopics || canDeleteTopics) ? 4 : 3}
                                                                       className="px-4 py-3 bg-secondary-50/30"
                                                                     >
                                                                       {!canViewSubtopics ? (
@@ -1825,7 +2070,7 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
                                                                         <div className="space-y-4">
                                                                           <div className="flex items-center justify-between">
                                                                             <div className="font-semibold text-secondary-900">Subtopics</div>
-                                                                            {subtopicView === 'list' && canCreateSubtopics && (
+                                                                            {divisionTab === 'chapters' && subtopicView === 'list' && canCreateSubtopics && (
                                                                               <button
                                                                                 type="button"
                                                                                 className="btn-primary"
@@ -1837,7 +2082,7 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
                                                                             )}
                                                                           </div>
 
-                                                                          {subtopicView === 'list' ? (
+                                                                          {subtopicView === 'list' || divisionTab === 'assign' ? (
                                                                             subtopicsLoading ? (
                                                                               <div className="flex items-center">
                                                                                 <LoadingSpinner className="w-4 h-4" />
@@ -1859,7 +2104,7 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
                                                                                       <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">
                                                                                         Hours
                                                                                       </th>
-                                                                                      {(canEditSubtopics || canDeleteSubtopics) && (
+                                                                                      {divisionTab === 'chapters' && (canEditSubtopics || canDeleteSubtopics) && (
                                                                                         <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">
                                                                                           Actions
                                                                                         </th>
@@ -1884,7 +2129,7 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
                                                                                           <td className="px-4 py-2 whitespace-nowrap text-sm text-secondary-700 font-medium">
                                                                                             {sHours === null || sHours === undefined || String(sHours) === '' ? '—' : String(sHours)}
                                                                                           </td>
-                                                                                          {(canEditSubtopics || canDeleteSubtopics) && (
+                                                                                          {divisionTab === 'chapters' && (canEditSubtopics || canDeleteSubtopics) && (
                                                                                             <td className="px-4 py-2 whitespace-nowrap text-sm font-medium">
                                                                                               <ActionButtonGroup>
                                                                                                 {canEditSubtopics && (
@@ -2255,6 +2500,101 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
                           </Card>
                         </div>
                       )}
+
+                      {divisionTab === 'assign' && (
+                        <div className="border-t border-secondary-200 pt-6">
+                          <div className="max-w-4xl">
+                            <Card>
+                              <div className="p-4 sm:p-6">
+                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                                  <h2 className="text-xl font-bold text-secondary-900">Class & Sections</h2>
+                                  {canCreatePlan && (
+                                    <button
+                                      type="button"
+                                      className="btn-primary"
+                                      onClick={handleCreatePlan}
+                                      disabled={
+                                        assignPlanLoading ||
+                                        !String(chapterAcademicYearId || '').trim() ||
+                                        !String(chapterSubjectId || '').trim() ||
+                                        !String(chapterCurriculumBookId || '').trim() ||
+                                        assignSelectedSectionIds.length === 0
+                                      }
+                                    >
+                                      {assignPlanLoading ? 'Creating Plan...' : 'Create Plan'}
+                                    </button>
+                                  )}
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                                  <div className="md:col-span-2">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Class</label>
+                                    <select
+                                      value={assignClassId}
+                                      onChange={(e) => setAssignClassId(e.target.value)}
+                                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                      disabled={assignClassesLoading || !String(chapterAcademicYearId || '').trim()}
+                                    >
+                                      <option value="">Select Class</option>
+                                      {assignClasses.map((cls) => (
+                                        <option key={String(cls.class_id ?? cls.classId ?? cls.id)} value={String(cls.class_id ?? cls.classId ?? cls.id)}>
+                                          {String(cls.class_name ?? cls.className ?? cls.name ?? cls.class_level ?? '').trim() || '—'}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                </div>
+
+                                <div className="mt-6">
+                                  {!String(chapterAcademicYearId || '').trim() ? (
+                                    <div className="text-sm text-secondary-700">Select Academic Year above to load classes and sections.</div>
+                                  ) : assignClassesLoading ? (
+                                    <div className="flex items-center">
+                                      <LoadingSpinner className="w-4 h-4" />
+                                      <span className="ml-2 text-gray-500">Loading classes...</span>
+                                    </div>
+                                  ) : !String(assignClassId || '').trim() ? (
+                                    <div className="text-sm text-secondary-700">Select a class to view sections.</div>
+                                  ) : assignSectionsLoading ? (
+                                    <div className="flex items-center">
+                                      <LoadingSpinner className="w-4 h-4" />
+                                      <span className="ml-2 text-gray-500">Loading sections...</span>
+                                    </div>
+                                  ) : assignSections.length === 0 ? (
+                                    <div className="text-sm text-secondary-700">No sections found for the selected class.</div>
+                                  ) : (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                      {assignSections.map((sec) => {
+                                        const sectionId = String(sec.section_id ?? sec.sectionId ?? sec.id);
+                                        const checked = assignSelectedSectionIds.includes(sectionId);
+                                        const label = String(sec.section_name ?? sec.sectionName ?? sec.name ?? '').trim() || '—';
+                                        return (
+                                          <label
+                                            key={sectionId}
+                                            className="flex items-center gap-2 p-3 bg-white rounded-lg border border-secondary-200 hover:bg-secondary-50 cursor-pointer"
+                                          >
+                                            <input
+                                              type="checkbox"
+                                              checked={checked}
+                                              onChange={() => {
+                                                setAssignSelectedSectionIds((prev) => {
+                                                  if (prev.includes(sectionId)) return prev.filter((x) => x !== sectionId);
+                                                  return [...prev, sectionId];
+                                                });
+                                              }}
+                                            />
+                                            <span className="text-sm font-medium text-secondary-900">{label}</span>
+                                          </label>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </Card>
+                          </div>
+                        </div>
+                      )}
                     </>
                   )}
                 </div>
@@ -2343,6 +2683,7 @@ export default function SyllabusPage() {
   const canEditSubtopics = !!hasPermission && hasPermission(PERMISSIONS.SYLLABUS_SUBTOPIC_EDIT);
   const canDeleteSubtopics = !!hasPermission && hasPermission(PERMISSIONS.SYLLABUS_SUBTOPIC_DELETE);
   const canViewSubtopics = !!hasPermission && hasPermission(PERMISSIONS.SYLLABUS_SUBTOPIC_LIST_READ);
+  const canCreatePlan = !!hasPermission && hasPermission(PERMISSIONS.SYLLABUS_PLAN_CREATE);
 
   const renderAccessDenied = () => (
     <div className="max-w-4xl mx-auto">
@@ -2485,6 +2826,7 @@ export default function SyllabusPage() {
                   canCreateSubtopics={canCreateSubtopics}
                   canEditSubtopics={canEditSubtopics}
                   canDeleteSubtopics={canDeleteSubtopics}
+                  canCreatePlan={canCreatePlan}
                 />
               ) : (
                 <SyllabusProgress academicYears={academicYears} subjects={subjects} formData={formData} />
