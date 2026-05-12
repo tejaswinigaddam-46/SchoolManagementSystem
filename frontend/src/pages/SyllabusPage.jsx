@@ -18,7 +18,7 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
   const [booksLoading, setBooksLoading] = useState(false);
   const [bookActionLoading, setBookActionLoading] = useState(false);
   const [books, setBooks] = useState([]);
-  const [editingBookKey, setEditingBookKey] = useState(null);
+  const [editingCurriculumBookId, setEditingCurriculumBookId] = useState(null);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -28,7 +28,7 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
   useEffect(() => {
     if (divisionTab !== 'book') {
       setBookView('list');
-      setEditingBookKey(null);
+      setEditingCurriculumBookId(null);
     }
   }, [divisionTab]);
 
@@ -125,7 +125,7 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
   }, [divisionTab, bookView, formData.academic_year_id, canViewCourse]);
 
   const startCreateBook = () => {
-    setEditingBookKey(null);
+    setEditingCurriculumBookId(null);
     setFormData((prev) => ({
       ...prev,
       subject_id: '',
@@ -136,30 +136,35 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
   };
 
   const startEditBook = (book) => {
-    const academicYearId = book?.academic_year_id ?? book?.academicYearId ?? null;
-    const subjectName = String(book?.subject_name ?? book?.subjectName ?? '').trim();
-    const versionNo = book?.version_no ?? book?.versionNo ?? book?.version ?? null;
-
-    if (!academicYearId || !subjectName || !versionNo) {
-      toast.error('Invalid book key');
+    const curriculumBookId =
+      book?.curriculum_book_id ?? book?.curriculumBookId ?? book?.curriculum_bookId ?? book?.id ?? null;
+    if (!curriculumBookId) {
+      toast.error('Invalid book id');
       return;
     }
 
-    const matchedSubject =
-      (subjects || []).find((s) => String(s?.subject_name || '').trim() === subjectName) || null;
+    const academicYearId = book?.academic_year_id ?? book?.academicYearId ?? null;
+    const subjectIdFromBook = book?.subject_id ?? book?.subjectId ?? null;
+    const subjectNameFromBook = String(book?.subject_name ?? book?.subjectName ?? '').trim();
+    const versionNo = book?.version_no ?? book?.versionNo ?? book?.version ?? null;
 
-    setEditingBookKey({
-      academicYearId: Number.parseInt(String(academicYearId), 10),
-      subjectName,
-      versionNo: Number.parseInt(String(versionNo), 10)
-    });
+    const matchedSubjectByName =
+      subjectNameFromBook
+        ? (subjects || []).find((s) => String(s?.subject_name || '').trim() === subjectNameFromBook) || null
+        : null;
+
+    setEditingCurriculumBookId(String(curriculumBookId));
 
     setFormData((prev) => ({
       ...prev,
-      academic_year_id: String(academicYearId),
-      subject_id: matchedSubject ? String(matchedSubject.subject_id) : '',
+      academic_year_id: academicYearId !== null && academicYearId !== undefined ? String(academicYearId) : '',
+      subject_id: subjectIdFromBook
+        ? String(subjectIdFromBook)
+        : matchedSubjectByName
+          ? String(matchedSubjectByName.subject_id)
+          : '',
       book_name: String(book?.book_name ?? book?.bookName ?? '').trim(),
-      version: String(versionNo)
+      version: versionNo !== null && versionNo !== undefined ? String(versionNo) : ''
     }));
 
     setBookView('edit');
@@ -172,7 +177,9 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
       toast.error('Please select Academic Year');
       return null;
     }
-    if (!String(formData.subject_id || '').trim() || !selectedSubjectName) {
+    const subjectIdStr = String(formData.subject_id || '').trim();
+    const subjectId = Number.parseInt(subjectIdStr, 10);
+    if (!Number.isInteger(subjectId) || subjectId < 1 || !selectedSubjectName) {
       toast.error('Please select Subject Name');
       return null;
     }
@@ -187,7 +194,7 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
       toast.error('Version must be an integer >= 1');
       return null;
     }
-    return { academicYearId, subjectName: selectedSubjectName, bookName, versionNo };
+    return { academicYearId, subjectId, subjectName: selectedSubjectName, bookName, versionNo };
   };
 
   const handleCreateBook = async () => {
@@ -202,6 +209,7 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
       setBookActionLoading(true);
       const payload = {
         academic_year_id: v.academicYearId,
+        subject_id: v.subjectId,
         subject_name: v.subjectName,
         book_name: v.bookName,
         version_no: v.versionNo
@@ -227,7 +235,7 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
       toast.error('You do not have permission to edit books');
       return;
     }
-    if (!editingBookKey) {
+    if (!editingCurriculumBookId) {
       toast.error('No book selected for edit');
       return;
     }
@@ -236,19 +244,24 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
       toast.error('Please enter Book Name');
       return;
     }
+    const versionStr = String(formData.version ?? '').trim();
+    const versionNo = versionStr ? Number.parseInt(versionStr, 10) : undefined;
+    if (versionStr && (!Number.isInteger(versionNo) || versionNo < 1)) {
+      toast.error('Version must be an integer >= 1');
+      return;
+    }
 
     try {
       setBookActionLoading(true);
-      const response = await syllabusBookService.updateBookByKey(
-        editingBookKey.academicYearId,
-        editingBookKey.subjectName,
-        editingBookKey.versionNo,
-        { book_name: bookName }
-      );
+      const payload = {
+        book_name: bookName,
+        ...(versionNo !== undefined ? { version_no: versionNo } : {})
+      };
+      const response = await syllabusBookService.updateBook(editingCurriculumBookId, payload);
       if (response?.success) {
         toast.success(response?.message || 'Book updated successfully');
         setBookView('list');
-        setEditingBookKey(null);
+        setEditingCurriculumBookId(null);
         fetchBooks();
       } else {
         toast.error(response?.message || 'Failed to update book');
@@ -267,22 +280,16 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
       return;
     }
 
-    const academicYearId = book?.academic_year_id ?? book?.academicYearId ?? null;
-    const subjectName = String(book?.subject_name ?? book?.subjectName ?? '').trim();
-    const versionNo = book?.version_no ?? book?.versionNo ?? book?.version ?? null;
-
-    if (!academicYearId || !subjectName || !versionNo) {
-      toast.error('Invalid book key');
+    const curriculumBookId =
+      book?.curriculum_book_id ?? book?.curriculumBookId ?? book?.curriculum_bookId ?? book?.id ?? null;
+    if (!curriculumBookId) {
+      toast.error('Invalid book id');
       return;
     }
 
     try {
       setBookActionLoading(true);
-      const response = await syllabusBookService.deleteBookByKey(
-        Number.parseInt(String(academicYearId), 10),
-        subjectName,
-        Number.parseInt(String(versionNo), 10)
-      );
+      const response = await syllabusBookService.deleteBook(String(curriculumBookId));
       if (response?.success) {
         toast.success(response?.message || 'Book deleted successfully');
         fetchBooks();
@@ -436,13 +443,22 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
                               </thead>
                               <tbody className="bg-white divide-y divide-secondary-200">
                                 {books.map((b, idx) => {
-                                  const subjectName = String(b?.subject_name ?? b?.subjectName ?? '').trim();
+                                  const subjectId = b?.subject_id ?? b?.subjectId ?? null;
+                                  const subjectNameById = subjectId
+                                    ? String((subjects || []).find((s) => String(s?.subject_id) === String(subjectId))?.subject_name || '').trim()
+                                    : '';
+                                  const subjectName = String(b?.subject_name ?? b?.subjectName ?? '').trim() || subjectNameById;
                                   const bookName = String(b?.book_name ?? b?.bookName ?? '').trim();
                                   const versionNo = b?.version_no ?? b?.versionNo ?? b?.version ?? '';
                                   const isActive = b?.is_active ?? b?.isActive;
+                                  const rowId =
+                                    b?.curriculum_book_id ?? b?.curriculumBookId ?? b?.curriculum_bookId ?? b?.id ?? null;
 
                                   return (
-                                    <tr key={`${subjectName}-${versionNo}-${idx}`} className="hover:bg-secondary-50 transition-colors">
+                                    <tr
+                                      key={rowId ? String(rowId) : `${subjectName}-${versionNo}-${idx}`}
+                                      className="hover:bg-secondary-50 transition-colors"
+                                    >
                                       <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-secondary-900">
                                         {subjectName || '—'}
                                       </td>
@@ -500,7 +516,7 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
                             type="button"
                             onClick={() => {
                               setBookView('list');
-                              setEditingBookKey(null);
+                              setEditingCurriculumBookId(null);
                             }}
                             className="btn-secondary flex items-center gap-2 w-full sm:w-auto justify-center"
                           >
@@ -584,7 +600,6 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
                               min={1}
                               step={1}
                               placeholder="1"
-                              disabled={bookView === 'edit'}
                             />
                           </div>
                         </div>

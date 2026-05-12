@@ -17,32 +17,25 @@ export const syllabusBookService = {
       throw error.response?.data || error;
     }
   },
-  getBookByKey: async (academicYearId, subjectName, versionNo) => {
+  getBookById: async (curriculumBookId) => {
     try {
-      const response = await api.get(
-        `/syllabus-content/books/${academicYearId}/${encodeURIComponent(subjectName)}/${versionNo}`
-      );
+      const response = await api.get(`/syllabus-content/books/${curriculumBookId}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error;
     }
   },
-  updateBookByKey: async (academicYearId, subjectName, versionNo, data) => {
+  updateBook: async (curriculumBookId, data) => {
     try {
-      const response = await api.put(
-        `/syllabus-content/books/${academicYearId}/${encodeURIComponent(subjectName)}/${versionNo}`,
-        data
-      );
+      const response = await api.put(`/syllabus-content/books/${curriculumBookId}`, data);
       return response.data;
     } catch (error) {
       throw error.response?.data || error;
     }
   },
-  deleteBookByKey: async (academicYearId, subjectName, versionNo) => {
+  deleteBook: async (curriculumBookId) => {
     try {
-      const response = await api.delete(
-        `/syllabus-content/books/${academicYearId}/${encodeURIComponent(subjectName)}/${versionNo}`
-      );
+      const response = await api.delete(`/syllabus-content/books/${curriculumBookId}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error;
@@ -51,4 +44,3 @@ export const syllabusBookService = {
 };
 
 export default syllabusBookService;
-
