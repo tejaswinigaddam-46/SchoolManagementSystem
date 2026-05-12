@@ -336,15 +336,6 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
           </>
         ) : (
           <div className="space-y-4">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold text-gray-800">
-                {divisionTab === 'book' ? 'Add Book' : 'Add Chapters'}
-              </h2>
-              <button type="button" onClick={() => setDivisionTab(null)} className="btn-secondary">
-                Back
-              </button>
-            </div>
-
             {divisionTab === 'book' ? (
               <>
                 {bookView === 'list' ? (
