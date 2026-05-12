@@ -111,6 +111,13 @@ export const PERMISSIONS = {
   SYLLABUS_BOOK_EDIT: 'syllabus_book_edit',
   SYLLABUS_BOOK_DELETE: 'syllabus_book_delete',
 
+  // Syllabus chapters (per-route)
+  SYLLABUS_CHAPTER_LIST_READ: 'syllabus_chapter_list_read',
+  SYLLABUS_CHAPTER_CREATE: 'syllabus_chapter_create',
+  SYLLABUS_CHAPTER_ITEM_READ: 'syllabus_chapter_item_read',
+  SYLLABUS_CHAPTER_EDIT: 'syllabus_chapter_edit',
+  SYLLABUS_CHAPTER_DELETE: 'syllabus_chapter_delete',
+
   // Tenants (per-route)
   TENANT_LIST_READ: 'tenant_list_read',
   TENANT_ITEM_READ: 'tenant_item_read',

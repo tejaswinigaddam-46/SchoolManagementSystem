@@ -8,10 +8,10 @@ import { EditButton, DeleteButton, ActionButtonGroup } from '../components/ui/Ac
 import { academicService } from '../services/academicService';
 import studentService from '../services/studentService';
 import subjectService from '../services/subjectService';
-import syllabusBookService from '../services/syllabusBookService';
+import syllabusBookService, { syllabusChapterService } from '../services/syllabusBookService';
 import { PERMISSIONS } from '../config/permissions';
 
-const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setFormData, canViewCourse, canCreateCourse, canEditCourse, canDeleteCourse }) => {
+const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setFormData, canViewCourse, canCreateCourse, canEditCourse, canDeleteCourse, canViewChapters, canCreateChapters, canEditChapters, canDeleteChapters }) => {
   const [divisionTab, setDivisionTab] = useState(null);
   const [selectedCurriculumId, setSelectedCurriculumId] = useState(null);
   const [bookView, setBookView] = useState('list'); // 'list' | 'create' | 'edit'
@@ -19,6 +19,23 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
   const [bookActionLoading, setBookActionLoading] = useState(false);
   const [books, setBooks] = useState([]);
   const [editingCurriculumBookId, setEditingCurriculumBookId] = useState(null);
+  const [chapterAcademicYearId, setChapterAcademicYearId] = useState('');
+  const [chapterSubjectId, setChapterSubjectId] = useState('');
+  const [chapterCurriculumBookId, setChapterCurriculumBookId] = useState('');
+  const [chapterBooksLoading, setChapterBooksLoading] = useState(false);
+  const [chapterBooks, setChapterBooks] = useState([]);
+  const [chapterSelectedCurriculumId, setChapterSelectedCurriculumId] = useState(null);
+  const [chapterView, setChapterView] = useState('list'); // 'list' | 'create' | 'edit'
+  const [chaptersLoading, setChaptersLoading] = useState(false);
+  const [chapterActionLoading, setChapterActionLoading] = useState(false);
+  const [chapters, setChapters] = useState([]);
+  const [editingChapterId, setEditingChapterId] = useState(null);
+  const [chapterForm, setChapterForm] = useState({
+    chapter_title: '',
+    chapter_description: '',
+    sequence_order: '',
+    default_hours: ''
+  });
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -29,6 +46,17 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
     if (divisionTab !== 'book') {
       setBookView('list');
       setEditingCurriculumBookId(null);
+    }
+    if (divisionTab !== 'chapters') {
+      setChapterView('list');
+      setEditingChapterId(null);
+      setChapters([]);
+      setChapterForm({
+        chapter_title: '',
+        chapter_description: '',
+        sequence_order: '',
+        default_hours: ''
+      });
     }
   }, [divisionTab]);
 
@@ -67,6 +95,41 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
     fetchAcademicYearDetails();
   }, [academicYears, campusId, formData.academic_year_id]);
 
+  useEffect(() => {
+    const academicYearId = String(chapterAcademicYearId || '').trim();
+    if (!academicYearId) {
+      setChapterSelectedCurriculumId(null);
+      return;
+    }
+
+    const selectedYear =
+      academicYears.find((y) => String(y.academic_year_id) === academicYearId) || null;
+
+    const inlineCurriculumId = selectedYear?.curriculum_id ?? selectedYear?.curriculumId ?? null;
+    if (inlineCurriculumId) {
+      setChapterSelectedCurriculumId(String(inlineCurriculumId));
+      return;
+    }
+
+    const fetchAcademicYearDetails = async () => {
+      if (!campusId) {
+        setChapterSelectedCurriculumId(null);
+        return;
+      }
+      try {
+        const res = await academicService.getAcademicYearById(campusId, academicYearId);
+        const ay = res?.data || res;
+        const cid = ay?.curriculum_id ?? ay?.curriculumId ?? null;
+        setChapterSelectedCurriculumId(cid ? String(cid) : null);
+      } catch (error) {
+        console.error('Error fetching academic year details:', error);
+        setChapterSelectedCurriculumId(null);
+      }
+    };
+
+    fetchAcademicYearDetails();
+  }, [academicYears, campusId, chapterAcademicYearId]);
+
   const filteredSubjects = useMemo(() => {
     if (!selectedCurriculumId) return subjects;
     return (subjects || []).filter((s) => {
@@ -74,6 +137,14 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
       return cid !== null && String(cid) === String(selectedCurriculumId);
     });
   }, [subjects, selectedCurriculumId]);
+
+  const filteredChapterSubjects = useMemo(() => {
+    if (!chapterSelectedCurriculumId) return subjects;
+    return (subjects || []).filter((s) => {
+      const cid = s?.curriculum_id ?? s?.curriculumId ?? null;
+      return cid !== null && String(cid) === String(chapterSelectedCurriculumId);
+    });
+  }, [subjects, chapterSelectedCurriculumId]);
 
   useEffect(() => {
     const subjectId = String(formData.subject_id || '').trim();
@@ -84,12 +155,29 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
     }
   }, [filteredSubjects, formData.subject_id, setFormData]);
 
+  useEffect(() => {
+    const subjectId = String(chapterSubjectId || '').trim();
+    if (!subjectId) return;
+    const exists = filteredChapterSubjects.some((s) => String(s.subject_id) === subjectId);
+    if (!exists) {
+      setChapterSubjectId('');
+      setChapterCurriculumBookId('');
+    }
+  }, [filteredChapterSubjects, chapterSubjectId]);
+
   const selectedSubjectName = useMemo(() => {
     const subjectId = String(formData.subject_id || '').trim();
     if (!subjectId) return '';
     const s = (subjects || []).find((x) => String(x.subject_id) === subjectId);
     return String(s?.subject_name || '').trim();
   }, [subjects, formData.subject_id]);
+
+  const selectedChapterSubjectName = useMemo(() => {
+    const subjectId = String(chapterSubjectId || '').trim();
+    if (!subjectId) return '';
+    const s = (subjects || []).find((x) => String(x.subject_id) === subjectId);
+    return String(s?.subject_name || '').trim();
+  }, [subjects, chapterSubjectId]);
 
   const fetchBooks = async () => {
     const academicYearIdStr = String(formData.academic_year_id || '').trim();
@@ -123,6 +211,271 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
     if (!canViewCourse) return;
     fetchBooks();
   }, [divisionTab, bookView, formData.academic_year_id, canViewCourse]);
+
+  const fetchChapterBooks = async () => {
+    const academicYearIdStr = String(chapterAcademicYearId || '').trim();
+    if (!academicYearIdStr) {
+      setChapterBooks([]);
+      return;
+    }
+    const academicYearId = Number.parseInt(academicYearIdStr, 10);
+    if (!Number.isInteger(academicYearId) || academicYearId < 1) {
+      setChapterBooks([]);
+      return;
+    }
+
+    try {
+      setChapterBooksLoading(true);
+      const response = await syllabusBookService.getBooks({ academic_year_id: academicYearId });
+      const rows = response?.data?.books || response?.data || response?.books || [];
+      setChapterBooks(Array.isArray(rows) ? rows : []);
+    } catch (error) {
+      console.error('Error fetching books:', error);
+      toast.error(error?.message || 'Failed to load books');
+      setChapterBooks([]);
+    } finally {
+      setChapterBooksLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (divisionTab !== 'chapters') return;
+    if (!canViewCourse) return;
+    fetchChapterBooks();
+  }, [divisionTab, chapterAcademicYearId, canViewCourse]);
+
+  useEffect(() => {
+    setChapterSubjectId('');
+    setChapterCurriculumBookId('');
+    setChapterBooks([]);
+    setChapterView('list');
+    setEditingChapterId(null);
+    setChapters([]);
+    setChapterForm({
+      chapter_title: '',
+      chapter_description: '',
+      sequence_order: '',
+      default_hours: ''
+    });
+  }, [chapterAcademicYearId]);
+
+  useEffect(() => {
+    setChapterCurriculumBookId('');
+    setChapterView('list');
+    setEditingChapterId(null);
+    setChapters([]);
+    setChapterForm({
+      chapter_title: '',
+      chapter_description: '',
+      sequence_order: '',
+      default_hours: ''
+    });
+  }, [chapterSubjectId]);
+
+  useEffect(() => {
+    setChapterView('list');
+    setEditingChapterId(null);
+    setChapters([]);
+    setChapterForm({
+      chapter_title: '',
+      chapter_description: '',
+      sequence_order: '',
+      default_hours: ''
+    });
+  }, [chapterCurriculumBookId]);
+
+  const availableChapterBooks = useMemo(() => {
+    const subjectIdStr = String(chapterSubjectId || '').trim();
+    if (!subjectIdStr) return [];
+    return (chapterBooks || []).filter((b) => {
+      const bSubjectId = b?.subject_id ?? b?.subjectId ?? null;
+      if (bSubjectId != null && String(bSubjectId) === subjectIdStr) return true;
+      const bSubjectName = String(b?.subject_name ?? b?.subjectName ?? '').trim();
+      return !!selectedChapterSubjectName && bSubjectName === selectedChapterSubjectName;
+    });
+  }, [chapterBooks, chapterSubjectId, selectedChapterSubjectName]);
+
+  const fetchChapters = async () => {
+    const bookIdStr = String(chapterCurriculumBookId || '').trim();
+    if (!bookIdStr) {
+      setChapters([]);
+      return;
+    }
+    if (!canViewChapters) {
+      setChapters([]);
+      return;
+    }
+
+    try {
+      setChaptersLoading(true);
+      const response = await syllabusChapterService.getChapters({ curriculum_book_id: bookIdStr });
+      const rows = response?.data?.chapters || response?.data || response?.chapters || [];
+      setChapters(Array.isArray(rows) ? rows : []);
+    } catch (error) {
+      console.error('Error fetching chapters:', error);
+      toast.error(error?.message || 'Failed to load chapters');
+      setChapters([]);
+    } finally {
+      setChaptersLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (divisionTab !== 'chapters') return;
+    if (chapterView !== 'list') return;
+    if (!String(chapterCurriculumBookId || '').trim()) return;
+    fetchChapters();
+  }, [divisionTab, chapterView, chapterCurriculumBookId, canViewChapters]);
+
+  const startCreateChapter = () => {
+    setEditingChapterId(null);
+    setChapterForm({
+      chapter_title: '',
+      chapter_description: '',
+      sequence_order: '',
+      default_hours: ''
+    });
+    setChapterView('create');
+  };
+
+  const startEditChapter = (chapter) => {
+    const chapterId = chapter?.chapter_id ?? chapter?.chapterId ?? chapter?.id ?? null;
+    if (!chapterId) {
+      toast.error('Invalid chapter id');
+      return;
+    }
+    setEditingChapterId(String(chapterId));
+    setChapterForm({
+      chapter_title: String(chapter?.chapter_title ?? chapter?.chapterTitle ?? '').trim(),
+      chapter_description: String(chapter?.chapter_description ?? chapter?.chapterDescription ?? '').trim(),
+      sequence_order: String(chapter?.sequence_order ?? chapter?.sequenceOrder ?? 0),
+      default_hours: chapter?.default_hours ?? chapter?.defaultHours ?? ''
+    });
+    setChapterView('edit');
+  };
+
+  const validateChapterForm = () => {
+    const bookIdStr = String(chapterCurriculumBookId || '').trim();
+    if (!bookIdStr) {
+      toast.error('Please select a Book');
+      return null;
+    }
+    const chapterTitle = String(chapterForm.chapter_title || '').trim();
+    if (!chapterTitle) {
+      toast.error('Please enter Chapter Title');
+      return null;
+    }
+    const seqStr = String(chapterForm.sequence_order ?? '').trim();
+    const sequenceOrder = seqStr === '' ? 0 : Number.parseInt(seqStr, 10);
+    if (!Number.isInteger(sequenceOrder) || sequenceOrder < 0) {
+      toast.error('Sequence Order must be an integer >= 0');
+      return null;
+    }
+    const hoursStr = String(chapterForm.default_hours ?? '').trim();
+    const defaultHours = hoursStr === '' ? undefined : Number.parseFloat(hoursStr);
+    if (hoursStr !== '' && (Number.isNaN(defaultHours) || defaultHours < 0)) {
+      toast.error('Default Hours must be a number >= 0');
+      return null;
+    }
+    return {
+      curriculum_book_id: Number.parseInt(bookIdStr, 10),
+      chapter_title: chapterTitle,
+      chapter_description: String(chapterForm.chapter_description ?? '').trim() || null,
+      sequence_order: sequenceOrder,
+      default_hours: defaultHours
+    };
+  };
+
+  const handleCreateChapter = async () => {
+    if (!canCreateChapters) {
+      toast.error('You do not have permission to add chapters');
+      return;
+    }
+    const payload = validateChapterForm();
+    if (!payload) return;
+
+    try {
+      setChapterActionLoading(true);
+      const response = await syllabusChapterService.createChapter(payload);
+      if (response?.success) {
+        toast.success(response?.message || 'Chapter created successfully');
+        setChapterView('list');
+        fetchChapters();
+      } else {
+        toast.error(response?.message || 'Failed to create chapter');
+      }
+    } catch (error) {
+      console.error('Error creating chapter:', error);
+      toast.error(error?.message || 'Failed to create chapter');
+    } finally {
+      setChapterActionLoading(false);
+    }
+  };
+
+  const handleUpdateChapter = async () => {
+    if (!canEditChapters) {
+      toast.error('You do not have permission to edit chapters');
+      return;
+    }
+    if (!editingChapterId) {
+      toast.error('No chapter selected for edit');
+      return;
+    }
+    const payload = validateChapterForm();
+    if (!payload) return;
+
+    try {
+      setChapterActionLoading(true);
+      const updatePayload = {
+        chapter_title: payload.chapter_title,
+        chapter_description: payload.chapter_description,
+        sequence_order: payload.sequence_order,
+        default_hours: payload.default_hours
+      };
+      const response = await syllabusChapterService.updateChapter(editingChapterId, updatePayload);
+      if (response?.success) {
+        toast.success(response?.message || 'Chapter updated successfully');
+        setChapterView('list');
+        setEditingChapterId(null);
+        fetchChapters();
+      } else {
+        toast.error(response?.message || 'Failed to update chapter');
+      }
+    } catch (error) {
+      console.error('Error updating chapter:', error);
+      toast.error(error?.message || 'Failed to update chapter');
+    } finally {
+      setChapterActionLoading(false);
+    }
+  };
+
+  const handleDeleteChapter = async (chapter) => {
+    if (!canDeleteChapters) {
+      toast.error('You do not have permission to delete chapters');
+      return;
+    }
+    const chapterId = chapter?.chapter_id ?? chapter?.chapterId ?? chapter?.id ?? null;
+    if (!chapterId) {
+      toast.error('Invalid chapter id');
+      return;
+    }
+
+    try {
+      setChapterActionLoading(true);
+      const response = await syllabusChapterService.deleteChapter(String(chapterId));
+      if (response?.success) {
+        toast.success(response?.message || 'Chapter deleted successfully');
+        fetchChapters();
+      } else {
+        toast.error(response?.message || 'Failed to delete chapter');
+      }
+    } catch (error) {
+      console.error('Error deleting chapter:', error);
+      toast.error(error?.message || 'Failed to delete chapter');
+    } finally {
+      setChapterActionLoading(false);
+    }
+  };
 
   const startCreateBook = () => {
     setEditingCurriculumBookId(null);
@@ -305,7 +658,7 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
   };
 
   return (
-    <Card>
+    <Card className="bg-transparent border-0 shadow-none">
       <div className="p-4 md:p-6">
         {divisionTab === null ? (
           <>
@@ -336,6 +689,15 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
           </>
         ) : (
           <div className="space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold text-gray-800">
+                {divisionTab === 'book' ? 'Add Book' : 'Add Chapters'}
+              </h2>
+              <button type="button" onClick={() => setDivisionTab(null)} className="btn-secondary">
+                Back
+              </button>
+            </div>
+
             {divisionTab === 'book' ? (
               <>
                 {bookView === 'list' ? (
@@ -612,9 +974,324 @@ const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setForm
                 )}
               </>
             ) : (
-              <div className="border border-secondary-200 rounded-xl p-6 bg-secondary-50/30">
-                <div className="text-sm text-secondary-700">
-                  Select academic year, subject, book name and version in Add Book tab first.
+              <div className="bg-white rounded-xl border border-secondary-200 shadow-soft overflow-hidden">
+                <div className="p-6 border-b border-secondary-200 bg-secondary-50/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                  <div>
+                    <h2 className="text-xl font-bold text-secondary-900">Chapters</h2>
+                    <p className="text-secondary-600 text-sm font-medium">
+                      Select academic year, subject and book to manage chapters
+                    </p>
+                  </div>
+                  {chapterView === 'list' && canCreateChapters && String(chapterCurriculumBookId || '').trim() && (
+                    <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                      <button
+                        type="button"
+                        onClick={startCreateChapter}
+                        className="btn-primary w-full sm:w-auto justify-center"
+                        disabled={chapterActionLoading}
+                      >
+                        Add Chapter
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-6 space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Academic Year</label>
+                      <select
+                        value={chapterAcademicYearId}
+                        onChange={(e) => setChapterAcademicYearId(e.target.value)}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">Select Academic Year</option>
+                        {academicYears.map((year) => (
+                          <option key={year.academic_year_id} value={String(year.academic_year_id)}>
+                            {year.year_name} - {year.curriculum_code} - {year.medium}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Subject Name</label>
+                      <select
+                        value={chapterSubjectId}
+                        onChange={(e) => setChapterSubjectId(e.target.value)}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        disabled={!String(chapterAcademicYearId || '').trim()}
+                      >
+                        <option value="">Select Subject</option>
+                        {filteredChapterSubjects.map((sub) => (
+                          <option key={sub.subject_id} value={String(sub.subject_id)}>
+                            {sub.subject_name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Book</label>
+                      <select
+                        value={chapterCurriculumBookId}
+                        onChange={(e) => setChapterCurriculumBookId(e.target.value)}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        disabled={!String(chapterAcademicYearId || '').trim() || !String(chapterSubjectId || '').trim()}
+                      >
+                        <option value="">Select Book</option>
+                        {availableChapterBooks.map((b) => {
+                          const bookId =
+                            b?.curriculum_book_id ?? b?.curriculumBookId ?? b?.curriculum_bookId ?? b?.id ?? '';
+                          const bookName = String(b?.book_name ?? b?.bookName ?? '').trim();
+                          const versionNo = b?.version_no ?? b?.versionNo ?? b?.version ?? '';
+                          const label = `${bookName || '—'}${versionNo !== '' ? ` (v${versionNo})` : ''}`;
+                          return (
+                            <option key={String(bookId)} value={String(bookId)}>
+                              {label}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+                  </div>
+
+                  {!canViewCourse ? (
+                    <div className="text-center py-16 bg-white">
+                      <h3 className="text-lg font-bold text-secondary-900">Access Restricted</h3>
+                      <p className="mt-1 text-secondary-500 max-w-xs mx-auto font-medium">
+                        You do not have permission to view books.
+                      </p>
+                    </div>
+                  ) : chapterBooksLoading ? (
+                    <div className="flex justify-center items-center py-12">
+                      <LoadingSpinner className="w-8 h-8" />
+                      <span className="ml-2 text-gray-500">Loading books...</span>
+                    </div>
+                  ) : !String(chapterAcademicYearId || '').trim() ? (
+                    <div className="text-center py-16 bg-white">
+                      <h3 className="text-lg font-bold text-secondary-900">Select an academic year</h3>
+                      <p className="mt-1 text-secondary-500 max-w-xs mx-auto font-medium">
+                        Choose an academic year to list books for chapters.
+                      </p>
+                    </div>
+                  ) : !String(chapterSubjectId || '').trim() ? (
+                    <div className="text-center py-16 bg-white">
+                      <h3 className="text-lg font-bold text-secondary-900">Select a subject</h3>
+                      <p className="mt-1 text-secondary-500 max-w-xs mx-auto font-medium">
+                        Choose a subject to filter books.
+                      </p>
+                    </div>
+                  ) : availableChapterBooks.length === 0 ? (
+                    <div className="text-center py-16 bg-white">
+                      <h3 className="text-lg font-bold text-secondary-900">No books found</h3>
+                      <p className="mt-1 text-secondary-500 max-w-xs mx-auto font-medium">
+                        No syllabus books exist for this academic year and subject.
+                      </p>
+                    </div>
+                  ) : !String(chapterCurriculumBookId || '').trim() ? (
+                    <div className="text-center py-16 bg-white">
+                      <h3 className="text-lg font-bold text-secondary-900">Select a book</h3>
+                      <p className="mt-1 text-secondary-500 max-w-xs mx-auto font-medium">
+                        Choose a book to add chapters.
+                      </p>
+                    </div>
+                  ) : !canViewChapters ? (
+                    <div className="text-center py-16 bg-white">
+                      <h3 className="text-lg font-bold text-secondary-900">Access Restricted</h3>
+                      <p className="mt-1 text-secondary-500 max-w-xs mx-auto font-medium">
+                        You do not have permission to view chapters.
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      {chapterView === 'list' ? (
+                        chaptersLoading ? (
+                          <div className="flex justify-center items-center py-12">
+                            <LoadingSpinner className="w-8 h-8" />
+                            <span className="ml-2 text-gray-500">Loading chapters...</span>
+                          </div>
+                        ) : chapters.length === 0 ? (
+                          <div className="text-center py-16 bg-white">
+                            <h3 className="text-lg font-bold text-secondary-900">No chapters found</h3>
+                            <p className="mt-1 text-secondary-500 max-w-xs mx-auto font-medium">
+                              No chapters exist for this book.
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="overflow-x-auto">
+                            <table className="min-w-full divide-y divide-secondary-200">
+                              <thead className="bg-secondary-50/50">
+                                <tr>
+                                  <th className="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">
+                                    Order
+                                  </th>
+                                  <th className="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">
+                                    Title
+                                  </th>
+                                  <th className="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">
+                                    Hours
+                                  </th>
+                                  {(canEditChapters || canDeleteChapters) && (
+                                    <th className="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">
+                                      Actions
+                                    </th>
+                                  )}
+                                </tr>
+                              </thead>
+                              <tbody className="bg-white divide-y divide-secondary-200">
+                                {chapters.map((c, idx) => {
+                                  const chapterId = c?.chapter_id ?? c?.chapterId ?? c?.id ?? null;
+                                  const title = String(c?.chapter_title ?? c?.chapterTitle ?? '').trim();
+                                  const order = c?.sequence_order ?? c?.sequenceOrder ?? 0;
+                                  const hours = c?.default_hours ?? c?.defaultHours ?? '';
+
+                                  return (
+                                    <tr key={chapterId ? String(chapterId) : `${idx}`} className="hover:bg-secondary-50 transition-colors">
+                                      <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-secondary-900">
+                                        {String(order)}
+                                      </td>
+                                      <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-700 font-medium">
+                                        {title || '—'}
+                                      </td>
+                                      <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-700 font-medium">
+                                        {hours === null || hours === undefined || String(hours) === '' ? '—' : String(hours)}
+                                      </td>
+                                      {(canEditChapters || canDeleteChapters) && (
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                          <ActionButtonGroup>
+                                            {canEditChapters && (
+                                              <EditButton onClick={() => startEditChapter(c)} title="Edit chapter" />
+                                            )}
+                                            {canDeleteChapters && (
+                                              <DeleteButton
+                                                onClick={() => handleDeleteChapter(c)}
+                                                title="Delete chapter"
+                                                confirmMessage={`Are you sure you want to delete ${title || 'this chapter'}?`}
+                                                disabled={chapterActionLoading}
+                                              />
+                                            )}
+                                          </ActionButtonGroup>
+                                        </td>
+                                      )}
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        )
+                      ) : (
+                        <div className="max-w-4xl">
+                          <Card>
+                            <div className="p-4 sm:p-6">
+                              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                                <h2 className="text-xl font-bold text-secondary-900">
+                                  {chapterView === 'create' ? 'Add New Chapter' : 'Edit Chapter'}
+                                </h2>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setChapterView('list');
+                                    setEditingChapterId(null);
+                                  }}
+                                  className="btn-secondary flex items-center gap-2 w-full sm:w-auto justify-center"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                                  </svg>
+                                  Back to List
+                                </button>
+                              </div>
+
+                              {chapterActionLoading && (
+                                <div className="mb-6 p-3 bg-primary-50 border-l-4 border-primary-400">
+                                  <div className="flex items-center">
+                                    <LoadingSpinner className="w-4 h-4 mr-2" />
+                                    <p className="text-sm text-primary-700">
+                                      {chapterView === 'create' ? 'Creating chapter...' : 'Updating chapter...'}
+                                    </p>
+                                  </div>
+                                </div>
+                              )}
+
+                              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                <div className="md:col-span-3">
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">Chapter Title</label>
+                                  <input
+                                    type="text"
+                                    value={chapterForm.chapter_title}
+                                    onChange={(e) => setChapterForm((prev) => ({ ...prev, chapter_title: e.target.value }))}
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="Enter chapter title"
+                                  />
+                                </div>
+
+                                <div className="md:col-span-1">
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">Order</label>
+                                  <input
+                                    type="number"
+                                    value={chapterForm.sequence_order}
+                                    onChange={(e) => setChapterForm((prev) => ({ ...prev, sequence_order: e.target.value }))}
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    min={0}
+                                    step={1}
+                                    placeholder="0"
+                                  />
+                                </div>
+
+                                <div className="md:col-span-3">
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">Chapter Description</label>
+                                  <textarea
+                                    value={chapterForm.chapter_description}
+                                    onChange={(e) => setChapterForm((prev) => ({ ...prev, chapter_description: e.target.value }))}
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    rows={3}
+                                    placeholder="Enter chapter description (optional)"
+                                  />
+                                </div>
+
+                                <div className="md:col-span-1">
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">Default Hours</label>
+                                  <input
+                                    type="number"
+                                    value={chapterForm.default_hours}
+                                    onChange={(e) => setChapterForm((prev) => ({ ...prev, default_hours: e.target.value }))}
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    min={0}
+                                    step={0.25}
+                                    placeholder="0"
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="mt-6 flex flex-wrap gap-2">
+                                {chapterView === 'create' ? (
+                                  <button
+                                    type="button"
+                                    className="btn-primary"
+                                    onClick={handleCreateChapter}
+                                    disabled={chapterActionLoading}
+                                  >
+                                    Add Chapter
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    className="btn-primary"
+                                    onClick={handleUpdateChapter}
+                                    disabled={chapterActionLoading}
+                                  >
+                                    Update Chapter
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </Card>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
             )}
@@ -689,6 +1366,10 @@ export default function SyllabusPage() {
   const canEditCourse = !!hasPermission && hasPermission(PERMISSIONS.SYLLABUS_BOOK_EDIT);
   const canDeleteCourse = !!hasPermission && hasPermission(PERMISSIONS.SYLLABUS_BOOK_DELETE);
   const canViewCourse = !!hasPermission && hasPermission(PERMISSIONS.SYLLABUS_BOOK_LIST_READ);
+  const canCreateChapters = !!hasPermission && hasPermission(PERMISSIONS.SYLLABUS_CHAPTER_CREATE);
+  const canEditChapters = !!hasPermission && hasPermission(PERMISSIONS.SYLLABUS_CHAPTER_EDIT);
+  const canDeleteChapters = !!hasPermission && hasPermission(PERMISSIONS.SYLLABUS_CHAPTER_DELETE);
+  const canViewChapters = !!hasPermission && hasPermission(PERMISSIONS.SYLLABUS_CHAPTER_LIST_READ);
 
   const renderAccessDenied = () => (
     <div className="max-w-4xl mx-auto">
@@ -703,7 +1384,7 @@ export default function SyllabusPage() {
           </div>
           <h3 className="text-lg font-bold text-secondary-900 mb-2">Access Restricted</h3>
           <p className="text-secondary-600 mb-4">
-            You do not have permission to access syllabus books. Only users with syllabus book permissions can view or manage books.
+            You do not have permission to access syllabus content. Only users with syllabus book or chapter permissions can view or manage syllabus content.
           </p>
         </div>
       </div>
@@ -720,7 +1401,7 @@ export default function SyllabusPage() {
   useEffect(() => {
     const fetchDropdowns = async () => {
       try {
-        if (!canViewCourse && !canCreateCourse && !canEditCourse && !canDeleteCourse) {
+        if (!canViewCourse && !canCreateCourse && !canEditCourse && !canDeleteCourse && !canViewChapters && !canCreateChapters && !canEditChapters && !canDeleteChapters) {
           setAcademicYears([]);
           setSubjects([]);
           return;
@@ -760,7 +1441,7 @@ export default function SyllabusPage() {
     };
 
     fetchDropdowns();
-  }, [getCampusId, canViewCourse, canCreateCourse, canEditCourse, canDeleteCourse]);
+  }, [getCampusId, canViewCourse, canCreateCourse, canEditCourse, canDeleteCourse, canViewChapters, canCreateChapters, canEditChapters, canDeleteChapters]);
 
   return (
     <div className="p-4 md:p-6 space-y-6">
@@ -771,7 +1452,7 @@ export default function SyllabusPage() {
         </div>
       </div>
 
-      {!canViewCourse && !canCreateCourse && !canEditCourse && !canDeleteCourse ? (
+      {!canViewCourse && !canCreateCourse && !canEditCourse && !canDeleteCourse && !canViewChapters && !canCreateChapters && !canEditChapters && !canDeleteChapters ? (
         renderAccessDenied()
       ) : loading ? (
         <div className="flex items-center justify-center py-12">
@@ -819,6 +1500,10 @@ export default function SyllabusPage() {
                   canCreateCourse={canCreateCourse}
                   canEditCourse={canEditCourse}
                   canDeleteCourse={canDeleteCourse}
+                  canViewChapters={canViewChapters}
+                  canCreateChapters={canCreateChapters}
+                  canEditChapters={canEditChapters}
+                  canDeleteChapters={canDeleteChapters}
                 />
               ) : (
                 <SyllabusProgress academicYears={academicYears} subjects={subjects} formData={formData} />
