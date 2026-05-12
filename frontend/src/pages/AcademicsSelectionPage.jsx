@@ -27,6 +27,14 @@ export default function AcademicsSelectionPage() {
       color: 'from-green-500 to-green-600'
     },
     {
+      id: 'syllabus',
+      title: 'Syllabus',
+      description: 'Manage syllabus and track progress',
+      icon: BookOpen,
+      path: '/academics/syllabus',
+      color: 'from-teal-500 to-teal-600'
+    },
+    {
         id: 'class-setup',
         title: 'Class Setup', 
         description: 'Manage classes and schedules for academic sessions',

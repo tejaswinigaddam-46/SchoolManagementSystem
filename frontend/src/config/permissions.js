@@ -104,6 +104,13 @@ export const PERMISSIONS = {
   SUBJECT_EDIT: 'subject_edit',
   SUBJECT_DELETE: 'subject_delete',
 
+  // Syllabus books (per-route)
+  SYLLABUS_BOOK_LIST_READ: 'syllabus_book_list_read',
+  SYLLABUS_BOOK_CREATE: 'syllabus_book_create',
+  SYLLABUS_BOOK_ITEM_READ: 'syllabus_book_item_read',
+  SYLLABUS_BOOK_EDIT: 'syllabus_book_edit',
+  SYLLABUS_BOOK_DELETE: 'syllabus_book_delete',
+
   // Tenants (per-route)
   TENANT_LIST_READ: 'tenant_list_read',
   TENANT_ITEM_READ: 'tenant_item_read',

@@ -23,6 +23,7 @@ import StudentDetailsPage from './pages/StudentDetailsPage';
 import AcademicManagementPage from './pages/AcademicManagementPage';
 import SubjectManagementPage from './pages/SubjectManagementPage';
 import AcademicsSelectionPage from './pages/AcademicsSelectionPage';
+import SyllabusPage from './pages/SyllabusPage';
 import ClassManagementPage from './pages/ClassManagementPage';
 import BuildingManagementPage from './pages/BuildingManagementPage';
 import CampusRoomsManagementPage from './pages/CampusRoomsManagementPage';
@@ -214,6 +215,16 @@ function App() {
                     requiredPermissions={[PERMISSIONS.SUBJECT_LIST_READ]}
                   >
                     <SubjectManagementPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="academics/syllabus"
+                element={
+                  <ProtectedRoute
+                    requiredPermissions={[PERMISSIONS.SUBJECT_LIST_READ]}
+                  >
+                    <SyllabusPage />
                   </ProtectedRoute>
                 }
               />
