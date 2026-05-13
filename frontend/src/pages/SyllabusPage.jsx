@@ -13,6 +13,7 @@ import { sectionService } from '../services/sectionService';
 import syllabusBookService, { syllabusChapterService, syllabusTopicService, syllabusSubtopicService, syllabusPlanService } from '../services/syllabusBookService';
 import { PERMISSIONS } from '../config/permissions';
 import SyllabusProgressDetailsPage from './SyllabusProgressDetailsPage.jsx';
+import SyllabusProgressUpdaterPage from './SyllabusProgressUpdaterPage.jsx';
 
 const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setFormData, canViewCourse, canCreateCourse, canEditCourse, canDeleteCourse, canViewChapters, canCreateChapters, canEditChapters, canDeleteChapters, canViewTopics, canCreateTopics, canEditTopics, canDeleteTopics, canViewSubtopics, canCreateSubtopics, canEditSubtopics, canDeleteSubtopics, canCreatePlan }) => {
   const [divisionTab, setDivisionTab] = useState(null);
@@ -2660,6 +2661,7 @@ export default function SyllabusPage() {
   const [academicYears, setAcademicYears] = useState([]);
   const [subjects, setSubjects] = useState([]);
   const [activeTab, setActiveTab] = useState(null);
+  const [progressTab, setProgressTab] = useState(null);
 
   const [formData, setFormData] = useState({
     academic_year_id: '',
@@ -2685,6 +2687,10 @@ export default function SyllabusPage() {
   const canDeleteSubtopics = !!hasPermission && hasPermission(PERMISSIONS.SYLLABUS_SUBTOPIC_DELETE);
   const canViewSubtopics = !!hasPermission && hasPermission(PERMISSIONS.SYLLABUS_SUBTOPIC_LIST_READ);
   const canCreatePlan = !!hasPermission && hasPermission(PERMISSIONS.SYLLABUS_PLAN_CREATE);
+
+  useEffect(() => {
+    if (activeTab !== 'progress') setProgressTab(null);
+  }, [activeTab]);
 
   const renderAccessDenied = () => (
     <div className="max-w-4xl mx-auto">
@@ -2830,7 +2836,47 @@ export default function SyllabusPage() {
                   canCreatePlan={canCreatePlan}
                 />
               ) : (
-                <SyllabusProgressDetailsPage academicYears={academicYears} subjects={subjects} />
+                <div className="space-y-4">
+                  {progressTab === null ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl">
+                      <Card hover onClick={() => setProgressTab('plan')} className="transition-shadow">
+                        <div className="p-8 flex flex-col items-center text-center">
+                          <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mb-4">
+                            <TrendingUp className="w-8 h-8 text-primary-600" />
+                          </div>
+                          <h2 className="text-xl font-semibold text-secondary-900 mb-2">Syllabus Progress</h2>
+                          <p className="text-secondary-600">View and edit planned syllabus schedule</p>
+                        </div>
+                      </Card>
+
+                      <Card hover onClick={() => setProgressTab('updater')} className="transition-shadow">
+                        <div className="p-8 flex flex-col items-center text-center">
+                          <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mb-4">
+                            <ListOrdered className="w-8 h-8 text-primary-600" />
+                          </div>
+                          <h2 className="text-xl font-semibold text-secondary-900 mb-2">Syllabus Progress Updater</h2>
+                          <p className="text-secondary-600">Update actual hours and dates</p>
+                        </div>
+                      </Card>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="max-w-5xl flex items-center justify-between gap-3">
+                        <h2 className="text-lg font-semibold text-gray-800">
+                          {progressTab === 'plan' ? 'Syllabus Progress' : 'Syllabus Progress Updater'}
+                        </h2>
+                        <button type="button" onClick={() => setProgressTab(null)} className="btn-secondary">
+                          Back
+                        </button>
+                      </div>
+                      {progressTab === 'plan' ? (
+                        <SyllabusProgressDetailsPage academicYears={academicYears} subjects={subjects} />
+                      ) : (
+                        <SyllabusProgressUpdaterPage academicYears={academicYears} subjects={subjects} />
+                      )}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           )}
