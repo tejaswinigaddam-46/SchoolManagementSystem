@@ -17,6 +17,29 @@ const toNumberOrNull = (value) => {
   return Number.isFinite(n) ? n : null;
 };
 
+const normalizeDateInput = (value) => {
+  const str = String(value ?? '').trim();
+  return str;
+};
+
+const toDateOrNull = (value) => {
+  const str = String(value ?? '').trim();
+  if (!str) return null;
+  const d = new Date(`${str}T00:00:00Z`);
+  return Number.isNaN(d.getTime()) ? null : d;
+};
+
+const diffHoursInclusiveUTC = (startDateStr, endDateStr) => {
+  const start = toDateOrNull(startDateStr);
+  const end = toDateOrNull(endDateStr);
+  if (!start || !end) return null;
+  const startMs = start.getTime();
+  const endMs = end.getTime();
+  const diffDays = Math.floor((endMs - startMs) / 86400000) + 1;
+  if (!Number.isFinite(diffDays)) return null;
+  return diffDays * 24;
+};
+
 const buildPlanMapsFromPlanTree = (planTree) => {
   const chapterMap = {};
   const topicMap = {};
@@ -97,6 +120,7 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
   const { hasPermission, getCampusId } = useAuth();
   const campusId = getCampusId();
   const canViewPlans = !!hasPermission && hasPermission(PERMISSIONS.SYLLABUS_PLAN_LIST_READ);
+  const canCreatePlans = !!hasPermission && hasPermission(PERMISSIONS.SYLLABUS_PLAN_CREATE);
 
   const [academicYearId, setAcademicYearId] = useState('');
   const [selectedCurriculumId, setSelectedCurriculumId] = useState(null);
@@ -125,6 +149,10 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
   const [planLoading, setPlanLoading] = useState(false);
   const [planRows, setPlanRows] = useState([]);
   const [planMaps, setPlanMaps] = useState({ chapterMap: {}, topicMap: {}, subtopicMap: {} });
+  const [chapterEdits, setChapterEdits] = useState({});
+  const [topicEdits, setTopicEdits] = useState({});
+  const [subtopicEdits, setSubtopicEdits] = useState({});
+  const [planSaveLoading, setPlanSaveLoading] = useState(false);
 
   const selectedSubjectName = useMemo(() => {
     const s = (subjects || []).find((x) => String(x?.subject_id) === String(subjectId));
@@ -258,6 +286,9 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
     setSubtopicsLoadingByTopicId({});
     setPlanRows([]);
     setPlanMaps({ chapterMap: {}, topicMap: {}, subtopicMap: {} });
+    setChapterEdits({});
+    setTopicEdits({});
+    setSubtopicEdits({});
   }, [academicYearId, subjectId]);
 
   useEffect(() => {
@@ -319,6 +350,42 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
   }, [bookId]);
 
   useEffect(() => {
+    if (!String(bookId || '').trim()) return;
+    if (!Array.isArray(chapters) || chapters.length === 0) return;
+    const loadAllTopics = async () => {
+      await Promise.all(
+        chapters.map(async (ch) => {
+          const chapterId = ch?.chapter_id ?? ch?.chapterId ?? ch?.id ?? null;
+          const chapterIdStr = String(chapterId || '').trim();
+          if (!chapterIdStr) return;
+          if (topicsByChapterId[chapterIdStr] !== undefined) return;
+          await fetchTopicsForChapter(chapterIdStr);
+        })
+      );
+    };
+    loadAllTopics();
+  }, [bookId, chapters]);
+
+  useEffect(() => {
+    const topicIds = Object.values(topicsByChapterId || {})
+      .flatMap((arr) => (Array.isArray(arr) ? arr : []))
+      .map((tp) => tp?.topic_id ?? tp?.topicId ?? tp?.id ?? null)
+      .map((id) => String(id || '').trim())
+      .filter(Boolean);
+    if (topicIds.length === 0) return;
+
+    const loadAllSubtopics = async () => {
+      await Promise.all(
+        topicIds.map(async (topicIdStr) => {
+          if (subtopicsByTopicId[topicIdStr] !== undefined) return;
+          await fetchSubtopicsForTopic(topicIdStr);
+        })
+      );
+    };
+    loadAllSubtopics();
+  }, [topicsByChapterId]);
+
+  useEffect(() => {
     if (!canViewPlans) return;
     const ay = toNumberOrNull(academicYearId);
     const sid = toNumberOrNull(sectionId);
@@ -361,6 +428,68 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
 
     loadPlans();
   }, [canViewPlans, academicYearId, sectionId, selectedSubjectName]);
+
+  useEffect(() => {
+    if (!Array.isArray(chapters) || chapters.length === 0) return;
+    setChapterEdits((prev) => {
+      const next = { ...prev };
+      chapters.forEach((ch) => {
+        const chapterId = ch?.chapter_id ?? ch?.chapterId ?? ch?.id ?? null;
+        const chapterIdStr = String(chapterId || '').trim();
+        if (!chapterIdStr) return;
+        if (next[chapterIdStr]) return;
+        const meta = planMaps.chapterMap?.[chapterIdStr] || {};
+        next[chapterIdStr] = {
+          planned_hours: meta?.planned_hours ?? '',
+          planned_start_date: normalizeDateInput(meta?.planned_start_date ?? ''),
+          planned_end_date: normalizeDateInput(meta?.planned_end_date ?? '')
+        };
+      });
+      return next;
+    });
+  }, [chapters, planMaps]);
+
+  useEffect(() => {
+    const topicRows = Object.values(topicsByChapterId || {}).flatMap((arr) => (Array.isArray(arr) ? arr : []));
+    if (topicRows.length === 0) return;
+    setTopicEdits((prev) => {
+      const next = { ...prev };
+      topicRows.forEach((tp) => {
+        const topicId = tp?.topic_id ?? tp?.topicId ?? tp?.id ?? null;
+        const topicIdStr = String(topicId || '').trim();
+        if (!topicIdStr) return;
+        if (next[topicIdStr]) return;
+        const meta = planMaps.topicMap?.[topicIdStr] || {};
+        next[topicIdStr] = {
+          planned_hours: meta?.planned_hours ?? '',
+          planned_start_date: normalizeDateInput(meta?.planned_start_date ?? ''),
+          planned_end_date: normalizeDateInput(meta?.planned_end_date ?? '')
+        };
+      });
+      return next;
+    });
+  }, [topicsByChapterId, planMaps]);
+
+  useEffect(() => {
+    const subRows = Object.values(subtopicsByTopicId || {}).flatMap((arr) => (Array.isArray(arr) ? arr : []));
+    if (subRows.length === 0) return;
+    setSubtopicEdits((prev) => {
+      const next = { ...prev };
+      subRows.forEach((st) => {
+        const subId = st?.subtopic_id ?? st?.subtopicId ?? st?.id ?? null;
+        const subIdStr = String(subId || '').trim();
+        if (!subIdStr) return;
+        if (next[subIdStr]) return;
+        const meta = planMaps.subtopicMap?.[subIdStr] || {};
+        next[subIdStr] = {
+          planned_hours: meta?.planned_hours ?? '',
+          planned_start_date: normalizeDateInput(meta?.planned_start_date ?? ''),
+          planned_end_date: normalizeDateInput(meta?.planned_end_date ?? '')
+        };
+      });
+      return next;
+    });
+  }, [subtopicsByTopicId, planMaps]);
 
   const fetchTopicsForChapter = async (chapterId) => {
     const chapterIdStr = String(chapterId || '').trim();
@@ -417,16 +546,289 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
     }
   };
 
-  const renderPlanMeta = (meta) => {
-    const hours = meta?.planned_hours ?? null;
-    const start = meta?.planned_start_date ?? null;
-    const end = meta?.planned_end_date ?? null;
-    if (hours == null && !start && !end) return '—';
-    const parts = [];
-    if (hours != null) parts.push(`Hours: ${hours}`);
-    if (start) parts.push(`Start: ${start}`);
-    if (end) parts.push(`End: ${end}`);
-    return parts.join(' | ') || '—';
+  const getChapterEdit = (chapterIdStr) => chapterEdits?.[chapterIdStr] || { planned_hours: '', planned_start_date: '', planned_end_date: '' };
+  const getTopicEdit = (topicIdStr) => topicEdits?.[topicIdStr] || { planned_hours: '', planned_start_date: '', planned_end_date: '' };
+  const getSubtopicEdit = (subtopicIdStr) => subtopicEdits?.[subtopicIdStr] || { planned_hours: '', planned_start_date: '', planned_end_date: '' };
+
+  const formatDate = (d) => (d ? d.toISOString().slice(0, 10) : '');
+
+  const minDateFromStrings = (values) => {
+    const dates = (values || []).map(toDateOrNull).filter(Boolean);
+    if (dates.length === 0) return '';
+    const min = dates.reduce((acc, cur) => (cur.getTime() < acc.getTime() ? cur : acc), dates[0]);
+    return formatDate(min);
+  };
+
+  const maxDateFromStrings = (values) => {
+    const dates = (values || []).map(toDateOrNull).filter(Boolean);
+    if (dates.length === 0) return '';
+    const max = dates.reduce((acc, cur) => (cur.getTime() > acc.getTime() ? cur : acc), dates[0]);
+    return formatDate(max);
+  };
+
+  const computeSubtopicMeta = (subIdStr) => {
+    const edit = getSubtopicEdit(subIdStr);
+    return {
+      planned_hours: toNumberOrNull(edit.planned_hours),
+      planned_start_date: normalizeDateInput(edit.planned_start_date),
+      planned_end_date: normalizeDateInput(edit.planned_end_date)
+    };
+  };
+
+  const computeTopicMeta = (topicIdStr) => {
+    const subRows = subtopicsByTopicId?.[topicIdStr];
+    if (Array.isArray(subRows) && subRows.length > 0) {
+      const subMetas = subRows
+        .map((st) => st?.subtopic_id ?? st?.subtopicId ?? st?.id ?? null)
+        .map((id) => String(id || '').trim())
+        .filter(Boolean)
+        .map((sid) => computeSubtopicMeta(sid));
+
+      const anyHours = subMetas.some((m) => toNumberOrNull(m.planned_hours) != null);
+      const hours = anyHours ? subMetas.reduce((sum, m) => sum + (toNumberOrNull(m.planned_hours) || 0), 0) : null;
+      const start = minDateFromStrings(subMetas.map((m) => m.planned_start_date).filter(Boolean));
+      const end = maxDateFromStrings(subMetas.map((m) => m.planned_end_date).filter(Boolean));
+      return { planned_hours: hours, planned_start_date: start, planned_end_date: end, derived: true };
+    }
+
+    const edit = getTopicEdit(topicIdStr);
+    return {
+      planned_hours: toNumberOrNull(edit.planned_hours),
+      planned_start_date: normalizeDateInput(edit.planned_start_date),
+      planned_end_date: normalizeDateInput(edit.planned_end_date),
+      derived: false
+    };
+  };
+
+  const computeChapterMeta = (chapterIdStr) => {
+    const tpRows = topicsByChapterId?.[chapterIdStr];
+    if (Array.isArray(tpRows) && tpRows.length > 0) {
+      const topicMetas = tpRows
+        .map((tp) => tp?.topic_id ?? tp?.topicId ?? tp?.id ?? null)
+        .map((id) => String(id || '').trim())
+        .filter(Boolean)
+        .map((tid) => computeTopicMeta(tid));
+
+      const anyHours = topicMetas.some((m) => toNumberOrNull(m.planned_hours) != null);
+      const hours = anyHours ? topicMetas.reduce((sum, m) => sum + (toNumberOrNull(m.planned_hours) || 0), 0) : null;
+      const start = minDateFromStrings(topicMetas.map((m) => m.planned_start_date).filter(Boolean));
+      const end = maxDateFromStrings(topicMetas.map((m) => m.planned_end_date).filter(Boolean));
+      return { planned_hours: hours, planned_start_date: start, planned_end_date: end, derived: true };
+    }
+
+    const edit = getChapterEdit(chapterIdStr);
+    return {
+      planned_hours: toNumberOrNull(edit.planned_hours),
+      planned_start_date: normalizeDateInput(edit.planned_start_date),
+      planned_end_date: normalizeDateInput(edit.planned_end_date),
+      derived: false
+    };
+  };
+
+  const validatePlannedMeta = ({ label, planned_hours, planned_start_date, planned_end_date }) => {
+    const start = normalizeDateInput(planned_start_date);
+    const end = normalizeDateInput(planned_end_date);
+    const hours = toNumberOrNull(planned_hours);
+
+    if (hours != null && hours < 0) {
+      return `${label}: Planned hours must be >= 0.`;
+    }
+
+    if ((start && !end) || (!start && end)) {
+      return `${label}: Please set both planned start date and planned end date.`;
+    }
+    if (start && end) {
+      const s = toDateOrNull(start);
+      const e = toDateOrNull(end);
+      if (!s || !e) return `${label}: Invalid planned dates.`;
+      if (s.getTime() > e.getTime()) {
+        return `${label}: Planned start date must be less than or equal to planned end date.`;
+      }
+      if (hours != null) {
+        const available = diffHoursInclusiveUTC(start, end);
+        if (available != null && hours > available) {
+          return `${label}: Planned hours (${hours}) exceed the time window (${available} hours) between planned start and end dates.`;
+        }
+      }
+    }
+    return null;
+  };
+
+  const handleSavePlan = async () => {
+    if (!canCreatePlans) {
+      toast.error('You do not have permission to create plans');
+      return;
+    }
+    const ay = toNumberOrNull(academicYearId);
+    const sid = toNumberOrNull(sectionId);
+    const subjectName = String(selectedSubjectName || '').trim();
+    if (!ay || !sid || !subjectName) {
+      toast.error('Select Academic Year, Subject and Section to save the plan');
+      return;
+    }
+    if (!String(bookId || '').trim()) {
+      toast.error('Please select a Book');
+      return;
+    }
+    if (!Array.isArray(chapters) || chapters.length === 0) {
+      toast.error('No chapters exist for this book');
+      return;
+    }
+
+    try {
+      setPlanSaveLoading(true);
+
+      const localTopicsByChapterId = { ...(topicsByChapterId || {}) };
+      const localSubtopicsByTopicId = { ...(subtopicsByTopicId || {}) };
+
+      await Promise.all(
+        chapters.map(async (ch) => {
+          const chapterId = ch?.chapter_id ?? ch?.chapterId ?? ch?.id ?? null;
+          const chapterIdStr = String(chapterId || '').trim();
+          if (!chapterIdStr) return;
+          if (localTopicsByChapterId[chapterIdStr] !== undefined) return;
+          const tRes = await syllabusTopicService.getTopics(chapterIdStr);
+          const tRows = tRes?.data?.topics || tRes?.data || tRes?.topics || [];
+          localTopicsByChapterId[chapterIdStr] = Array.isArray(tRows) ? tRows : [];
+        })
+      );
+      setTopicsByChapterId((prev) => ({ ...(prev || {}), ...localTopicsByChapterId }));
+
+      const topicIds = Object.values(localTopicsByChapterId)
+        .flatMap((arr) => (Array.isArray(arr) ? arr : []))
+        .map((tp) => tp?.topic_id ?? tp?.topicId ?? tp?.id ?? null)
+        .map((id) => String(id || '').trim())
+        .filter(Boolean);
+
+      await Promise.all(
+        topicIds.map(async (topicIdStr) => {
+          if (localSubtopicsByTopicId[topicIdStr] !== undefined) return;
+          const sRes = await syllabusSubtopicService.getSubtopics(topicIdStr);
+          const sRows = sRes?.data?.subtopics || sRes?.data || sRes?.subtopics || [];
+          localSubtopicsByTopicId[topicIdStr] = Array.isArray(sRows) ? sRows : [];
+        })
+      );
+      setSubtopicsByTopicId((prev) => ({ ...(prev || {}), ...localSubtopicsByTopicId }));
+
+      const validationErrors = [];
+      const tree = chapters
+        .map((ch) => {
+          const chapterId = ch?.chapter_id ?? ch?.chapterId ?? ch?.id ?? null;
+          const chapterIdStr = String(chapterId || '').trim();
+          if (!chapterIdStr) return null;
+
+          const topicRows = localTopicsByChapterId?.[chapterIdStr] || [];
+          const topics = (Array.isArray(topicRows) ? topicRows : [])
+            .map((tp) => {
+              const topicId = tp?.topic_id ?? tp?.topicId ?? tp?.id ?? null;
+              const topicIdStr = String(topicId || '').trim();
+              if (!topicIdStr) return null;
+
+              const subRows = localSubtopicsByTopicId?.[topicIdStr] || [];
+              const subtopics = (Array.isArray(subRows) ? subRows : [])
+                .map((st) => {
+                  const subId = st?.subtopic_id ?? st?.subtopicId ?? st?.id ?? null;
+                  const subIdStr = String(subId || '').trim();
+                  if (!subIdStr) return null;
+                  const m = computeSubtopicMeta(subIdStr);
+                  const err = validatePlannedMeta({
+                    label: `Subtopic ${String(st?.subtopic_title ?? st?.subtopicTitle ?? subIdStr).trim() || subIdStr}`,
+                    planned_hours: m.planned_hours,
+                    planned_start_date: m.planned_start_date,
+                    planned_end_date: m.planned_end_date
+                  });
+                  if (err) validationErrors.push(err);
+                  return {
+                    subtopic_id: Number(subIdStr),
+                    planned_hours: m.planned_hours ?? null,
+                    planned_start_date: m.planned_start_date || null,
+                    planned_end_date: m.planned_end_date || null
+                  };
+                })
+                .filter(Boolean);
+
+              const topicMeta = computeTopicMeta(topicIdStr);
+              const topicLabel = `Topic ${String(tp?.topic_title ?? tp?.topicTitle ?? topicIdStr).trim() || topicIdStr}`;
+              if (!subtopics.length) {
+                const err = validatePlannedMeta({
+                  label: topicLabel,
+                  planned_hours: topicMeta.planned_hours,
+                  planned_start_date: topicMeta.planned_start_date,
+                  planned_end_date: topicMeta.planned_end_date
+                });
+                if (err) validationErrors.push(err);
+              }
+
+              return {
+                topic_id: Number(topicIdStr),
+                planned_hours: topicMeta.planned_hours ?? null,
+                planned_start_date: topicMeta.planned_start_date || null,
+                planned_end_date: topicMeta.planned_end_date || null,
+                subtopics: subtopics.length ? subtopics : undefined
+              };
+            })
+            .filter(Boolean);
+
+          const chapterMeta = computeChapterMeta(chapterIdStr);
+          const chapterLabel = `Chapter ${String(ch?.chapter_title ?? ch?.chapterTitle ?? chapterIdStr).trim() || chapterIdStr}`;
+          if (!topics.length) {
+            const err = validatePlannedMeta({
+              label: chapterLabel,
+              planned_hours: chapterMeta.planned_hours,
+              planned_start_date: chapterMeta.planned_start_date,
+              planned_end_date: chapterMeta.planned_end_date
+            });
+            if (err) validationErrors.push(err);
+          }
+
+          return {
+            chapter_id: Number(chapterIdStr),
+            planned_hours: chapterMeta.planned_hours ?? null,
+            planned_start_date: chapterMeta.planned_start_date || null,
+            planned_end_date: chapterMeta.planned_end_date || null,
+            topics: topics.length ? topics : undefined
+          };
+        })
+        .filter(Boolean);
+
+      if (validationErrors.length > 0) {
+        toast.error(validationErrors[0]);
+        return;
+      }
+
+      const response = await syllabusPlanService.createPlan({
+        academic_year_id: ay,
+        section_id: sid,
+        subject_name: subjectName,
+        chapters: tree
+      });
+
+      if (response?.success) {
+        toast.success(response?.message || 'Plan saved successfully');
+        const refreshed = await syllabusPlanService.getPlans({
+          academic_year_id: ay,
+          section_id: sid,
+          subject_name: subjectName
+        });
+        const refreshedData = refreshed?.data ?? refreshed;
+        const plans = refreshedData?.plans || [];
+        const normalizedPlans = Array.isArray(plans) ? plans : [];
+        setPlanRows(normalizedPlans);
+        const asTree = refreshedData?.plan_tree || refreshedData?.chapters || refreshedData?.planTree || null;
+        if (Array.isArray(asTree) && asTree.length > 0) {
+          setPlanMaps(buildPlanMapsFromPlanTree(asTree));
+        } else {
+          setPlanMaps(buildPlanMapsFromPlans(normalizedPlans));
+        }
+      } else {
+        toast.error(response?.message || 'Failed to save plan');
+      }
+    } catch (error) {
+      console.error('Failed to save plan:', error);
+      toast.error(error?.message || 'Failed to save plan');
+    } finally {
+      setPlanSaveLoading(false);
+    }
   };
 
   return (
@@ -540,12 +942,32 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
           <div className="p-4 sm:p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-secondary-900">Plan</h3>
-              {planLoading && (
-                <div className="flex items-center">
-                  <LoadingSpinner className="w-4 h-4" />
-                  <span className="ml-2 text-sm text-gray-500">Loading plan...</span>
-                </div>
-              )}
+              <div className="flex items-center gap-3">
+                {planLoading && (
+                  <div className="flex items-center">
+                    <LoadingSpinner className="w-4 h-4" />
+                    <span className="ml-2 text-sm text-gray-500">Loading plan...</span>
+                  </div>
+                )}
+                {canCreatePlans && (
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    onClick={handleSavePlan}
+                    disabled={
+                      planSaveLoading ||
+                      !String(academicYearId || '').trim() ||
+                      !String(subjectId || '').trim() ||
+                      !String(bookId || '').trim() ||
+                      !String(sectionId || '').trim() ||
+                      chaptersLoading ||
+                      chapters.length === 0
+                    }
+                  >
+                    {planSaveLoading ? 'Saving...' : 'Save Plan'}
+                  </button>
+                )}
+              </div>
             </div>
 
             {!canViewPlans ? (
@@ -559,15 +981,18 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
               </div>
             ) : chapters.length === 0 ? (
               <div className="text-sm text-secondary-700">No chapters exist for this book.</div>
-            ) : planRows.length === 0 ? (
-              <div className="text-sm text-secondary-700">No plan found for the selected section and subject.</div>
             ) : (
               <div className="overflow-x-auto">
+                {planRows.length === 0 && (
+                  <div className="mb-3 text-sm text-secondary-700">No plan found for the selected section and subject.</div>
+                )}
                 <table className="min-w-full divide-y divide-secondary-200">
                   <thead className="bg-secondary-50">
                     <tr>
                       <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">Chapter</th>
-                      <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">Planned</th>
+                      <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">Planned Hours</th>
+                      <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">Planned Start</th>
+                      <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">Planned End</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-secondary-200">
@@ -576,7 +1001,12 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
                       const chapterIdStr = String(chapterId || '').trim();
                       const expanded = expandedChapterId === chapterIdStr;
                       const title = String(ch?.chapter_title ?? ch?.chapterTitle ?? '').trim() || `Chapter #${chapterIdStr || '—'}`;
-                      const meta = planMaps.chapterMap?.[chapterIdStr] || null;
+                      const chapterTopics = topicsByChapterId?.[chapterIdStr];
+                      const topicsResolved = chapterTopics !== undefined;
+                      const hasTopics = Array.isArray(chapterTopics) && chapterTopics.length > 0;
+                      const canEditChapter = topicsResolved && !hasTopics;
+                      const meta = computeChapterMeta(chapterIdStr);
+                      const edit = getChapterEdit(chapterIdStr);
                       return (
                         <React.Fragment key={chapterIdStr || title}>
                           <tr className="hover:bg-secondary-50">
@@ -590,12 +1020,73 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
                                 <span>{title}</span>
                               </button>
                             </td>
-                            <td className="px-4 py-2 text-sm text-secondary-700">{renderPlanMeta(meta)}</td>
+                            <td className="px-4 py-2">
+                              {!topicsResolved ? (
+                                <div className="text-sm text-secondary-700">Loading...</div>
+                              ) : !canEditChapter ? (
+                                <div className="text-sm text-secondary-700 font-medium">{meta.planned_hours == null ? '—' : meta.planned_hours}</div>
+                              ) : (
+                                <input
+                                  type="number"
+                                  min={0}
+                                  step={0.25}
+                                  value={edit.planned_hours}
+                                  onChange={(e) =>
+                                    setChapterEdits((prev) => ({
+                                      ...prev,
+                                      [chapterIdStr]: { ...(prev?.[chapterIdStr] || getChapterEdit(chapterIdStr)), planned_hours: e.target.value }
+                                    }))
+                                  }
+                                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                              )}
+                            </td>
+                            <td className="px-4 py-2">
+                              {!topicsResolved ? (
+                                <div className="text-sm text-secondary-700">Loading...</div>
+                              ) : !canEditChapter ? (
+                                <div className="text-sm text-secondary-700">{meta.planned_start_date || '—'}</div>
+                              ) : (
+                                <input
+                                  type="date"
+                                  value={edit.planned_start_date}
+                                  onChange={(e) =>
+                                    setChapterEdits((prev) => ({
+                                      ...prev,
+                                      [chapterIdStr]: {
+                                        ...(prev?.[chapterIdStr] || getChapterEdit(chapterIdStr)),
+                                        planned_start_date: e.target.value
+                                      }
+                                    }))
+                                  }
+                                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                              )}
+                            </td>
+                            <td className="px-4 py-2">
+                              {!topicsResolved ? (
+                                <div className="text-sm text-secondary-700">Loading...</div>
+                              ) : !canEditChapter ? (
+                                <div className="text-sm text-secondary-700">{meta.planned_end_date || '—'}</div>
+                              ) : (
+                                <input
+                                  type="date"
+                                  value={edit.planned_end_date}
+                                  onChange={(e) =>
+                                    setChapterEdits((prev) => ({
+                                      ...prev,
+                                      [chapterIdStr]: { ...(prev?.[chapterIdStr] || getChapterEdit(chapterIdStr)), planned_end_date: e.target.value }
+                                    }))
+                                  }
+                                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                              )}
+                            </td>
                           </tr>
 
                           {expanded && (
                             <tr>
-                              <td colSpan={2} className="px-4 py-3 bg-secondary-50/40">
+                              <td colSpan={4} className="px-4 py-3 bg-secondary-50/40">
                                 {topicsLoadingByChapterId[chapterIdStr] ? (
                                   <div className="flex items-center">
                                     <LoadingSpinner className="w-4 h-4" />
@@ -609,7 +1100,9 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
                                       <thead className="bg-secondary-50">
                                         <tr>
                                           <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">Topic</th>
-                                          <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">Planned</th>
+                                          <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">Planned Hours</th>
+                                          <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">Planned Start</th>
+                                          <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">Planned End</th>
                                         </tr>
                                       </thead>
                                       <tbody className="divide-y divide-secondary-200 bg-white">
@@ -618,7 +1111,12 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
                                           const topicIdStr = String(topicId || '').trim();
                                           const topicExpanded = expandedTopicId === topicIdStr;
                                           const topicTitle = String(tp?.topic_title ?? tp?.topicTitle ?? '').trim() || `Topic #${topicIdStr || '—'}`;
-                                          const topicMeta = planMaps.topicMap?.[topicIdStr] || null;
+                                          const topicSubs = subtopicsByTopicId?.[topicIdStr];
+                                          const subtopicsResolved = topicSubs !== undefined;
+                                          const hasSubtopics = Array.isArray(topicSubs) && topicSubs.length > 0;
+                                          const canEditTopic = subtopicsResolved && !hasSubtopics;
+                                          const topicMeta = computeTopicMeta(topicIdStr);
+                                          const topicEdit = getTopicEdit(topicIdStr);
                                           return (
                                             <React.Fragment key={topicIdStr || topicTitle}>
                                               <tr className="hover:bg-secondary-50">
@@ -632,12 +1130,73 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
                                                     <span>{topicTitle}</span>
                                                   </button>
                                                 </td>
-                                                <td className="px-4 py-2 text-sm text-secondary-700">{renderPlanMeta(topicMeta)}</td>
+                                                <td className="px-4 py-2">
+                                                  {!subtopicsResolved ? (
+                                                    <div className="text-sm text-secondary-700">Loading...</div>
+                                                  ) : !canEditTopic ? (
+                                                    <div className="text-sm text-secondary-700 font-medium">{topicMeta.planned_hours == null ? '—' : topicMeta.planned_hours}</div>
+                                                  ) : (
+                                                    <input
+                                                      type="number"
+                                                      min={0}
+                                                      step={0.25}
+                                                      value={topicEdit.planned_hours}
+                                                      onChange={(e) =>
+                                                        setTopicEdits((prev) => ({
+                                                          ...prev,
+                                                          [topicIdStr]: { ...(prev?.[topicIdStr] || getTopicEdit(topicIdStr)), planned_hours: e.target.value }
+                                                        }))
+                                                      }
+                                                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                    />
+                                                  )}
+                                                </td>
+                                                <td className="px-4 py-2">
+                                                  {!subtopicsResolved ? (
+                                                    <div className="text-sm text-secondary-700">Loading...</div>
+                                                  ) : !canEditTopic ? (
+                                                    <div className="text-sm text-secondary-700">{topicMeta.planned_start_date || '—'}</div>
+                                                  ) : (
+                                                    <input
+                                                      type="date"
+                                                      value={topicEdit.planned_start_date}
+                                                      onChange={(e) =>
+                                                        setTopicEdits((prev) => ({
+                                                          ...prev,
+                                                          [topicIdStr]: {
+                                                            ...(prev?.[topicIdStr] || getTopicEdit(topicIdStr)),
+                                                            planned_start_date: e.target.value
+                                                          }
+                                                        }))
+                                                      }
+                                                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                    />
+                                                  )}
+                                                </td>
+                                                <td className="px-4 py-2">
+                                                  {!subtopicsResolved ? (
+                                                    <div className="text-sm text-secondary-700">Loading...</div>
+                                                  ) : !canEditTopic ? (
+                                                    <div className="text-sm text-secondary-700">{topicMeta.planned_end_date || '—'}</div>
+                                                  ) : (
+                                                    <input
+                                                      type="date"
+                                                      value={topicEdit.planned_end_date}
+                                                      onChange={(e) =>
+                                                        setTopicEdits((prev) => ({
+                                                          ...prev,
+                                                          [topicIdStr]: { ...(prev?.[topicIdStr] || getTopicEdit(topicIdStr)), planned_end_date: e.target.value }
+                                                        }))
+                                                      }
+                                                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                    />
+                                                  )}
+                                                </td>
                                               </tr>
 
                                               {topicExpanded && (
                                                 <tr>
-                                                  <td colSpan={2} className="px-4 py-3 bg-secondary-50/50">
+                                                  <td colSpan={4} className="px-4 py-3 bg-secondary-50/50">
                                                     {subtopicsLoadingByTopicId[topicIdStr] ? (
                                                       <div className="flex items-center">
                                                         <LoadingSpinner className="w-4 h-4" />
@@ -651,7 +1210,9 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
                                                           <thead className="bg-secondary-50">
                                                             <tr>
                                                               <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">Subtopic</th>
-                                                              <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">Planned</th>
+                                                              <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">Planned Hours</th>
+                                                              <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">Planned Start</th>
+                                                              <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">Planned End</th>
                                                             </tr>
                                                           </thead>
                                                           <tbody className="divide-y divide-secondary-200 bg-white">
@@ -659,11 +1220,54 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
                                                               const subId = st?.subtopic_id ?? st?.subtopicId ?? st?.id ?? null;
                                                               const subIdStr = String(subId || '').trim();
                                                               const stTitle = String(st?.subtopic_title ?? st?.subtopicTitle ?? '').trim() || `Subtopic #${subIdStr || '—'}`;
-                                                              const stMeta = planMaps.subtopicMap?.[subIdStr] || null;
+                                                              const stEdit = getSubtopicEdit(subIdStr);
                                                               return (
                                                                 <tr key={subIdStr || stTitle} className="hover:bg-secondary-50">
                                                                   <td className="px-4 py-2 text-sm font-medium text-secondary-900">{stTitle}</td>
-                                                                  <td className="px-4 py-2 text-sm text-secondary-700">{renderPlanMeta(stMeta)}</td>
+                                                                  <td className="px-4 py-2">
+                                                                    <input
+                                                                      type="number"
+                                                                      min={0}
+                                                                      step={0.25}
+                                                                      value={stEdit.planned_hours}
+                                                                      onChange={(e) =>
+                                                                        setSubtopicEdits((prev) => ({
+                                                                          ...prev,
+                                                                          [subIdStr]: { ...(prev?.[subIdStr] || getSubtopicEdit(subIdStr)), planned_hours: e.target.value }
+                                                                        }))
+                                                                      }
+                                                                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                                    />
+                                                                  </td>
+                                                                  <td className="px-4 py-2">
+                                                                    <input
+                                                                      type="date"
+                                                                      value={stEdit.planned_start_date}
+                                                                      onChange={(e) =>
+                                                                        setSubtopicEdits((prev) => ({
+                                                                          ...prev,
+                                                                          [subIdStr]: {
+                                                                            ...(prev?.[subIdStr] || getSubtopicEdit(subIdStr)),
+                                                                            planned_start_date: e.target.value
+                                                                          }
+                                                                        }))
+                                                                      }
+                                                                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                                    />
+                                                                  </td>
+                                                                  <td className="px-4 py-2">
+                                                                    <input
+                                                                      type="date"
+                                                                      value={stEdit.planned_end_date}
+                                                                      onChange={(e) =>
+                                                                        setSubtopicEdits((prev) => ({
+                                                                          ...prev,
+                                                                          [subIdStr]: { ...(prev?.[subIdStr] || getSubtopicEdit(subIdStr)), planned_end_date: e.target.value }
+                                                                        }))
+                                                                      }
+                                                                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                                    />
+                                                                  </td>
                                                                 </tr>
                                                               );
                                                             })}
