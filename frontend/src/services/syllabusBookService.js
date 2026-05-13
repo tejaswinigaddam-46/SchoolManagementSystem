@@ -1,4 +1,12 @@
 import { api } from './apiClient.js';
+import config from '../config/env.config';
+
+const withApiPrefixIfNeeded = (path) => {
+  const p = String(path || '').startsWith('/') ? String(path || '') : `/${String(path || '')}`;
+  const baseUrl = String(config?.apiBaseUrl || '');
+  if (baseUrl.endsWith('/api') || baseUrl.includes('/api/')) return p;
+  return `/api${p}`;
+};
 
 export const syllabusBookService = {
   getBooks: async (params = {}) => {
@@ -206,7 +214,7 @@ export const syllabusSubtopicService = {
 export const syllabusPlanService = {
   getPlans: async (params = {}) => {
     try {
-      const response = await api.get('/syllabus-tracking/plans', { params });
+      const response = await api.get(withApiPrefixIfNeeded('/syllabus-tracking/plans'), { params });
       return response.data;
     } catch (error) {
       throw error.response?.data || error;
@@ -214,7 +222,15 @@ export const syllabusPlanService = {
   },
   createPlan: async (data) => {
     try {
-      const response = await api.post('/syllabus-tracking/plans', data);
+      const response = await api.post(withApiPrefixIfNeeded('/syllabus-tracking/plans'), data);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+  updatePlan: async (data) => {
+    try {
+      const response = await api.put(withApiPrefixIfNeeded('/syllabus-tracking/plans'), data);
       return response.data;
     } catch (error) {
       throw error.response?.data || error;

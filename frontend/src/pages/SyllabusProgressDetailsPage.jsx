@@ -90,11 +90,13 @@ const buildPlanMapsFromPlans = (plans) => {
   const subtopicMap = {};
 
   (Array.isArray(plans) ? plans : []).forEach((row) => {
+    const planId = row?.plan_id ?? row?.planId ?? null;
     const chapterId = row?.chapter_id ?? row?.chapterId ?? null;
     const topicId = row?.topic_id ?? row?.topicId ?? null;
     const subtopicId = row?.subtopic_id ?? row?.subtopicId ?? null;
 
     const meta = {
+      plan_id: planId,
       planned_hours: row?.planned_hours ?? row?.plannedHours ?? null,
       planned_start_date: row?.planned_start_date ?? row?.plannedStartDate ?? null,
       planned_end_date: row?.planned_end_date ?? row?.plannedEndDate ?? null
@@ -153,6 +155,15 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
   const [topicEdits, setTopicEdits] = useState({});
   const [subtopicEdits, setSubtopicEdits] = useState({});
   const [planSaveLoading, setPlanSaveLoading] = useState(false);
+
+  const isEmptyEdit = (edit) => {
+    const e = edit || {};
+    return (
+      String(e.planned_hours ?? '').trim() === '' &&
+      String(e.planned_start_date ?? '').trim() === '' &&
+      String(e.planned_end_date ?? '').trim() === ''
+    );
+  };
 
   const selectedSubjectName = useMemo(() => {
     const s = (subjects || []).find((x) => String(x?.subject_id) === String(subjectId));
@@ -292,6 +303,28 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
   }, [academicYearId, subjectId]);
 
   useEffect(() => {
+    if (!String(bookId || '').trim()) return;
+    setExpandedChapterId(null);
+    setExpandedTopicId(null);
+    setTopicsByChapterId({});
+    setTopicsLoadingByChapterId({});
+    setSubtopicsByTopicId({});
+    setSubtopicsLoadingByTopicId({});
+    setChapterEdits({});
+    setTopicEdits({});
+    setSubtopicEdits({});
+  }, [bookId]);
+
+  useEffect(() => {
+    if (!String(sectionId || '').trim()) return;
+    setPlanRows([]);
+    setPlanMaps({ chapterMap: {}, topicMap: {}, subtopicMap: {} });
+    setChapterEdits({});
+    setTopicEdits({});
+    setSubtopicEdits({});
+  }, [sectionId]);
+
+  useEffect(() => {
     setSectionId('');
     setSections([]);
   }, [classId]);
@@ -410,12 +443,7 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
         const normalizedPlans = Array.isArray(plans) ? plans : [];
         setPlanRows(normalizedPlans);
 
-        const asTree = data?.plan_tree || data?.chapters || data?.planTree || null;
-        if (Array.isArray(asTree) && asTree.length > 0) {
-          setPlanMaps(buildPlanMapsFromPlanTree(asTree));
-        } else {
-          setPlanMaps(buildPlanMapsFromPlans(normalizedPlans));
-        }
+        setPlanMaps(buildPlanMapsFromPlans(normalizedPlans));
       } catch (error) {
         console.error('Failed to load plans:', error);
         toast.error(error?.message || 'Failed to load plan');
@@ -437,13 +465,16 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
         const chapterId = ch?.chapter_id ?? ch?.chapterId ?? ch?.id ?? null;
         const chapterIdStr = String(chapterId || '').trim();
         if (!chapterIdStr) return;
-        if (next[chapterIdStr]) return;
         const meta = planMaps.chapterMap?.[chapterIdStr] || {};
-        next[chapterIdStr] = {
+        const existing = next[chapterIdStr];
+        const incoming = {
           planned_hours: meta?.planned_hours ?? '',
           planned_start_date: normalizeDateInput(meta?.planned_start_date ?? ''),
           planned_end_date: normalizeDateInput(meta?.planned_end_date ?? '')
         };
+        if (!existing || isEmptyEdit(existing) || !isEmptyEdit(incoming)) {
+          next[chapterIdStr] = incoming;
+        }
       });
       return next;
     });
@@ -458,13 +489,16 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
         const topicId = tp?.topic_id ?? tp?.topicId ?? tp?.id ?? null;
         const topicIdStr = String(topicId || '').trim();
         if (!topicIdStr) return;
-        if (next[topicIdStr]) return;
         const meta = planMaps.topicMap?.[topicIdStr] || {};
-        next[topicIdStr] = {
+        const existing = next[topicIdStr];
+        const incoming = {
           planned_hours: meta?.planned_hours ?? '',
           planned_start_date: normalizeDateInput(meta?.planned_start_date ?? ''),
           planned_end_date: normalizeDateInput(meta?.planned_end_date ?? '')
         };
+        if (!existing || isEmptyEdit(existing) || !isEmptyEdit(incoming)) {
+          next[topicIdStr] = incoming;
+        }
       });
       return next;
     });
@@ -479,13 +513,16 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
         const subId = st?.subtopic_id ?? st?.subtopicId ?? st?.id ?? null;
         const subIdStr = String(subId || '').trim();
         if (!subIdStr) return;
-        if (next[subIdStr]) return;
         const meta = planMaps.subtopicMap?.[subIdStr] || {};
-        next[subIdStr] = {
+        const existing = next[subIdStr];
+        const incoming = {
           planned_hours: meta?.planned_hours ?? '',
           planned_start_date: normalizeDateInput(meta?.planned_start_date ?? ''),
           planned_end_date: normalizeDateInput(meta?.planned_end_date ?? '')
         };
+        if (!existing || isEmptyEdit(existing) || !isEmptyEdit(incoming)) {
+          next[subIdStr] = incoming;
+        }
       });
       return next;
     });
@@ -585,10 +622,22 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
         .map((sid) => computeSubtopicMeta(sid));
 
       const anyHours = subMetas.some((m) => toNumberOrNull(m.planned_hours) != null);
-      const hours = anyHours ? subMetas.reduce((sum, m) => sum + (toNumberOrNull(m.planned_hours) || 0), 0) : null;
       const start = minDateFromStrings(subMetas.map((m) => m.planned_start_date).filter(Boolean));
       const end = maxDateFromStrings(subMetas.map((m) => m.planned_end_date).filter(Boolean));
-      return { planned_hours: hours, planned_start_date: start, planned_end_date: end, derived: true };
+      const anyDates = !!start || !!end;
+
+      if (anyHours || anyDates) {
+        const hours = anyHours ? subMetas.reduce((sum, m) => sum + (toNumberOrNull(m.planned_hours) || 0), 0) : null;
+        return { planned_hours: hours, planned_start_date: start, planned_end_date: end, derived: true };
+      }
+
+      const edit = getTopicEdit(topicIdStr);
+      return {
+        planned_hours: toNumberOrNull(edit.planned_hours),
+        planned_start_date: normalizeDateInput(edit.planned_start_date),
+        planned_end_date: normalizeDateInput(edit.planned_end_date),
+        derived: false
+      };
     }
 
     const edit = getTopicEdit(topicIdStr);
@@ -610,10 +659,22 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
         .map((tid) => computeTopicMeta(tid));
 
       const anyHours = topicMetas.some((m) => toNumberOrNull(m.planned_hours) != null);
-      const hours = anyHours ? topicMetas.reduce((sum, m) => sum + (toNumberOrNull(m.planned_hours) || 0), 0) : null;
       const start = minDateFromStrings(topicMetas.map((m) => m.planned_start_date).filter(Boolean));
       const end = maxDateFromStrings(topicMetas.map((m) => m.planned_end_date).filter(Boolean));
-      return { planned_hours: hours, planned_start_date: start, planned_end_date: end, derived: true };
+      const anyDates = !!start || !!end;
+
+      if (anyHours || anyDates) {
+        const hours = anyHours ? topicMetas.reduce((sum, m) => sum + (toNumberOrNull(m.planned_hours) || 0), 0) : null;
+        return { planned_hours: hours, planned_start_date: start, planned_end_date: end, derived: true };
+      }
+
+      const edit = getChapterEdit(chapterIdStr);
+      return {
+        planned_hours: toNumberOrNull(edit.planned_hours),
+        planned_start_date: normalizeDateInput(edit.planned_start_date),
+        planned_end_date: normalizeDateInput(edit.planned_end_date),
+        derived: false
+      };
     }
 
     const edit = getChapterEdit(chapterIdStr);
@@ -655,7 +716,9 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
   };
 
   const handleSavePlan = async () => {
+    console.log('[SyllabusProgressDetailsPage] Save Plan clicked');
     if (!canCreatePlans) {
+      console.log('[SyllabusProgressDetailsPage] Save Plan blocked: missing permission');
       toast.error('You do not have permission to create plans');
       return;
     }
@@ -663,20 +726,29 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
     const sid = toNumberOrNull(sectionId);
     const subjectName = String(selectedSubjectName || '').trim();
     if (!ay || !sid || !subjectName) {
+      console.log('[SyllabusProgressDetailsPage] Save Plan blocked: missing ay/section/subject', { ay, sid, subjectName });
       toast.error('Select Academic Year, Subject and Section to save the plan');
       return;
     }
     if (!String(bookId || '').trim()) {
+      console.log('[SyllabusProgressDetailsPage] Save Plan blocked: missing bookId', { bookId });
       toast.error('Please select a Book');
       return;
     }
     if (!Array.isArray(chapters) || chapters.length === 0) {
+      console.log('[SyllabusProgressDetailsPage] Save Plan blocked: no chapters', { chaptersCount: Array.isArray(chapters) ? chapters.length : null });
       toast.error('No chapters exist for this book');
       return;
     }
 
     try {
       setPlanSaveLoading(true);
+      console.log('[SyllabusProgressDetailsPage] Save Plan started', {
+        academic_year_id: ay,
+        section_id: sid,
+        subject_name: subjectName,
+        chaptersCount: chapters.length
+      });
 
       const localTopicsByChapterId = { ...(topicsByChapterId || {}) };
       const localSubtopicsByTopicId = { ...(subtopicsByTopicId || {}) };
@@ -693,6 +765,9 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
         })
       );
       setTopicsByChapterId((prev) => ({ ...(prev || {}), ...localTopicsByChapterId }));
+      console.log('[SyllabusProgressDetailsPage] Topics ensured', {
+        chaptersWithTopics: Object.keys(localTopicsByChapterId).length
+      });
 
       const topicIds = Object.values(localTopicsByChapterId)
         .flatMap((arr) => (Array.isArray(arr) ? arr : []))
@@ -709,99 +784,127 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
         })
       );
       setSubtopicsByTopicId((prev) => ({ ...(prev || {}), ...localSubtopicsByTopicId }));
+      console.log('[SyllabusProgressDetailsPage] Subtopics ensured', {
+        topicsWithSubtopics: Object.keys(localSubtopicsByTopicId).length
+      });
+
+      const updates = [];
+      const changedPlanIds = new Set();
+
+      const maybeAddUpdate = (planId, oldMeta, newMeta) => {
+        if (!planId) return;
+        const oldH = toNumberOrNull(oldMeta?.planned_hours);
+        const newH = toNumberOrNull(newMeta.planned_hours);
+        const oldS = oldMeta?.planned_start_date || null;
+        const newS = newMeta.planned_start_date || null;
+        const oldE = oldMeta?.planned_end_date || null;
+        const newE = newMeta.planned_end_date || null;
+
+        if (oldH !== newH || oldS !== newS || oldE !== newE) {
+          if (!changedPlanIds.has(planId)) {
+            updates.push({
+              plan_id: planId,
+              fields_to_update: {
+                planned_hours: newH,
+                planned_start_date: newS,
+                planned_end_date: newE
+              }
+            });
+            changedPlanIds.add(planId);
+          }
+        }
+      };
 
       const validationErrors = [];
-      const tree = chapters
-        .map((ch) => {
-          const chapterId = ch?.chapter_id ?? ch?.chapterId ?? ch?.id ?? null;
-          const chapterIdStr = String(chapterId || '').trim();
-          if (!chapterIdStr) return null;
+      chapters.forEach((ch) => {
+        const chapterId = ch?.chapter_id ?? ch?.chapterId ?? ch?.id ?? null;
+        const chapterIdStr = String(chapterId || '').trim();
+        if (!chapterIdStr) return;
 
-          const topicRows = localTopicsByChapterId?.[chapterIdStr] || [];
-          const topics = (Array.isArray(topicRows) ? topicRows : [])
-            .map((tp) => {
-              const topicId = tp?.topic_id ?? tp?.topicId ?? tp?.id ?? null;
-              const topicIdStr = String(topicId || '').trim();
-              if (!topicIdStr) return null;
+        const topicRows = localTopicsByChapterId?.[chapterIdStr] || [];
+        const topics = Array.isArray(topicRows) ? topicRows : [];
 
-              const subRows = localSubtopicsByTopicId?.[topicIdStr] || [];
-              const subtopics = (Array.isArray(subRows) ? subRows : [])
-                .map((st) => {
-                  const subId = st?.subtopic_id ?? st?.subtopicId ?? st?.id ?? null;
-                  const subIdStr = String(subId || '').trim();
-                  if (!subIdStr) return null;
-                  const m = computeSubtopicMeta(subIdStr);
-                  const err = validatePlannedMeta({
-                    label: `Subtopic ${String(st?.subtopic_title ?? st?.subtopicTitle ?? subIdStr).trim() || subIdStr}`,
-                    planned_hours: m.planned_hours,
-                    planned_start_date: m.planned_start_date,
-                    planned_end_date: m.planned_end_date
-                  });
-                  if (err) validationErrors.push(err);
-                  return {
-                    subtopic_id: Number(subIdStr),
-                    planned_hours: m.planned_hours ?? null,
-                    planned_start_date: m.planned_start_date || null,
-                    planned_end_date: m.planned_end_date || null
-                  };
-                })
-                .filter(Boolean);
+        const chapterMeta = computeChapterMeta(chapterIdStr);
+        const oldChapterMeta = planMaps.chapterMap?.[chapterIdStr];
 
-              const topicMeta = computeTopicMeta(topicIdStr);
-              const topicLabel = `Topic ${String(tp?.topic_title ?? tp?.topicTitle ?? topicIdStr).trim() || topicIdStr}`;
-              if (!subtopics.length) {
-                const err = validatePlannedMeta({
-                  label: topicLabel,
-                  planned_hours: topicMeta.planned_hours,
-                  planned_start_date: topicMeta.planned_start_date,
-                  planned_end_date: topicMeta.planned_end_date
-                });
-                if (err) validationErrors.push(err);
-              }
-
-              return {
-                topic_id: Number(topicIdStr),
-                planned_hours: topicMeta.planned_hours ?? null,
-                planned_start_date: topicMeta.planned_start_date || null,
-                planned_end_date: topicMeta.planned_end_date || null,
-                subtopics: subtopics.length ? subtopics : undefined
-              };
-            })
-            .filter(Boolean);
-
-          const chapterMeta = computeChapterMeta(chapterIdStr);
+        if (!topics.length) {
           const chapterLabel = `Chapter ${String(ch?.chapter_title ?? ch?.chapterTitle ?? chapterIdStr).trim() || chapterIdStr}`;
-          if (!topics.length) {
+          const err = validatePlannedMeta({
+            label: chapterLabel,
+            planned_hours: chapterMeta.planned_hours,
+            planned_start_date: chapterMeta.planned_start_date,
+            planned_end_date: chapterMeta.planned_end_date
+          });
+          if (err) validationErrors.push(err);
+        }
+        maybeAddUpdate(oldChapterMeta?.plan_id, oldChapterMeta, chapterMeta);
+
+        topics.forEach((tp) => {
+          const topicId = tp?.topic_id ?? tp?.topicId ?? tp?.id ?? null;
+          const topicIdStr = String(topicId || '').trim();
+          if (!topicIdStr) return;
+
+          const subRows = localSubtopicsByTopicId?.[topicIdStr] || [];
+          const subtopics = Array.isArray(subRows) ? subRows : [];
+
+          const topicMeta = computeTopicMeta(topicIdStr);
+          const oldTopicMeta = planMaps.topicMap?.[topicIdStr];
+
+          if (!subtopics.length) {
+            const topicLabel = `Topic ${String(tp?.topic_title ?? tp?.topicTitle ?? topicIdStr).trim() || topicIdStr}`;
             const err = validatePlannedMeta({
-              label: chapterLabel,
-              planned_hours: chapterMeta.planned_hours,
-              planned_start_date: chapterMeta.planned_start_date,
-              planned_end_date: chapterMeta.planned_end_date
+              label: topicLabel,
+              planned_hours: topicMeta.planned_hours,
+              planned_start_date: topicMeta.planned_start_date,
+              planned_end_date: topicMeta.planned_end_date
             });
             if (err) validationErrors.push(err);
           }
+          maybeAddUpdate(oldTopicMeta?.plan_id, oldTopicMeta, topicMeta);
 
-          return {
-            chapter_id: Number(chapterIdStr),
-            planned_hours: chapterMeta.planned_hours ?? null,
-            planned_start_date: chapterMeta.planned_start_date || null,
-            planned_end_date: chapterMeta.planned_end_date || null,
-            topics: topics.length ? topics : undefined
-          };
-        })
-        .filter(Boolean);
+          subtopics.forEach((st) => {
+            const subId = st?.subtopic_id ?? st?.subtopicId ?? st?.id ?? null;
+            const subIdStr = String(subId || '').trim();
+            if (!subIdStr) return;
+
+            const m = computeSubtopicMeta(subIdStr);
+            const oldSubMeta = planMaps.subtopicMap?.[subIdStr];
+
+            const err = validatePlannedMeta({
+              label: `Subtopic ${String(st?.subtopic_title ?? st?.subtopicTitle ?? subIdStr).trim() || subIdStr}`,
+              planned_hours: m.planned_hours,
+              planned_start_date: m.planned_start_date,
+              planned_end_date: m.planned_end_date
+            });
+            if (err) validationErrors.push(err);
+
+            maybeAddUpdate(oldSubMeta?.plan_id, oldSubMeta, m);
+          });
+        });
+      });
 
       if (validationErrors.length > 0) {
+        console.log('[SyllabusProgressDetailsPage] Save Plan validation failed', { firstError: validationErrors[0] });
         toast.error(validationErrors[0]);
         return;
       }
 
-      const response = await syllabusPlanService.createPlan({
-        academic_year_id: ay,
-        section_id: sid,
-        subject_name: subjectName,
-        chapters: tree
-      });
+      if (updates.length === 0) {
+        console.log('[SyllabusProgressDetailsPage] No changes detected', {
+          planRowsCount: Array.isArray(planRows) ? planRows.length : null
+        });
+        toast.success('No changes to save');
+        return;
+      }
+
+      console.log('[SyllabusProgressDetailsPage] Sending updates', { count: updates.length, updates });
+      try {
+        console.log('[SyllabusProgressDetailsPage] Sending updates JSON', JSON.stringify(updates, null, 2));
+      } catch (e) {
+        console.log('[SyllabusProgressDetailsPage] Failed to stringify updates', e);
+      }
+      const response = await syllabusPlanService.updatePlan(updates);
+      console.log('[SyllabusProgressDetailsPage] Update response', response);
 
       if (response?.success) {
         toast.success(response?.message || 'Plan saved successfully');
@@ -810,24 +913,24 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
           section_id: sid,
           subject_name: subjectName
         });
+        console.log('[SyllabusProgressDetailsPage] Refreshed getPlans response', refreshed);
         const refreshedData = refreshed?.data ?? refreshed;
         const plans = refreshedData?.plans || [];
         const normalizedPlans = Array.isArray(plans) ? plans : [];
+        console.log('[SyllabusProgressDetailsPage] Refreshed plans normalized', { count: normalizedPlans.length, plans: normalizedPlans });
         setPlanRows(normalizedPlans);
-        const asTree = refreshedData?.plan_tree || refreshedData?.chapters || refreshedData?.planTree || null;
-        if (Array.isArray(asTree) && asTree.length > 0) {
-          setPlanMaps(buildPlanMapsFromPlanTree(asTree));
-        } else {
-          setPlanMaps(buildPlanMapsFromPlans(normalizedPlans));
-        }
+        setPlanMaps(buildPlanMapsFromPlans(normalizedPlans));
       } else {
+        console.log('[SyllabusProgressDetailsPage] Update returned success=false', response);
         toast.error(response?.message || 'Failed to save plan');
       }
     } catch (error) {
       console.error('Failed to save plan:', error);
+      console.log('[SyllabusProgressDetailsPage] Save Plan error object', error);
       toast.error(error?.message || 'Failed to save plan');
     } finally {
       setPlanSaveLoading(false);
+      console.log('[SyllabusProgressDetailsPage] Save Plan finished');
     }
   };
 
