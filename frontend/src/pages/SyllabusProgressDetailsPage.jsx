@@ -155,6 +155,7 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
   const [topicEdits, setTopicEdits] = useState({});
   const [subtopicEdits, setSubtopicEdits] = useState({});
   const [planSaveLoading, setPlanSaveLoading] = useState(false);
+  const [planEditMode, setPlanEditMode] = useState(false);
 
   const isEmptyEdit = (edit) => {
     const e = edit || {};
@@ -169,6 +170,10 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
     const s = (subjects || []).find((x) => String(x?.subject_id) === String(subjectId));
     return String(s?.subject_name || '').trim();
   }, [subjects, subjectId]);
+
+  useEffect(() => {
+    setPlanEditMode(false);
+  }, [academicYearId, subjectId, bookId, classId, sectionId]);
 
   useEffect(() => {
     const ayId = String(academicYearId || '').trim();
@@ -472,13 +477,15 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
           planned_start_date: normalizeDateInput(meta?.planned_start_date ?? ''),
           planned_end_date: normalizeDateInput(meta?.planned_end_date ?? '')
         };
-        if (!existing || isEmptyEdit(existing) || !isEmptyEdit(incoming)) {
+        if (planEditMode) {
+          if (!existing) next[chapterIdStr] = incoming;
+        } else if (!existing || isEmptyEdit(existing) || !isEmptyEdit(incoming)) {
           next[chapterIdStr] = incoming;
         }
       });
       return next;
     });
-  }, [chapters, planMaps]);
+  }, [chapters, planMaps, planEditMode]);
 
   useEffect(() => {
     const topicRows = Object.values(topicsByChapterId || {}).flatMap((arr) => (Array.isArray(arr) ? arr : []));
@@ -496,13 +503,15 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
           planned_start_date: normalizeDateInput(meta?.planned_start_date ?? ''),
           planned_end_date: normalizeDateInput(meta?.planned_end_date ?? '')
         };
-        if (!existing || isEmptyEdit(existing) || !isEmptyEdit(incoming)) {
+        if (planEditMode) {
+          if (!existing) next[topicIdStr] = incoming;
+        } else if (!existing || isEmptyEdit(existing) || !isEmptyEdit(incoming)) {
           next[topicIdStr] = incoming;
         }
       });
       return next;
     });
-  }, [topicsByChapterId, planMaps]);
+  }, [topicsByChapterId, planMaps, planEditMode]);
 
   useEffect(() => {
     const subRows = Object.values(subtopicsByTopicId || {}).flatMap((arr) => (Array.isArray(arr) ? arr : []));
@@ -520,13 +529,15 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
           planned_start_date: normalizeDateInput(meta?.planned_start_date ?? ''),
           planned_end_date: normalizeDateInput(meta?.planned_end_date ?? '')
         };
-        if (!existing || isEmptyEdit(existing) || !isEmptyEdit(incoming)) {
+        if (planEditMode) {
+          if (!existing) next[subIdStr] = incoming;
+        } else if (!existing || isEmptyEdit(existing) || !isEmptyEdit(incoming)) {
           next[subIdStr] = incoming;
         }
       });
       return next;
     });
-  }, [subtopicsByTopicId, planMaps]);
+  }, [subtopicsByTopicId, planMaps, planEditMode]);
 
   const fetchTopicsForChapter = async (chapterId) => {
     const chapterIdStr = String(chapterId || '').trim();
@@ -583,9 +594,38 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
     }
   };
 
-  const getChapterEdit = (chapterIdStr) => chapterEdits?.[chapterIdStr] || { planned_hours: '', planned_start_date: '', planned_end_date: '' };
-  const getTopicEdit = (topicIdStr) => topicEdits?.[topicIdStr] || { planned_hours: '', planned_start_date: '', planned_end_date: '' };
-  const getSubtopicEdit = (subtopicIdStr) => subtopicEdits?.[subtopicIdStr] || { planned_hours: '', planned_start_date: '', planned_end_date: '' };
+  const getChapterEdit = (chapterIdStr) => {
+    const existing = chapterEdits?.[chapterIdStr];
+    if (existing) return existing;
+    const meta = planMaps.chapterMap?.[chapterIdStr] || {};
+    return {
+      planned_hours: meta?.planned_hours ?? '',
+      planned_start_date: normalizeDateInput(meta?.planned_start_date ?? ''),
+      planned_end_date: normalizeDateInput(meta?.planned_end_date ?? '')
+    };
+  };
+
+  const getTopicEdit = (topicIdStr) => {
+    const existing = topicEdits?.[topicIdStr];
+    if (existing) return existing;
+    const meta = planMaps.topicMap?.[topicIdStr] || {};
+    return {
+      planned_hours: meta?.planned_hours ?? '',
+      planned_start_date: normalizeDateInput(meta?.planned_start_date ?? ''),
+      planned_end_date: normalizeDateInput(meta?.planned_end_date ?? '')
+    };
+  };
+
+  const getSubtopicEdit = (subtopicIdStr) => {
+    const existing = subtopicEdits?.[subtopicIdStr];
+    if (existing) return existing;
+    const meta = planMaps.subtopicMap?.[subtopicIdStr] || {};
+    return {
+      planned_hours: meta?.planned_hours ?? '',
+      planned_start_date: normalizeDateInput(meta?.planned_start_date ?? ''),
+      planned_end_date: normalizeDateInput(meta?.planned_end_date ?? '')
+    };
+  };
 
   const formatDate = (d) => (d ? d.toISOString().slice(0, 10) : '');
 
@@ -621,23 +661,11 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
         .filter(Boolean)
         .map((sid) => computeSubtopicMeta(sid));
 
-      const anyHours = subMetas.some((m) => toNumberOrNull(m.planned_hours) != null);
+      const hours = subMetas.reduce((sum, m) => sum + (toNumberOrNull(m.planned_hours) || 0), 0);
       const start = minDateFromStrings(subMetas.map((m) => m.planned_start_date).filter(Boolean));
       const end = maxDateFromStrings(subMetas.map((m) => m.planned_end_date).filter(Boolean));
-      const anyDates = !!start || !!end;
 
-      if (anyHours || anyDates) {
-        const hours = anyHours ? subMetas.reduce((sum, m) => sum + (toNumberOrNull(m.planned_hours) || 0), 0) : null;
-        return { planned_hours: hours, planned_start_date: start, planned_end_date: end, derived: true };
-      }
-
-      const edit = getTopicEdit(topicIdStr);
-      return {
-        planned_hours: toNumberOrNull(edit.planned_hours),
-        planned_start_date: normalizeDateInput(edit.planned_start_date),
-        planned_end_date: normalizeDateInput(edit.planned_end_date),
-        derived: false
-      };
+      return { planned_hours: hours, planned_start_date: start, planned_end_date: end, derived: true };
     }
 
     const edit = getTopicEdit(topicIdStr);
@@ -658,23 +686,11 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
         .filter(Boolean)
         .map((tid) => computeTopicMeta(tid));
 
-      const anyHours = topicMetas.some((m) => toNumberOrNull(m.planned_hours) != null);
+      const hours = topicMetas.reduce((sum, m) => sum + (toNumberOrNull(m.planned_hours) || 0), 0);
       const start = minDateFromStrings(topicMetas.map((m) => m.planned_start_date).filter(Boolean));
       const end = maxDateFromStrings(topicMetas.map((m) => m.planned_end_date).filter(Boolean));
-      const anyDates = !!start || !!end;
 
-      if (anyHours || anyDates) {
-        const hours = anyHours ? topicMetas.reduce((sum, m) => sum + (toNumberOrNull(m.planned_hours) || 0), 0) : null;
-        return { planned_hours: hours, planned_start_date: start, planned_end_date: end, derived: true };
-      }
-
-      const edit = getChapterEdit(chapterIdStr);
-      return {
-        planned_hours: toNumberOrNull(edit.planned_hours),
-        planned_start_date: normalizeDateInput(edit.planned_start_date),
-        planned_end_date: normalizeDateInput(edit.planned_end_date),
-        derived: false
-      };
+      return { planned_hours: hours, planned_start_date: start, planned_end_date: end, derived: true };
     }
 
     const edit = getChapterEdit(chapterIdStr);
@@ -684,6 +700,54 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
       planned_end_date: normalizeDateInput(edit.planned_end_date),
       derived: false
     };
+  };
+
+  const resetEditsToCurrentPlan = () => {
+    const nextChapters = {};
+    (Array.isArray(chapters) ? chapters : []).forEach((ch) => {
+      const chapterId = ch?.chapter_id ?? ch?.chapterId ?? ch?.id ?? null;
+      const chapterIdStr = String(chapterId || '').trim();
+      if (!chapterIdStr) return;
+      const meta = planMaps.chapterMap?.[chapterIdStr] || {};
+      nextChapters[chapterIdStr] = {
+        planned_hours: meta?.planned_hours ?? '',
+        planned_start_date: normalizeDateInput(meta?.planned_start_date ?? ''),
+        planned_end_date: normalizeDateInput(meta?.planned_end_date ?? '')
+      };
+    });
+    setChapterEdits(nextChapters);
+
+    const nextTopics = {};
+    Object.values(topicsByChapterId || {})
+      .flatMap((arr) => (Array.isArray(arr) ? arr : []))
+      .forEach((tp) => {
+        const topicId = tp?.topic_id ?? tp?.topicId ?? tp?.id ?? null;
+        const topicIdStr = String(topicId || '').trim();
+        if (!topicIdStr) return;
+        const meta = planMaps.topicMap?.[topicIdStr] || {};
+        nextTopics[topicIdStr] = {
+          planned_hours: meta?.planned_hours ?? '',
+          planned_start_date: normalizeDateInput(meta?.planned_start_date ?? ''),
+          planned_end_date: normalizeDateInput(meta?.planned_end_date ?? '')
+        };
+      });
+    setTopicEdits(nextTopics);
+
+    const nextSubs = {};
+    Object.values(subtopicsByTopicId || {})
+      .flatMap((arr) => (Array.isArray(arr) ? arr : []))
+      .forEach((st) => {
+        const subId = st?.subtopic_id ?? st?.subtopicId ?? st?.id ?? null;
+        const subIdStr = String(subId || '').trim();
+        if (!subIdStr) return;
+        const meta = planMaps.subtopicMap?.[subIdStr] || {};
+        nextSubs[subIdStr] = {
+          planned_hours: meta?.planned_hours ?? '',
+          planned_start_date: normalizeDateInput(meta?.planned_start_date ?? ''),
+          planned_end_date: normalizeDateInput(meta?.planned_end_date ?? '')
+        };
+      });
+    setSubtopicEdits(nextSubs);
   };
 
   const validatePlannedMeta = ({ label, planned_hours, planned_start_date, planned_end_date }) => {
@@ -827,16 +891,14 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
         const chapterMeta = computeChapterMeta(chapterIdStr);
         const oldChapterMeta = planMaps.chapterMap?.[chapterIdStr];
 
-        if (!topics.length) {
-          const chapterLabel = `Chapter ${String(ch?.chapter_title ?? ch?.chapterTitle ?? chapterIdStr).trim() || chapterIdStr}`;
-          const err = validatePlannedMeta({
-            label: chapterLabel,
-            planned_hours: chapterMeta.planned_hours,
-            planned_start_date: chapterMeta.planned_start_date,
-            planned_end_date: chapterMeta.planned_end_date
-          });
-          if (err) validationErrors.push(err);
-        }
+        const chapterLabel = `Chapter ${String(ch?.chapter_title ?? ch?.chapterTitle ?? chapterIdStr).trim() || chapterIdStr}`;
+        const chapterErr = validatePlannedMeta({
+          label: chapterLabel,
+          planned_hours: chapterMeta.planned_hours,
+          planned_start_date: chapterMeta.planned_start_date,
+          planned_end_date: chapterMeta.planned_end_date
+        });
+        if (chapterErr) validationErrors.push(chapterErr);
         maybeAddUpdate(oldChapterMeta?.plan_id, oldChapterMeta, chapterMeta);
 
         topics.forEach((tp) => {
@@ -850,16 +912,14 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
           const topicMeta = computeTopicMeta(topicIdStr);
           const oldTopicMeta = planMaps.topicMap?.[topicIdStr];
 
-          if (!subtopics.length) {
-            const topicLabel = `Topic ${String(tp?.topic_title ?? tp?.topicTitle ?? topicIdStr).trim() || topicIdStr}`;
-            const err = validatePlannedMeta({
-              label: topicLabel,
-              planned_hours: topicMeta.planned_hours,
-              planned_start_date: topicMeta.planned_start_date,
-              planned_end_date: topicMeta.planned_end_date
-            });
-            if (err) validationErrors.push(err);
-          }
+          const topicLabel = `Topic ${String(tp?.topic_title ?? tp?.topicTitle ?? topicIdStr).trim() || topicIdStr}`;
+          const topicErr = validatePlannedMeta({
+            label: topicLabel,
+            planned_hours: topicMeta.planned_hours,
+            planned_start_date: topicMeta.planned_start_date,
+            planned_end_date: topicMeta.planned_end_date
+          });
+          if (topicErr) validationErrors.push(topicErr);
           maybeAddUpdate(oldTopicMeta?.plan_id, oldTopicMeta, topicMeta);
 
           subtopics.forEach((st) => {
@@ -908,6 +968,7 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
 
       if (response?.success) {
         toast.success(response?.message || 'Plan saved successfully');
+        setPlanEditMode(false);
         const refreshed = await syllabusPlanService.getPlans({
           academic_year_id: ay,
           section_id: sid,
@@ -1052,6 +1113,38 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
                     <span className="ml-2 text-sm text-gray-500">Loading plan...</span>
                   </div>
                 )}
+                {canCreatePlans && !planEditMode && (
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => setPlanEditMode(true)}
+                    disabled={
+                      planLoading ||
+                      planSaveLoading ||
+                      !String(academicYearId || '').trim() ||
+                      !String(subjectId || '').trim() ||
+                      !String(bookId || '').trim() ||
+                      !String(sectionId || '').trim() ||
+                      chaptersLoading ||
+                      chapters.length === 0
+                    }
+                  >
+                    Edit
+                  </button>
+                )}
+                {canCreatePlans && planEditMode && (
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => {
+                      resetEditsToCurrentPlan();
+                      setPlanEditMode(false);
+                    }}
+                    disabled={planSaveLoading}
+                  >
+                    Cancel
+                  </button>
+                )}
                 {canCreatePlans && (
                   <button
                     type="button"
@@ -1059,6 +1152,7 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
                     onClick={handleSavePlan}
                     disabled={
                       planSaveLoading ||
+                      !planEditMode ||
                       !String(academicYearId || '').trim() ||
                       !String(subjectId || '').trim() ||
                       !String(bookId || '').trim() ||
@@ -1107,7 +1201,7 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
                       const chapterTopics = topicsByChapterId?.[chapterIdStr];
                       const topicsResolved = chapterTopics !== undefined;
                       const hasTopics = Array.isArray(chapterTopics) && chapterTopics.length > 0;
-                      const canEditChapter = topicsResolved && !hasTopics;
+                      const canEditChapter = planEditMode && !hasTopics;
                       const meta = computeChapterMeta(chapterIdStr);
                       const edit = getChapterEdit(chapterIdStr);
                       return (
@@ -1124,66 +1218,53 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
                               </button>
                             </td>
                             <td className="px-4 py-2">
-                              {!topicsResolved ? (
-                                <div className="text-sm text-secondary-700">Loading...</div>
-                              ) : !canEditChapter ? (
-                                <div className="text-sm text-secondary-700 font-medium">{meta.planned_hours == null ? '—' : meta.planned_hours}</div>
-                              ) : (
-                                <input
-                                  type="number"
-                                  min={0}
-                                  step={0.25}
-                                  value={edit.planned_hours}
-                                  onChange={(e) =>
-                                    setChapterEdits((prev) => ({
-                                      ...prev,
-                                      [chapterIdStr]: { ...(prev?.[chapterIdStr] || getChapterEdit(chapterIdStr)), planned_hours: e.target.value }
-                                    }))
-                                  }
-                                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                />
-                              )}
+                              <input
+                                type="number"
+                                min={0}
+                                step={0.25}
+                                value={
+                                  planEditMode && canEditChapter ? edit.planned_hours : meta.planned_hours == null ? '' : meta.planned_hours
+                                }
+                                onChange={(e) =>
+                                  setChapterEdits((prev) => ({
+                                    ...prev,
+                                    [chapterIdStr]: { ...(prev?.[chapterIdStr] || getChapterEdit(chapterIdStr)), planned_hours: e.target.value }
+                                  }))
+                                }
+                                disabled={!planEditMode || !canEditChapter || planSaveLoading || planLoading || !topicsResolved}
+                                className={`w-full px-2 py-1 text-sm border rounded-md ${planEditMode && canEditChapter ? 'border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500' : 'border-gray-200 bg-gray-50 text-secondary-700'}`}
+                              />
                             </td>
                             <td className="px-4 py-2">
-                              {!topicsResolved ? (
-                                <div className="text-sm text-secondary-700">Loading...</div>
-                              ) : !canEditChapter ? (
-                                <div className="text-sm text-secondary-700">{meta.planned_start_date || '—'}</div>
-                              ) : (
-                                <input
-                                  type="date"
-                                  value={edit.planned_start_date}
-                                  onChange={(e) =>
-                                    setChapterEdits((prev) => ({
-                                      ...prev,
-                                      [chapterIdStr]: {
-                                        ...(prev?.[chapterIdStr] || getChapterEdit(chapterIdStr)),
-                                        planned_start_date: e.target.value
-                                      }
-                                    }))
-                                  }
-                                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                />
-                              )}
+                              <input
+                                type="date"
+                                value={planEditMode && canEditChapter ? edit.planned_start_date : meta.planned_start_date || ''}
+                                onChange={(e) =>
+                                  setChapterEdits((prev) => ({
+                                    ...prev,
+                                    [chapterIdStr]: {
+                                      ...(prev?.[chapterIdStr] || getChapterEdit(chapterIdStr)),
+                                      planned_start_date: e.target.value
+                                    }
+                                  }))
+                                }
+                                disabled={!planEditMode || !canEditChapter || planSaveLoading || planLoading || !topicsResolved}
+                                className={`w-full px-2 py-1 text-sm border rounded-md ${planEditMode && canEditChapter ? 'border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500' : 'border-gray-200 bg-gray-50 text-secondary-700'}`}
+                              />
                             </td>
                             <td className="px-4 py-2">
-                              {!topicsResolved ? (
-                                <div className="text-sm text-secondary-700">Loading...</div>
-                              ) : !canEditChapter ? (
-                                <div className="text-sm text-secondary-700">{meta.planned_end_date || '—'}</div>
-                              ) : (
-                                <input
-                                  type="date"
-                                  value={edit.planned_end_date}
-                                  onChange={(e) =>
-                                    setChapterEdits((prev) => ({
-                                      ...prev,
-                                      [chapterIdStr]: { ...(prev?.[chapterIdStr] || getChapterEdit(chapterIdStr)), planned_end_date: e.target.value }
-                                    }))
-                                  }
-                                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                />
-                              )}
+                              <input
+                                type="date"
+                                value={planEditMode && canEditChapter ? edit.planned_end_date : meta.planned_end_date || ''}
+                                onChange={(e) =>
+                                  setChapterEdits((prev) => ({
+                                    ...prev,
+                                    [chapterIdStr]: { ...(prev?.[chapterIdStr] || getChapterEdit(chapterIdStr)), planned_end_date: e.target.value }
+                                  }))
+                                }
+                                disabled={!planEditMode || !canEditChapter || planSaveLoading || planLoading || !topicsResolved}
+                                className={`w-full px-2 py-1 text-sm border rounded-md ${planEditMode && canEditChapter ? 'border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500' : 'border-gray-200 bg-gray-50 text-secondary-700'}`}
+                              />
                             </td>
                           </tr>
 
@@ -1217,7 +1298,7 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
                                           const topicSubs = subtopicsByTopicId?.[topicIdStr];
                                           const subtopicsResolved = topicSubs !== undefined;
                                           const hasSubtopics = Array.isArray(topicSubs) && topicSubs.length > 0;
-                                          const canEditTopic = subtopicsResolved && !hasSubtopics;
+                                          const canEditTopic = planEditMode && !hasSubtopics;
                                           const topicMeta = computeTopicMeta(topicIdStr);
                                           const topicEdit = getTopicEdit(topicIdStr);
                                           return (
@@ -1234,66 +1315,51 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
                                                   </button>
                                                 </td>
                                                 <td className="px-4 py-2">
-                                                  {!subtopicsResolved ? (
-                                                    <div className="text-sm text-secondary-700">Loading...</div>
-                                                  ) : !canEditTopic ? (
-                                                    <div className="text-sm text-secondary-700 font-medium">{topicMeta.planned_hours == null ? '—' : topicMeta.planned_hours}</div>
-                                                  ) : (
-                                                    <input
-                                                      type="number"
-                                                      min={0}
-                                                      step={0.25}
-                                                      value={topicEdit.planned_hours}
-                                                      onChange={(e) =>
-                                                        setTopicEdits((prev) => ({
-                                                          ...prev,
-                                                          [topicIdStr]: { ...(prev?.[topicIdStr] || getTopicEdit(topicIdStr)), planned_hours: e.target.value }
-                                                        }))
-                                                      }
-                                                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                    />
-                                                  )}
+                                                  <input
+                                                    type="number"
+                                                    min={0}
+                                                    step={0.25}
+                                                    value={planEditMode && canEditTopic ? topicEdit.planned_hours : topicMeta.planned_hours == null ? '' : topicMeta.planned_hours}
+                                                    onChange={(e) =>
+                                                      setTopicEdits((prev) => ({
+                                                        ...prev,
+                                                        [topicIdStr]: { ...(prev?.[topicIdStr] || getTopicEdit(topicIdStr)), planned_hours: e.target.value }
+                                                      }))
+                                                    }
+                                                    disabled={!planEditMode || !canEditTopic || planSaveLoading || planLoading || !subtopicsResolved}
+                                                    className={`w-full px-2 py-1 text-sm border rounded-md ${planEditMode && canEditTopic ? 'border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500' : 'border-gray-200 bg-gray-50 text-secondary-700'}`}
+                                                  />
                                                 </td>
                                                 <td className="px-4 py-2">
-                                                  {!subtopicsResolved ? (
-                                                    <div className="text-sm text-secondary-700">Loading...</div>
-                                                  ) : !canEditTopic ? (
-                                                    <div className="text-sm text-secondary-700">{topicMeta.planned_start_date || '—'}</div>
-                                                  ) : (
-                                                    <input
-                                                      type="date"
-                                                      value={topicEdit.planned_start_date}
-                                                      onChange={(e) =>
-                                                        setTopicEdits((prev) => ({
-                                                          ...prev,
-                                                          [topicIdStr]: {
-                                                            ...(prev?.[topicIdStr] || getTopicEdit(topicIdStr)),
-                                                            planned_start_date: e.target.value
-                                                          }
-                                                        }))
-                                                      }
-                                                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                    />
-                                                  )}
+                                                  <input
+                                                    type="date"
+                                                    value={planEditMode && canEditTopic ? topicEdit.planned_start_date : topicMeta.planned_start_date || ''}
+                                                    onChange={(e) =>
+                                                      setTopicEdits((prev) => ({
+                                                        ...prev,
+                                                        [topicIdStr]: {
+                                                          ...(prev?.[topicIdStr] || getTopicEdit(topicIdStr)),
+                                                          planned_start_date: e.target.value
+                                                        }
+                                                      }))
+                                                    }
+                                                    disabled={!planEditMode || !canEditTopic || planSaveLoading || planLoading || !subtopicsResolved}
+                                                    className={`w-full px-2 py-1 text-sm border rounded-md ${planEditMode && canEditTopic ? 'border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500' : 'border-gray-200 bg-gray-50 text-secondary-700'}`}
+                                                  />
                                                 </td>
                                                 <td className="px-4 py-2">
-                                                  {!subtopicsResolved ? (
-                                                    <div className="text-sm text-secondary-700">Loading...</div>
-                                                  ) : !canEditTopic ? (
-                                                    <div className="text-sm text-secondary-700">{topicMeta.planned_end_date || '—'}</div>
-                                                  ) : (
-                                                    <input
-                                                      type="date"
-                                                      value={topicEdit.planned_end_date}
-                                                      onChange={(e) =>
-                                                        setTopicEdits((prev) => ({
-                                                          ...prev,
-                                                          [topicIdStr]: { ...(prev?.[topicIdStr] || getTopicEdit(topicIdStr)), planned_end_date: e.target.value }
-                                                        }))
-                                                      }
-                                                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                    />
-                                                  )}
+                                                  <input
+                                                    type="date"
+                                                    value={planEditMode && canEditTopic ? topicEdit.planned_end_date : topicMeta.planned_end_date || ''}
+                                                    onChange={(e) =>
+                                                      setTopicEdits((prev) => ({
+                                                        ...prev,
+                                                        [topicIdStr]: { ...(prev?.[topicIdStr] || getTopicEdit(topicIdStr)), planned_end_date: e.target.value }
+                                                      }))
+                                                    }
+                                                    disabled={!planEditMode || !canEditTopic || planSaveLoading || planLoading || !subtopicsResolved}
+                                                    className={`w-full px-2 py-1 text-sm border rounded-md ${planEditMode && canEditTopic ? 'border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500' : 'border-gray-200 bg-gray-50 text-secondary-700'}`}
+                                                  />
                                                 </td>
                                               </tr>
 
@@ -1339,7 +1405,8 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
                                                                           [subIdStr]: { ...(prev?.[subIdStr] || getSubtopicEdit(subIdStr)), planned_hours: e.target.value }
                                                                         }))
                                                                       }
-                                                                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                                      disabled={!planEditMode || planSaveLoading || planLoading}
+                                                                      className={`w-full px-2 py-1 text-sm border rounded-md ${planEditMode ? 'border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500' : 'border-gray-200 bg-gray-50 text-secondary-700'}`}
                                                                     />
                                                                   </td>
                                                                   <td className="px-4 py-2">
@@ -1355,7 +1422,8 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
                                                                           }
                                                                         }))
                                                                       }
-                                                                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                                      disabled={!planEditMode || planSaveLoading || planLoading}
+                                                                      className={`w-full px-2 py-1 text-sm border rounded-md ${planEditMode ? 'border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500' : 'border-gray-200 bg-gray-50 text-secondary-700'}`}
                                                                     />
                                                                   </td>
                                                                   <td className="px-4 py-2">
@@ -1368,7 +1436,8 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
                                                                           [subIdStr]: { ...(prev?.[subIdStr] || getSubtopicEdit(subIdStr)), planned_end_date: e.target.value }
                                                                         }))
                                                                       }
-                                                                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                                      disabled={!planEditMode || planSaveLoading || planLoading}
+                                                                      className={`w-full px-2 py-1 text-sm border rounded-md ${planEditMode ? 'border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500' : 'border-gray-200 bg-gray-50 text-secondary-700'}`}
                                                                     />
                                                                   </td>
                                                                 </tr>
