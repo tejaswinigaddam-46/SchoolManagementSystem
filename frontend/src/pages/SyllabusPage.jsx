@@ -12,6 +12,7 @@ import classService from '../services/classService';
 import { sectionService } from '../services/sectionService';
 import syllabusBookService, { syllabusChapterService, syllabusTopicService, syllabusSubtopicService, syllabusPlanService } from '../services/syllabusBookService';
 import { PERMISSIONS } from '../config/permissions';
+import SyllabusProgressDetailsPage from './SyllabusProgressDetailsPage.jsx';
 
 const SyllabusDivision = ({ campusId, academicYears, subjects, formData, setFormData, canViewCourse, canCreateCourse, canEditCourse, canDeleteCourse, canViewChapters, canCreateChapters, canEditChapters, canDeleteChapters, canViewTopics, canCreateTopics, canEditTopics, canDeleteTopics, canViewSubtopics, canCreateSubtopics, canEditSubtopics, canDeleteSubtopics, canCreatePlan }) => {
   const [divisionTab, setDivisionTab] = useState(null);
@@ -2829,7 +2830,7 @@ export default function SyllabusPage() {
                   canCreatePlan={canCreatePlan}
                 />
               ) : (
-                <SyllabusProgress academicYears={academicYears} subjects={subjects} formData={formData} />
+                <SyllabusProgressDetailsPage academicYears={academicYears} subjects={subjects} />
               )}
             </div>
           )}

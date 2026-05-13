@@ -204,6 +204,14 @@ export const syllabusSubtopicService = {
 };
 
 export const syllabusPlanService = {
+  getPlans: async (params = {}) => {
+    try {
+      const response = await api.get('/syllabus-tracking/plans', { params });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
   createPlan: async (data) => {
     try {
       const response = await api.post('/syllabus-tracking/plans', data);

@@ -133,6 +133,7 @@ export const PERMISSIONS = {
   SYLLABUS_SUBTOPIC_DELETE: 'syllabus_subtopic_delete',
 
   // Syllabus plans (per-route)
+  SYLLABUS_PLAN_LIST_READ: 'syllabus_plan_list_read',
   SYLLABUS_PLAN_CREATE: 'syllabus_plan_create',
 
   // Tenants (per-route)
