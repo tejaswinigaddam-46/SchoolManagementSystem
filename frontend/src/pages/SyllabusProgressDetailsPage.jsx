@@ -99,7 +99,10 @@ const buildPlanMapsFromPlans = (plans) => {
       plan_id: planId,
       planned_hours: row?.planned_hours ?? row?.plannedHours ?? null,
       planned_start_date: row?.planned_start_date ?? row?.plannedStartDate ?? null,
-      planned_end_date: row?.planned_end_date ?? row?.plannedEndDate ?? null
+      planned_end_date: row?.planned_end_date ?? row?.plannedEndDate ?? null,
+      actual_hours: row?.actual_hours ?? row?.actualHours ?? null,
+      actual_start_date: row?.actual_start_date ?? row?.actualStartDate ?? null,
+      actual_end_date: row?.actual_end_date ?? row?.actualEndDate ?? null
     };
 
     if (chapterId != null && topicId == null && subtopicId == null) {
@@ -779,6 +782,82 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
     return null;
   };
 
+  const computeActualSubtopicMeta = (subIdStr) => {
+    const meta = planMaps.subtopicMap?.[subIdStr] || {};
+    return {
+      actual_hours: toNumberOrNull(meta?.actual_hours),
+      actual_start_date: normalizeDateInput(meta?.actual_start_date),
+      actual_end_date: normalizeDateInput(meta?.actual_end_date)
+    };
+  };
+
+  const computeActualTopicMeta = (topicIdStr) => {
+    const subRows = subtopicsByTopicId?.[topicIdStr];
+    if (Array.isArray(subRows) && subRows.length > 0) {
+      const subMetas = subRows
+        .map((st) => st?.subtopic_id ?? st?.subtopicId ?? st?.id ?? null)
+        .map((id) => String(id || '').trim())
+        .filter(Boolean)
+        .map((sid) => computeActualSubtopicMeta(sid));
+
+      const hours = subMetas.reduce((sum, m) => sum + (toNumberOrNull(m.actual_hours) || 0), 0);
+      const start = minDateFromStrings(subMetas.map((m) => m.actual_start_date).filter(Boolean));
+      const end = maxDateFromStrings(subMetas.map((m) => m.actual_end_date).filter(Boolean));
+      return { actual_hours: hours, actual_start_date: start, actual_end_date: end };
+    }
+
+    const meta = planMaps.topicMap?.[topicIdStr] || {};
+    return {
+      actual_hours: toNumberOrNull(meta?.actual_hours),
+      actual_start_date: normalizeDateInput(meta?.actual_start_date),
+      actual_end_date: normalizeDateInput(meta?.actual_end_date)
+    };
+  };
+
+  const computeActualChapterMeta = (chapterIdStr) => {
+    const tpRows = topicsByChapterId?.[chapterIdStr];
+    if (Array.isArray(tpRows) && tpRows.length > 0) {
+      const topicMetas = tpRows
+        .map((tp) => tp?.topic_id ?? tp?.topicId ?? tp?.id ?? null)
+        .map((id) => String(id || '').trim())
+        .filter(Boolean)
+        .map((tid) => computeActualTopicMeta(tid));
+
+      const hours = topicMetas.reduce((sum, m) => sum + (toNumberOrNull(m.actual_hours) || 0), 0);
+      const start = minDateFromStrings(topicMetas.map((m) => m.actual_start_date).filter(Boolean));
+      const end = maxDateFromStrings(topicMetas.map((m) => m.actual_end_date).filter(Boolean));
+      return { actual_hours: hours, actual_start_date: start, actual_end_date: end };
+    }
+
+    const meta = planMaps.chapterMap?.[chapterIdStr] || {};
+    return {
+      actual_hours: toNumberOrNull(meta?.actual_hours),
+      actual_start_date: normalizeDateInput(meta?.actual_start_date),
+      actual_end_date: normalizeDateInput(meta?.actual_end_date)
+    };
+  };
+
+  const formatPercent = (plannedHours, actualHours) => {
+    const p = toNumberOrNull(plannedHours);
+    if (p == null || p <= 0) return null;
+    const a = toNumberOrNull(actualHours) || 0;
+    const pct = Math.max(0, Math.min(100, (a / p) * 100));
+    return `${Math.round(pct)}%`;
+  };
+
+  const CompletionCell = ({ plannedHours, actualHours }) => {
+    const pct = formatPercent(plannedHours, actualHours);
+    if (!pct) return <div className="text-sm text-secondary-500">—</div>;
+    const n = Number.parseInt(pct.replace('%', ''), 10);
+    const cls =
+      n >= 100
+        ? 'bg-emerald-100 text-emerald-800'
+        : n > 0
+          ? 'bg-blue-100 text-blue-800'
+          : 'bg-secondary-100 text-secondary-700';
+    return <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold ${cls}`}>{pct}</span>;
+  };
+
   const handleSavePlan = async () => {
     console.log('[SyllabusProgressDetailsPage] Save Plan clicked');
     if (!canCreatePlans) {
@@ -1190,6 +1269,7 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
                       <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">Planned Hours</th>
                       <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">Planned Start</th>
                       <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">Planned End</th>
+                      <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">Completion</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-secondary-200">
@@ -1203,10 +1283,11 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
                       const hasTopics = Array.isArray(chapterTopics) && chapterTopics.length > 0;
                       const canEditChapter = planEditMode && !hasTopics;
                       const meta = computeChapterMeta(chapterIdStr);
+                      const actualMeta = computeActualChapterMeta(chapterIdStr);
                       const edit = getChapterEdit(chapterIdStr);
                       return (
                         <React.Fragment key={chapterIdStr || title}>
-                          <tr className="hover:bg-secondary-50">
+                          <tr className="bg-blue-50/60 hover:bg-blue-100/60">
                             <td className="px-4 py-2">
                               <button
                                 type="button"
@@ -1266,11 +1347,14 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
                                 className={`w-full px-2 py-1 text-sm border rounded-md ${planEditMode && canEditChapter ? 'border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500' : 'border-gray-200 bg-gray-50 text-secondary-700'}`}
                               />
                             </td>
+                            <td className="px-4 py-2">
+                              <CompletionCell plannedHours={meta.planned_hours} actualHours={actualMeta.actual_hours} />
+                            </td>
                           </tr>
 
                           {expanded && (
                             <tr>
-                              <td colSpan={4} className="px-4 py-3 bg-secondary-50/40">
+                              <td colSpan={5} className="px-4 py-3 bg-secondary-50/40">
                                 {topicsLoadingByChapterId[chapterIdStr] ? (
                                   <div className="flex items-center">
                                     <LoadingSpinner className="w-4 h-4" />
@@ -1287,6 +1371,7 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
                                           <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">Planned Hours</th>
                                           <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">Planned Start</th>
                                           <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">Planned End</th>
+                                          <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">Completion</th>
                                         </tr>
                                       </thead>
                                       <tbody className="divide-y divide-secondary-200 bg-white">
@@ -1300,10 +1385,11 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
                                           const hasSubtopics = Array.isArray(topicSubs) && topicSubs.length > 0;
                                           const canEditTopic = planEditMode && !hasSubtopics;
                                           const topicMeta = computeTopicMeta(topicIdStr);
+                                          const topicActual = computeActualTopicMeta(topicIdStr);
                                           const topicEdit = getTopicEdit(topicIdStr);
                                           return (
                                             <React.Fragment key={topicIdStr || topicTitle}>
-                                              <tr className="hover:bg-secondary-50">
+                                              <tr className="bg-indigo-50/60 hover:bg-indigo-100/60">
                                                 <td className="px-4 py-2">
                                                   <button
                                                     type="button"
@@ -1361,11 +1447,14 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
                                                     className={`w-full px-2 py-1 text-sm border rounded-md ${planEditMode && canEditTopic ? 'border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500' : 'border-gray-200 bg-gray-50 text-secondary-700'}`}
                                                   />
                                                 </td>
+                                                <td className="px-4 py-2">
+                                                  <CompletionCell plannedHours={topicMeta.planned_hours} actualHours={topicActual.actual_hours} />
+                                                </td>
                                               </tr>
 
                                               {topicExpanded && (
                                                 <tr>
-                                                  <td colSpan={4} className="px-4 py-3 bg-secondary-50/50">
+                                                  <td colSpan={5} className="px-4 py-3 bg-secondary-50/50">
                                                     {subtopicsLoadingByTopicId[topicIdStr] ? (
                                                       <div className="flex items-center">
                                                         <LoadingSpinner className="w-4 h-4" />
@@ -1382,6 +1471,7 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
                                                               <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">Planned Hours</th>
                                                               <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">Planned Start</th>
                                                               <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">Planned End</th>
+                                                              <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">Completion</th>
                                                             </tr>
                                                           </thead>
                                                           <tbody className="divide-y divide-secondary-200 bg-white">
@@ -1390,8 +1480,9 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
                                                               const subIdStr = String(subId || '').trim();
                                                               const stTitle = String(st?.subtopic_title ?? st?.subtopicTitle ?? '').trim() || `Subtopic #${subIdStr || '—'}`;
                                                               const stEdit = getSubtopicEdit(subIdStr);
+                                                              const stActual = computeActualSubtopicMeta(subIdStr);
                                                               return (
-                                                                <tr key={subIdStr || stTitle} className="hover:bg-secondary-50">
+                                                                <tr key={subIdStr || stTitle} className="bg-emerald-50/30 hover:bg-emerald-100/40">
                                                                   <td className="px-4 py-2 text-sm font-medium text-secondary-900">{stTitle}</td>
                                                                   <td className="px-4 py-2">
                                                                     <input
@@ -1439,6 +1530,9 @@ export default function SyllabusProgressDetailsPage({ academicYears, subjects })
                                                                       disabled={!planEditMode || planSaveLoading || planLoading}
                                                                       className={`w-full px-2 py-1 text-sm border rounded-md ${planEditMode ? 'border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500' : 'border-gray-200 bg-gray-50 text-secondary-700'}`}
                                                                     />
+                                                                  </td>
+                                                                  <td className="px-4 py-2">
+                                                                    <CompletionCell plannedHours={toNumberOrNull(stEdit.planned_hours)} actualHours={stActual.actual_hours} />
                                                                   </td>
                                                                 </tr>
                                                               );

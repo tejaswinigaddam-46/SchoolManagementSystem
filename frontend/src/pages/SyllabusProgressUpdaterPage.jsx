@@ -7,7 +7,13 @@ import { useAuth } from '../contexts/AuthContext';
 import { PERMISSIONS } from '../config/permissions';
 import { academicService } from '../services/academicService';
 import { sectionService } from '../services/sectionService';
-import syllabusBookService, { syllabusChapterService, syllabusPlanService, syllabusSubtopicService, syllabusTopicService } from '../services/syllabusBookService';
+import syllabusBookService, {
+  syllabusChapterService,
+  syllabusPlanService,
+  syllabusProgressService,
+  syllabusSubtopicService,
+  syllabusTopicService
+} from '../services/syllabusBookService';
 
 const normalizeDateInput = (value) => {
   if (!value) return '';
@@ -40,25 +46,31 @@ const diffHoursInclusiveUTC = (startStr, endStr) => {
   return days * 24;
 };
 
-const buildPlanMapsFromPlans = (plans) => {
+const buildProgressMapsFromRows = (rows) => {
   const chapterMap = {};
   const topicMap = {};
   const subtopicMap = {};
 
-  (Array.isArray(plans) ? plans : []).forEach((row) => {
+  (Array.isArray(rows) ? rows : []).forEach((row) => {
     const planId = row?.plan_id ?? row?.planId ?? null;
+    const progressId = row?.progress_id ?? row?.progressId ?? null;
     const chapterId = row?.chapter_id ?? row?.chapterId ?? null;
     const topicId = row?.topic_id ?? row?.topicId ?? null;
     const subtopicId = row?.subtopic_id ?? row?.subtopicId ?? null;
 
     const meta = {
       plan_id: planId,
+      progress_id: progressId,
       planned_hours: row?.planned_hours ?? row?.plannedHours ?? null,
       planned_start_date: row?.planned_start_date ?? row?.plannedStartDate ?? null,
       planned_end_date: row?.planned_end_date ?? row?.plannedEndDate ?? null,
       actual_hours: row?.actual_hours ?? row?.actualHours ?? null,
-      actual_start_date: row?.actual_start_date ?? row?.actualStartDate ?? null,
-      actual_end_date: row?.actual_end_date ?? row?.actualEndDate ?? null
+      actual_start_date: row?.started_at ?? row?.startedAt ?? row?.actual_start_date ?? row?.actualStartDate ?? null,
+      actual_end_date: row?.completed_at ?? row?.completedAt ?? row?.actual_end_date ?? row?.actualEndDate ?? null,
+      status: row?.status ?? null,
+      completion_percentage: row?.completion_percentage ?? row?.completionPercentage ?? null,
+      notes: row?.notes ?? null,
+      updated_at: row?.updated_at ?? row?.updatedAt ?? null
     };
 
     if (chapterId != null && topicId == null && subtopicId == null) {
@@ -110,6 +122,7 @@ export default function SyllabusProgressUpdaterPage({ academicYears, subjects })
   const [planLoading, setPlanLoading] = useState(false);
   const [planRows, setPlanRows] = useState([]);
   const [planMaps, setPlanMaps] = useState({ chapterMap: {}, topicMap: {}, subtopicMap: {} });
+  const [progressSource, setProgressSource] = useState('progress'); // 'progress' | 'plans'
 
   const [chapterActualEdits, setChapterActualEdits] = useState({});
   const [topicActualEdits, setTopicActualEdits] = useState({});
@@ -412,8 +425,53 @@ export default function SyllabusProgressUpdaterPage({ academicYears, subjects })
     }
   };
 
+  const extractProgressRows = (response) => {
+    const raw = response ?? {};
+    const root = raw?.data ?? raw;
+    const candidate = root?.success && root?.data ? root.data : root;
+
+    const tries = [
+      candidate?.progress,
+      candidate?.rows,
+      candidate?.data?.progress,
+      candidate?.data?.rows,
+      raw?.progress,
+      raw?.rows,
+      raw?.data?.progress,
+      raw?.data?.rows,
+      raw?.data?.data?.progress,
+      raw?.data?.data?.rows
+    ];
+
+    for (const t of tries) {
+      if (Array.isArray(t)) return t;
+    }
+    return [];
+  };
+
+  const refreshProgress = async ({ ay, sid, subjectName }) => {
+    const response = await syllabusProgressService.getProgress({
+      academic_year_id: ay,
+      section_id: sid,
+      subject_name: subjectName
+    });
+    const normalized = extractProgressRows(response);
+    console.log('[SyllabusProgressUpdaterPage] getProgress rows', {
+      count: normalized.length,
+      sampleKeys: normalized[0] ? Object.keys(normalized[0]) : [],
+      responseKeys: response && typeof response === 'object' ? Object.keys(response) : []
+    });
+    setPlanRows(normalized);
+    setPlanMaps(buildProgressMapsFromRows(normalized));
+    setProgressSource(normalized.length > 0 ? 'progress' : 'plans');
+    setChapterActualEdits({});
+    setTopicActualEdits({});
+    setSubtopicActualEdits({});
+    return normalized;
+  };
+
   useEffect(() => {
-    const loadPlans = async () => {
+    const loadProgress = async () => {
       if (!canViewPlans) return;
       const ay = toNumberOrNull(academicYearId);
       const sid = toNumberOrNull(sectionId);
@@ -421,28 +479,48 @@ export default function SyllabusProgressUpdaterPage({ academicYears, subjects })
       if (!ay || !sid || !subjectName) {
         setPlanRows([]);
         setPlanMaps({ chapterMap: {}, topicMap: {}, subtopicMap: {} });
+        setProgressSource('progress');
         return;
       }
       try {
         setPlanLoading(true);
-        const response = await syllabusPlanService.getPlans({
-          academic_year_id: ay,
-          section_id: sid,
-          subject_name: subjectName
-        });
-        const data = response?.data ?? response;
-        const plans = data?.plans || [];
-        const normalized = Array.isArray(plans) ? plans : [];
-        setPlanRows(normalized);
-        setPlanMaps(buildPlanMapsFromPlans(normalized));
+        const normalized = await refreshProgress({ ay, sid, subjectName });
+        if (normalized.length === 0) {
+          console.log('[SyllabusProgressUpdaterPage] getProgress returned 0 rows; falling back to plans');
+          const plansRes = await syllabusPlanService.getPlans({
+            academic_year_id: ay,
+            section_id: sid,
+            subject_name: subjectName
+          });
+          const plansData = plansRes?.data ?? plansRes;
+          const plans = plansData?.plans || [];
+          const planRowsFallback = (Array.isArray(plans) ? plans : []).map((r) => ({
+            ...r,
+            actual_hours: 0,
+            completion_percentage: 0,
+            status: 'pending',
+            started_at: null,
+            completed_at: null
+          }));
+          setPlanRows(planRowsFallback);
+          setPlanMaps(buildProgressMapsFromRows(planRowsFallback));
+          setProgressSource(planRowsFallback.length > 0 ? 'plans' : 'progress');
+          setChapterActualEdits({});
+          setTopicActualEdits({});
+          setSubtopicActualEdits({});
+        }
       } catch (_) {
         setPlanRows([]);
         setPlanMaps({ chapterMap: {}, topicMap: {}, subtopicMap: {} });
+        setProgressSource('progress');
+        setChapterActualEdits({});
+        setTopicActualEdits({});
+        setSubtopicActualEdits({});
       } finally {
         setPlanLoading(false);
       }
     };
-    loadPlans();
+    loadProgress();
   }, [canViewPlans, academicYearId, sectionId, selectedSubjectName]);
 
   useEffect(() => {
@@ -574,9 +652,38 @@ export default function SyllabusProgressUpdaterPage({ academicYears, subjects })
     };
   };
 
-  const getChapterActualEdit = (chapterIdStr) => chapterActualEdits?.[chapterIdStr] || { actual_hours: '', actual_start_date: '', actual_end_date: '' };
-  const getTopicActualEdit = (topicIdStr) => topicActualEdits?.[topicIdStr] || { actual_hours: '', actual_start_date: '', actual_end_date: '' };
-  const getSubtopicActualEdit = (subIdStr) => subtopicActualEdits?.[subIdStr] || { actual_hours: '', actual_start_date: '', actual_end_date: '' };
+  const getChapterActualEdit = (chapterIdStr) => {
+    const existing = chapterActualEdits?.[chapterIdStr];
+    if (existing) return existing;
+    const meta = planMaps.chapterMap?.[chapterIdStr] || {};
+    return {
+      actual_hours: meta?.actual_hours ?? '',
+      actual_start_date: normalizeDateInput(meta?.actual_start_date),
+      actual_end_date: normalizeDateInput(meta?.actual_end_date)
+    };
+  };
+
+  const getTopicActualEdit = (topicIdStr) => {
+    const existing = topicActualEdits?.[topicIdStr];
+    if (existing) return existing;
+    const meta = planMaps.topicMap?.[topicIdStr] || {};
+    return {
+      actual_hours: meta?.actual_hours ?? '',
+      actual_start_date: normalizeDateInput(meta?.actual_start_date),
+      actual_end_date: normalizeDateInput(meta?.actual_end_date)
+    };
+  };
+
+  const getSubtopicActualEdit = (subIdStr) => {
+    const existing = subtopicActualEdits?.[subIdStr];
+    if (existing) return existing;
+    const meta = planMaps.subtopicMap?.[subIdStr] || {};
+    return {
+      actual_hours: meta?.actual_hours ?? '',
+      actual_start_date: normalizeDateInput(meta?.actual_start_date),
+      actual_end_date: normalizeDateInput(meta?.actual_end_date)
+    };
+  };
 
   const computeActualSubtopicMeta = (subIdStr) => {
     const e = getSubtopicActualEdit(subIdStr);
@@ -595,10 +702,23 @@ export default function SyllabusProgressUpdaterPage({ academicYears, subjects })
         .map((id) => String(id || '').trim())
         .filter(Boolean)
         .map((sid) => computeActualSubtopicMeta(sid));
-      const hours = subMetas.reduce((sum, m) => sum + (toNumberOrNull(m.actual_hours) || 0), 0);
+      const anyHours = subMetas.some((m) => toNumberOrNull(m.actual_hours) != null);
       const start = minDateFromStrings(subMetas.map((m) => m.actual_start_date).filter(Boolean));
       const end = maxDateFromStrings(subMetas.map((m) => m.actual_end_date).filter(Boolean));
-      return { actual_hours: hours, actual_start_date: start, actual_end_date: end, derived: true };
+      const anyDates = !!start || !!end;
+
+      if (anyHours || anyDates) {
+        const hours = subMetas.reduce((sum, m) => sum + (toNumberOrNull(m.actual_hours) || 0), 0);
+        return { actual_hours: hours, actual_start_date: start, actual_end_date: end, derived: true };
+      }
+
+      const meta = planMaps.topicMap?.[topicIdStr] || {};
+      return {
+        actual_hours: toNumberOrNull(meta?.actual_hours),
+        actual_start_date: normalizeDateInput(meta?.actual_start_date),
+        actual_end_date: normalizeDateInput(meta?.actual_end_date),
+        derived: true
+      };
     }
     const e = getTopicActualEdit(topicIdStr);
     return {
@@ -617,10 +737,23 @@ export default function SyllabusProgressUpdaterPage({ academicYears, subjects })
         .map((id) => String(id || '').trim())
         .filter(Boolean)
         .map((tid) => computeActualTopicMeta(tid));
-      const hours = topicMetas.reduce((sum, m) => sum + (toNumberOrNull(m.actual_hours) || 0), 0);
+      const anyHours = topicMetas.some((m) => toNumberOrNull(m.actual_hours) != null);
       const start = minDateFromStrings(topicMetas.map((m) => m.actual_start_date).filter(Boolean));
       const end = maxDateFromStrings(topicMetas.map((m) => m.actual_end_date).filter(Boolean));
-      return { actual_hours: hours, actual_start_date: start, actual_end_date: end, derived: true };
+      const anyDates = !!start || !!end;
+
+      if (anyHours || anyDates) {
+        const hours = topicMetas.reduce((sum, m) => sum + (toNumberOrNull(m.actual_hours) || 0), 0);
+        return { actual_hours: hours, actual_start_date: start, actual_end_date: end, derived: true };
+      }
+
+      const meta = planMaps.chapterMap?.[chapterIdStr] || {};
+      return {
+        actual_hours: toNumberOrNull(meta?.actual_hours),
+        actual_start_date: normalizeDateInput(meta?.actual_start_date),
+        actual_end_date: normalizeDateInput(meta?.actual_end_date),
+        derived: true
+      };
     }
     const e = getChapterActualEdit(chapterIdStr);
     return {
@@ -650,6 +783,40 @@ export default function SyllabusProgressUpdaterPage({ academicYears, subjects })
       }
     }
     return null;
+  };
+
+  const formatPercent = (plannedHours, actualHours) => {
+    const p = toNumberOrNull(plannedHours);
+    if (p == null || p <= 0) return null;
+    const a = toNumberOrNull(actualHours) || 0;
+    const pct = Math.max(0, Math.min(100, (a / p) * 100));
+    return Math.round(pct);
+  };
+
+  const CompletionCell = ({ plannedHours, actualHours, backendPercentage, backendStatus }) => {
+    const computed = formatPercent(plannedHours, actualHours);
+    const backendPctNum = toNumberOrNull(backendPercentage);
+    const pctNum = computed != null ? computed : backendPctNum;
+    if (pctNum == null) return <div className="text-sm text-secondary-500">—</div>;
+
+    const pct = `${Math.max(0, Math.min(100, pctNum))}%`;
+    const n = Number.parseInt(pct.replace('%', ''), 10);
+    const cls =
+      n >= 100
+        ? 'bg-emerald-100 text-emerald-800'
+        : n > 0
+          ? 'bg-blue-100 text-blue-800'
+          : 'bg-secondary-100 text-secondary-700';
+
+    const statusRaw = String(backendStatus || '').trim();
+    const status = statusRaw || (n >= 100 ? 'completed' : n > 0 ? 'in_progress' : 'pending');
+
+    return (
+      <div className="flex items-center gap-2">
+        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold ${cls}`}>{pct}</span>
+        <span className="text-xs font-medium text-secondary-600">{status}</span>
+      </div>
+    );
   };
 
   const handleSaveActual = async () => {
@@ -725,8 +892,8 @@ export default function SyllabusProgressUpdaterPage({ academicYears, subjects })
               plan_id: planId,
               fields_to_update: {
                 actual_hours: newH,
-                actual_start_date: newS,
-                actual_end_date: newE
+                started_at: newS,
+                completed_at: newE
               }
             });
             changedPlanIds.add(planId);
@@ -742,17 +909,20 @@ export default function SyllabusProgressUpdaterPage({ academicYears, subjects })
 
         const topicRows = localTopicsByChapterId?.[chapterIdStr] || [];
         const topics = Array.isArray(topicRows) ? topicRows : [];
-        const chapterMeta = computeActualChapterMeta(chapterIdStr);
         const oldChapterMeta = planMaps.chapterMap?.[chapterIdStr];
 
-        const chErr = validateActualMeta({
-          label: `Chapter ${String(ch?.chapter_title ?? ch?.chapterTitle ?? chapterIdStr).trim() || chapterIdStr}`,
-          actual_hours: chapterMeta.actual_hours,
-          actual_start_date: chapterMeta.actual_start_date,
-          actual_end_date: chapterMeta.actual_end_date
-        });
-        if (chErr) validationErrors.push(chErr);
-        maybeAddUpdate(oldChapterMeta?.plan_id, oldChapterMeta, chapterMeta);
+        if (!topics.length) {
+          const chapterMeta = computeActualChapterMeta(chapterIdStr);
+          const chErr = validateActualMeta({
+            label: `Chapter ${String(ch?.chapter_title ?? ch?.chapterTitle ?? chapterIdStr).trim() || chapterIdStr}`,
+            actual_hours: chapterMeta.actual_hours,
+            actual_start_date: chapterMeta.actual_start_date,
+            actual_end_date: chapterMeta.actual_end_date
+          });
+          if (chErr) validationErrors.push(chErr);
+          maybeAddUpdate(oldChapterMeta?.plan_id, oldChapterMeta, chapterMeta);
+          return;
+        }
 
         topics.forEach((tp) => {
           const topicId = tp?.topic_id ?? tp?.topicId ?? tp?.id ?? null;
@@ -761,17 +931,20 @@ export default function SyllabusProgressUpdaterPage({ academicYears, subjects })
           const subRows = localSubtopicsByTopicId?.[topicIdStr] || [];
           const subtopics = Array.isArray(subRows) ? subRows : [];
 
-          const topicMeta = computeActualTopicMeta(topicIdStr);
           const oldTopicMeta = planMaps.topicMap?.[topicIdStr];
 
-          const tpErr = validateActualMeta({
-            label: `Topic ${String(tp?.topic_title ?? tp?.topicTitle ?? topicIdStr).trim() || topicIdStr}`,
-            actual_hours: topicMeta.actual_hours,
-            actual_start_date: topicMeta.actual_start_date,
-            actual_end_date: topicMeta.actual_end_date
-          });
-          if (tpErr) validationErrors.push(tpErr);
-          maybeAddUpdate(oldTopicMeta?.plan_id, oldTopicMeta, topicMeta);
+          if (!subtopics.length) {
+            const topicMeta = computeActualTopicMeta(topicIdStr);
+            const tpErr = validateActualMeta({
+              label: `Topic ${String(tp?.topic_title ?? tp?.topicTitle ?? topicIdStr).trim() || topicIdStr}`,
+              actual_hours: topicMeta.actual_hours,
+              actual_start_date: topicMeta.actual_start_date,
+              actual_end_date: topicMeta.actual_end_date
+            });
+            if (tpErr) validationErrors.push(tpErr);
+            maybeAddUpdate(oldTopicMeta?.plan_id, oldTopicMeta, topicMeta);
+            return;
+          }
 
           subtopics.forEach((st) => {
             const subId = st?.subtopic_id ?? st?.subtopicId ?? st?.id ?? null;
@@ -803,19 +976,44 @@ export default function SyllabusProgressUpdaterPage({ academicYears, subjects })
         return;
       }
 
-      const response = await syllabusPlanService.updatePlan(updates);
+      if (progressSource === 'plans') {
+        const progress = updates
+          .map((u) => ({
+            plan_id: u.plan_id,
+            actual_hours: u.fields_to_update?.actual_hours ?? null,
+            started_at: u.fields_to_update?.started_at ?? null,
+            completed_at: u.fields_to_update?.completed_at ?? null
+          }))
+          .filter((p) => p.actual_hours != null || p.started_at || p.completed_at);
+        if (progress.length === 0) {
+          toast.success('No changes to save');
+          return;
+        }
+      }
+
+      const response =
+        progressSource === 'plans'
+          ? await syllabusProgressService.createProgress({
+              academic_year_id: ay,
+              section_id: sid,
+              subject_name: subjectName,
+              progress: updates
+                .map((u) => ({
+                  plan_id: u.plan_id,
+                  actual_hours: u.fields_to_update?.actual_hours ?? null,
+                  started_at: u.fields_to_update?.started_at ?? null,
+                  completed_at: u.fields_to_update?.completed_at ?? null
+                }))
+                .filter((p) => p.actual_hours != null || p.started_at || p.completed_at)
+            })
+          : await syllabusProgressService.updateProgressBulk(updates, {
+              academic_year_id: ay,
+              section_id: sid,
+              subject_name: subjectName
+            });
       if (response?.success) {
         toast.success(response?.message || 'Actuals saved successfully');
-        const refreshed = await syllabusPlanService.getPlans({
-          academic_year_id: ay,
-          section_id: sid,
-          subject_name: subjectName
-        });
-        const refreshedData = refreshed?.data ?? refreshed;
-        const plans = refreshedData?.plans || [];
-        const normalizedPlans = Array.isArray(plans) ? plans : [];
-        setPlanRows(normalizedPlans);
-        setPlanMaps(buildPlanMapsFromPlans(normalizedPlans));
+        await refreshProgress({ ay, sid, subjectName });
         setChapterActualEdits({});
         setTopicActualEdits({});
         setSubtopicActualEdits({});
@@ -1036,6 +1234,7 @@ export default function SyllabusProgressUpdaterPage({ academicYears, subjects })
                       <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">Hours</th>
                       <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">Start</th>
                       <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">End</th>
+                      <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">Completion</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-secondary-200">
@@ -1054,7 +1253,7 @@ export default function SyllabusProgressUpdaterPage({ academicYears, subjects })
 
                       return (
                         <React.Fragment key={chapterIdStr || title}>
-                          <tr className="hover:bg-secondary-50">
+                          <tr className="bg-blue-50/60 hover:bg-blue-100/60">
                             <td className="px-4 py-2">
                               <button
                                 type="button"
@@ -1075,7 +1274,7 @@ export default function SyllabusProgressUpdaterPage({ academicYears, subjects })
                                     [chapterIdStr]: { ...(prev?.[chapterIdStr] || getChapterActualEdit(chapterIdStr)), actual_hours: e.target.value }
                                   }))
                                 }
-                                actualDisabled={!canEditChapterActual || saveActualLoading || planLoading || !topicsResolved}
+                                actualDisabled={!canEditChapterActual || saveActualLoading || planLoading}
                               />
                             </td>
                             <td className="px-4 py-2">
@@ -1091,7 +1290,7 @@ export default function SyllabusProgressUpdaterPage({ academicYears, subjects })
                                     }
                                   }))
                                 }
-                                actualDisabled={!canEditChapterActual || saveActualLoading || planLoading || !topicsResolved}
+                                actualDisabled={!canEditChapterActual || saveActualLoading || planLoading}
                               />
                             </td>
                             <td className="px-4 py-2">
@@ -1104,14 +1303,22 @@ export default function SyllabusProgressUpdaterPage({ academicYears, subjects })
                                     [chapterIdStr]: { ...(prev?.[chapterIdStr] || getChapterActualEdit(chapterIdStr)), actual_end_date: e.target.value }
                                   }))
                                 }
-                                actualDisabled={!canEditChapterActual || saveActualLoading || planLoading || !topicsResolved}
+                                actualDisabled={!canEditChapterActual || saveActualLoading || planLoading}
+                              />
+                            </td>
+                            <td className="px-4 py-2">
+                              <CompletionCell
+                                plannedHours={plannedMeta.planned_hours}
+                                actualHours={actualMeta.actual_hours}
+                                backendPercentage={planMaps.chapterMap?.[chapterIdStr]?.completion_percentage}
+                                backendStatus={planMaps.chapterMap?.[chapterIdStr]?.status}
                               />
                             </td>
                           </tr>
 
                           {expanded && (
                             <tr>
-                              <td colSpan={4} className="px-4 py-3 bg-secondary-50/40">
+                              <td colSpan={5} className="px-4 py-3 bg-secondary-50/40">
                                 {topicsLoadingByChapterId[chapterIdStr] ? (
                                   <div className="flex items-center">
                                     <LoadingSpinner className="w-4 h-4" />
@@ -1128,6 +1335,7 @@ export default function SyllabusProgressUpdaterPage({ academicYears, subjects })
                                           <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">Hours</th>
                                           <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">Start</th>
                                           <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">End</th>
+                                          <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">Completion</th>
                                         </tr>
                                       </thead>
                                       <tbody className="divide-y divide-secondary-200 bg-white">
@@ -1146,7 +1354,7 @@ export default function SyllabusProgressUpdaterPage({ academicYears, subjects })
 
                                           return (
                                             <React.Fragment key={topicIdStr || topicTitle}>
-                                              <tr className="hover:bg-secondary-50">
+                                              <tr className="bg-indigo-50/60 hover:bg-indigo-100/60">
                                                 <td className="px-4 py-2">
                                                   <button
                                                     type="button"
@@ -1167,7 +1375,7 @@ export default function SyllabusProgressUpdaterPage({ academicYears, subjects })
                                                         [topicIdStr]: { ...(prev?.[topicIdStr] || getTopicActualEdit(topicIdStr)), actual_hours: e.target.value }
                                                       }))
                                                     }
-                                                    actualDisabled={!canEditTopicActual || saveActualLoading || planLoading || !subtopicsResolved}
+                                                    actualDisabled={!canEditTopicActual || saveActualLoading || planLoading}
                                                   />
                                                 </td>
                                                 <td className="px-4 py-2">
@@ -1183,7 +1391,7 @@ export default function SyllabusProgressUpdaterPage({ academicYears, subjects })
                                                         }
                                                       }))
                                                     }
-                                                    actualDisabled={!canEditTopicActual || saveActualLoading || planLoading || !subtopicsResolved}
+                                                    actualDisabled={!canEditTopicActual || saveActualLoading || planLoading}
                                                   />
                                                 </td>
                                                 <td className="px-4 py-2">
@@ -1196,14 +1404,22 @@ export default function SyllabusProgressUpdaterPage({ academicYears, subjects })
                                                         [topicIdStr]: { ...(prev?.[topicIdStr] || getTopicActualEdit(topicIdStr)), actual_end_date: e.target.value }
                                                       }))
                                                     }
-                                                    actualDisabled={!canEditTopicActual || saveActualLoading || planLoading || !subtopicsResolved}
+                                                    actualDisabled={!canEditTopicActual || saveActualLoading || planLoading}
+                                                  />
+                                                </td>
+                                                <td className="px-4 py-2">
+                                                  <CompletionCell
+                                                    plannedHours={plannedTopic.planned_hours}
+                                                    actualHours={actualTopic.actual_hours}
+                                                    backendPercentage={planMaps.topicMap?.[topicIdStr]?.completion_percentage}
+                                                    backendStatus={planMaps.topicMap?.[topicIdStr]?.status}
                                                   />
                                                 </td>
                                               </tr>
 
                                               {topicExpanded && (
                                                 <tr>
-                                                  <td colSpan={4} className="px-4 py-3 bg-secondary-50/50">
+                                                  <td colSpan={5} className="px-4 py-3 bg-secondary-50/50">
                                                     {subtopicsLoadingByTopicId[topicIdStr] ? (
                                                       <div className="flex items-center">
                                                         <LoadingSpinner className="w-4 h-4" />
@@ -1220,6 +1436,7 @@ export default function SyllabusProgressUpdaterPage({ academicYears, subjects })
                                                               <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">Hours</th>
                                                               <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">Start</th>
                                                               <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">End</th>
+                                                              <th className="px-4 py-2 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">Completion</th>
                                                             </tr>
                                                           </thead>
                                                           <tbody className="divide-y divide-secondary-200 bg-white">
@@ -1231,7 +1448,7 @@ export default function SyllabusProgressUpdaterPage({ academicYears, subjects })
                                                               const plannedSub = computePlannedSubtopicMeta(subIdStr);
                                                               const stEdit = getSubtopicActualEdit(subIdStr);
                                                               return (
-                                                                <tr key={subIdStr || stTitle} className="hover:bg-secondary-50">
+                                                                <tr key={subIdStr || stTitle} className="bg-emerald-50/30 hover:bg-emerald-100/40">
                                                                   <td className="px-4 py-2 text-sm font-medium text-secondary-900">{stTitle}</td>
                                                                   <td className="px-4 py-2">
                                                                     <DualNumberCell
@@ -1273,6 +1490,14 @@ export default function SyllabusProgressUpdaterPage({ academicYears, subjects })
                                                                         }))
                                                                       }
                                                                       actualDisabled={saveActualLoading || planLoading}
+                                                                    />
+                                                                  </td>
+                                                                  <td className="px-4 py-2">
+                                                                    <CompletionCell
+                                                                      plannedHours={plannedSub.planned_hours}
+                                                                      actualHours={stEdit.actual_hours}
+                                                                      backendPercentage={planMaps.subtopicMap?.[subIdStr]?.completion_percentage}
+                                                                      backendStatus={planMaps.subtopicMap?.[subIdStr]?.status}
                                                                     />
                                                                   </td>
                                                                 </tr>

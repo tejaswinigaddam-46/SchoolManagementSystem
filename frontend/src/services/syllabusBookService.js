@@ -238,4 +238,39 @@ export const syllabusPlanService = {
   }
 };
 
+export const syllabusProgressService = {
+  getProgress: async (params = {}) => {
+    try {
+      const response = await api.get(withApiPrefixIfNeeded('/syllabus-tracking/progress'), { params });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+  createProgress: async (data) => {
+    try {
+      const response = await api.post(withApiPrefixIfNeeded('/syllabus-tracking/progress'), data);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+  updateProgressBulk: async (updates = [], params = {}) => {
+    try {
+      const response = await api.put(withApiPrefixIfNeeded('/syllabus-tracking/progress'), updates, { params });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+  updateProgressById: async (progressId, data) => {
+    try {
+      const response = await api.put(withApiPrefixIfNeeded(`/syllabus-tracking/progress/${progressId}`), data);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  }
+};
+
 export default syllabusBookService;
