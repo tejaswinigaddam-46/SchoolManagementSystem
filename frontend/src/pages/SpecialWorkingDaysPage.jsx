@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import { useAuth } from '../contexts/AuthContext';
 import { academicService } from '../services/academicService';
@@ -6,41 +6,97 @@ import { specialWorkingDayService } from '../services/specialWorkingDayService';
 import { holidayService } from '../services/holidayService';
 import Card from '../components/ui/Card';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
-import AcademicYearSelector from '../components/forms/AcademicYearSelector';
 import ConfirmationDialog from '../components/ui/ConfirmationDialog';
-import { Calendar, Trash2, Edit2, X, Check } from 'lucide-react';
+import OneAcademicYearPage from '../components/layout/OneAcademicYearPage.jsx';
+import Modal from '../components/ui/Modal.jsx';
+import RequiredAsterisk from '../components/ui/RequiredAsterisk.jsx';
+import { ActionButtonGroup, DeleteButton, EditButton } from '../components/ui/ActionButtons.jsx';
+import { Calendar } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { PERMISSIONS } from '../config/permissions';
 
+const InputField = ({
+  label,
+  name,
+  type = 'text',
+  required = false,
+  options = null,
+  className = '',
+  formData,
+  handleInputChange,
+  ...props
+}) => (
+  <div className={`${className}`}>
+    <label className={`block text-xs font-medium mb-1 ${type === 'date' ? 'text-blue-700' : 'text-gray-700'}`}>
+      {label} {required && <RequiredAsterisk />}
+    </label>
+    {type === 'select' ? (
+      <select
+        name={name}
+        value={formData[name] || ''}
+        onChange={handleInputChange}
+        className={`w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 ${
+          type === 'date' ? 'border-blue-300 bg-blue-50' : 'border-gray-300 bg-white'
+        } ${type === 'date' ? 'h-10' : 'h-9'}`}
+        required={required}
+        {...props}
+      >
+        <option value="">Select</option>
+        {options &&
+          options.map((option, index) => (
+            <option key={`${name}-${index}`} value={option.value ?? option}>
+              {option.label ?? option}
+            </option>
+          ))}
+      </select>
+    ) : (
+      <input
+        type={type}
+        name={name}
+        value={formData[name] || ''}
+        onChange={handleInputChange}
+        className={`w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 transition-all duration-200 ${
+          type === 'date'
+            ? 'border-blue-400 bg-blue-50 focus:ring-blue-300 focus:border-blue-500 shadow-sm'
+            : 'border-gray-300 bg-white focus:ring-blue-500 focus:border-blue-500'
+        } ${type === 'date' ? 'h-10 font-mono' : 'h-9'}`}
+        required={required}
+        {...props}
+      />
+    )}
+  </div>
+);
+
 const SpecialWorkingDaysPage = () => {
-  const { user, hasPermission, getCampusId } = useAuth();
-  const canCreateOrUpdateSpecialDay =
-    hasPermission && hasPermission(PERMISSIONS.SPECIAL_WORKING_DAY_CREATE);
-  const canDeleteSpecialDay =
-    hasPermission && hasPermission(PERMISSIONS.SPECIAL_WORKING_DAY_DELETE);
+  const { hasPermission, getCampusId, getDefaultAcademicYearId } = useAuth();
+  const canCreateSpecialDay = hasPermission && hasPermission(PERMISSIONS.SPECIAL_WORKING_DAY_CREATE);
+  const canEditSpecialDay = hasPermission && hasPermission(PERMISSIONS.SPECIAL_WORKING_DAY_EDIT);
+  const canDeleteSpecialDay = hasPermission && hasPermission(PERMISSIONS.SPECIAL_WORKING_DAY_DELETE);
   const campusId = getCampusId();
-  const formRef = useRef(null);
+  const defaultAcademicYearId = getDefaultAcademicYearId();
   
   // State
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
+  const [allAcademicYears, setAllAcademicYears] = useState([]);
   const [specialDays, setSpecialDays] = useState([]);
+  const [hasFetchedSpecialDays, setHasFetchedSpecialDays] = useState(false);
+  const [showModal, setShowModal] = useState(false);
   
   // Filter State
-  const [dateRange, setDateRange] = useState({ 
-    start: new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0], 
-    end: new Date(new Date().getFullYear(), 11, 31).toISOString().split('T')[0] 
+  const [filters, setFilters] = useState({
+    academic_year_id: defaultAcademicYearId || ''
   });
+  const [dateRange, setDateRange] = useState({ start: '', end: '' });
 
   // Admin Form State
   const [formData, setFormData] = useState({
     workDate: '',
-    description: ''
+    description: '',
+    academic_year_id: ''
   });
-  const [selectedAcademicYearId, setSelectedAcademicYearId] = useState(null);
-  const [academicYearSelectorValue, setAcademicYearSelectorValue] = useState(null);
   const [editingId, setEditingId] = useState(null);
-  const [message, setMessage] = useState({ type: '', text: '' });
   
   // Conflict Confirmation Dialog State
   const [conflictDialog, setConflictDialog] = useState({
@@ -49,48 +105,59 @@ const SpecialWorkingDaysPage = () => {
     isEdit: false
   });
 
+  const getUtcDateInputString = (date) => date.toISOString().slice(0, 10);
+
   // Initial Data Fetching
   useEffect(() => {
-    if (campusId) {
-      fetchData();
-    }
-  }, [campusId]); // Initial load
+    const fetchInitialData = async () => {
+      try {
+        if (!campusId) return;
+        setLoading(true);
 
-  const fetchData = async () => {
+        const yearsRes = await academicService.getAllAcademicYears(campusId);
+        const years = yearsRes.data || yearsRes || [];
+        setAllAcademicYears(years);
+
+        const now = new Date();
+        const utcToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+        const utcMonthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+        setDateRange({ start: getUtcDateInputString(utcMonthStart), end: getUtcDateInputString(utcToday) });
+      } catch (error) {
+        console.error('Error fetching initial data:', error);
+        toast.error('Failed to load academic years');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchInitialData();
+  }, [campusId, defaultAcademicYearId]);
+
+  const fetchSpecialDays = async (startDate, endDate) => {
     try {
       setLoading(true);
-      await fetchSpecialDays();
+      const res = await specialWorkingDayService.getAll(campusId, { startDate, endDate });
+      const rawDays = res.data || res || [];
+      const academicYearId = filters.academic_year_id ? parseInt(filters.academic_year_id, 10) : null;
+      const filteredDays = academicYearId
+        ? rawDays.filter(d => Array.isArray(d.academic_year_ids) && d.academic_year_ids.includes(academicYearId))
+        : rawDays;
+
+      filteredDays.sort((a, b) => new Date(a.work_date).getTime() - new Date(b.work_date).getTime());
+      setSpecialDays(filteredDays);
     } catch (error) {
-      console.error("Error fetching data:", error);
-      setMessage({ type: 'error', text: 'Failed to load data.' });
+      console.error('Error fetching special working days:', error);
+      toast.error('Failed to load special working days');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const fetchSpecialDays = async () => {
-    try {
-      const filters = {
-        startDate: dateRange.start,
-        endDate: dateRange.end
-      };
-      
-      const res = await specialWorkingDayService.getAll(campusId, filters);
-      setSpecialDays(res.data || res || []);
-    } catch (error) {
-      console.error("Error fetching special days:", error);
-      // Don't overwrite error message from fetchData if it failed there
     }
   };
 
   const handleDateRangeChange = (e) => {
     const { name, value } = e.target;
     setDateRange(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleFilterSubmit = (e) => {
-    e.preventDefault();
-    fetchSpecialDays();
+    setSpecialDays([]);
+    setHasFetchedSpecialDays(false);
   };
 
   const handleInputChange = (e) => {
@@ -98,85 +165,55 @@ const SpecialWorkingDaysPage = () => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleAcademicYearChange = (e, validation) => {
-    setAcademicYearSelectorValue(e.target.value);
-    if (validation && validation.isValid && validation.academicYearId) {
-      setSelectedAcademicYearId(validation.academicYearId);
-    } else {
-      setSelectedAcademicYearId(null);
-    }
+  const resetForm = () => {
+    setFormData({
+      workDate: '',
+      description: '',
+      academic_year_id: filters.academic_year_id || defaultAcademicYearId || ''
+    });
+    setEditingId(null);
   };
 
-  const handleEdit = async (day) => {
+  const handleAddClick = () => {
+    resetForm();
+    setShowModal(true);
+  };
+
+  const handleEdit = (day) => {
     setEditingId(day.id);
     setFormData({
       workDate: day.work_date.split('T')[0],
-      description: day.description
+      description: day.description || '',
+      academic_year_id:
+        day.academic_year_ids && day.academic_year_ids.length > 0 ? String(day.academic_year_ids[0]) : ''
     });
-    
-    // Handle academic year population for edit
-    if (day.academic_year_ids && day.academic_year_ids.length > 0) {
-       const acadYearId = day.academic_year_ids[0];
-       try {
-           const res = await academicService.getAcademicYearById(campusId, acadYearId);
-           const ay = res.data || res;
-           
-           if (ay) {
-               setAcademicYearSelectorValue({
-                   year_name: ay.year_name,
-                   year_type: ay.year_type,
-                   curriculum_id: ay.curriculum_id,
-                   medium: ay.medium,
-                   academic_year_id: ay.academic_year_id
-               });
-               setSelectedAcademicYearId(ay.academic_year_id);
-           }
-       } catch (err) {
-           console.error("Error fetching academic year details for edit:", err);
-           toast.error("Could not load academic year details");
-       }
-    } else {
-        setAcademicYearSelectorValue(null);
-        setSelectedAcademicYearId(null);
-    }
-
-    if (formRef.current) {
-      formRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+    setShowModal(true);
   };
 
-  const handleCancelEdit = () => {
-    setEditingId(null);
-    setFormData({ workDate: '', description: '' });
-    setSelectedAcademicYearId(null);
-    setAcademicYearSelectorValue(null);
+  const closeModal = () => {
+    setShowModal(false);
+    resetForm();
   };
   
   const proceedWithSave = async (payload, isEdit) => {
     try {
       setSaving(true);
-      setMessage({ type: '', text: '' });
-
       if (isEdit) {
         await specialWorkingDayService.update(campusId, editingId, payload);
-        setMessage({ type: 'success', text: 'Special working day updated successfully!' });
         toast.success('Special working day updated successfully');
       } else {
         await specialWorkingDayService.create(campusId, payload);
-        setMessage({ type: 'success', text: 'Special working day created successfully!' });
         toast.success('Special working day created successfully');
       }
       
-      setFormData({ workDate: '', description: '' });
-      setSelectedAcademicYearId(null);
-      setAcademicYearSelectorValue(null);
-      setEditingId(null);
+      closeModal();
       setConflictDialog({ isOpen: false, payload: null, isEdit: false });
-      fetchSpecialDays();
+      if (hasFetchedSpecialDays) {
+        fetchSpecialDays(dateRange.start, dateRange.end);
+      }
 
     } catch (error) {
       console.error("Error saving special day:", error);
-      setMessage({ type: 'error', text: error.message || 'Failed to save special working day.' });
       toast.error(error.message || 'Failed to save special working day');
     } finally {
       setSaving(false);
@@ -185,46 +222,34 @@ const SpecialWorkingDaysPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.workDate || !formData.description || !selectedAcademicYearId) {
-      setMessage({ type: 'error', text: 'Please fill all required fields and select a valid academic year.' });
+    if (!formData.workDate || !formData.description || !formData.academic_year_id) {
+      toast.error('Please fill all required fields.');
       return;
     }
 
     const payload = {
         work_date: formData.workDate,
         description: formData.description,
-        academic_year_ids: [selectedAcademicYearId]
+        academic_year_ids: [parseInt(formData.academic_year_id, 10)]
     };
 
     // Check for conflicts with Holidays
     try {
-        setSaving(true);
-        // Fetch holidays that might overlap with the selected date
-        // Since getHolidays usually fetches a range or all, let's fetch for the specific date if possible,
-        // or just fetch all and filter client side if the list isn't huge.
-        // Or better, use the existing filters support in getHolidays.
         const holidaysRes = await holidayService.getHolidays(campusId, { startDate: formData.workDate, endDate: formData.workDate });
         const holidays = holidaysRes.data || holidaysRes || [];
 
+        const selectedAcademicYearId = parseInt(formData.academic_year_id, 10);
         const conflict = holidays.some(h => {
-            // Check Date Overlap (already filtered by API hopefully, but double check)
             const hStart = new Date(h.start_date).setHours(0,0,0,0);
             const hEnd = new Date(h.end_date || h.start_date).setHours(0,0,0,0);
             const wDate = new Date(formData.workDate).setHours(0,0,0,0);
             
             if (wDate < hStart || wDate > hEnd) return false;
 
-            // Check Academic Year Overlap
-            // Holiday applies if:
-            // 1. It has no academic_year_ids (Global)
-            // 2. It has academic_year_ids and includes the selected one
-            // Special Working Day applies if:
-            // 1. We selected an academic year (required here)
-            
             const holidayAcademicYears = h.academic_year_ids || [];
             const isGlobalHoliday = holidayAcademicYears.length === 0;
             
-            if (isGlobalHoliday) return true; // Global holiday conflicts with any specific working day
+            if (isGlobalHoliday) return true;
             
             return holidayAcademicYears.includes(selectedAcademicYearId);
         });
@@ -235,245 +260,229 @@ const SpecialWorkingDaysPage = () => {
                 payload,
                 isEdit: !!editingId
             });
-            setSaving(false);
             return;
         }
 
-        // No conflict, proceed
         proceedWithSave(payload, !!editingId);
 
     } catch (err) {
         console.error("Error checking conflicts:", err);
-        // On error checking, maybe warn or just proceed? Let's proceed but log.
-        // Or better, show error.
         toast.error("Failed to validate conflicts. Please try again.");
-        setSaving(false);
     }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this special working day?')) return;
-    
     try {
-      setLoading(true);
+      setDeletingId(id);
       await specialWorkingDayService.delete(campusId, id);
-      setMessage({ type: 'success', text: 'Special working day deleted successfully!' });
       toast.success('Special working day deleted successfully');
-      fetchSpecialDays();
+      setSpecialDays(prev => prev.filter(d => d.id !== id));
     } catch (error) {
       console.error("Error deleting special day:", error);
-      setMessage({ type: 'error', text: error.message || 'Failed to delete special working day.' });
       toast.error(error.message || 'Failed to delete special working day');
-      setLoading(false);
+    } finally {
+      setDeletingId(null);
     }
   };
 
-  return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-800">
-          Special Working Days Management
-        </h1>
-      </div>
+  const getAcademicYearNames = (ids) => {
+    if (!ids || !Array.isArray(ids) || ids.length === 0) return 'N/A';
+    return ids
+      .map(id => {
+        const y = allAcademicYears.find(ay => ay.academic_year_id === id);
+        return y ? `${y.year_name} (${y.year_type}) - ${y.curriculum_code || 'N/A'}` : id;
+      })
+      .join(', ');
+  };
 
+  const customFilters = (
+    <div className="md:col-span-2">
+      <div className="flex flex-col sm:flex-row gap-4 items-end justify-end">
+        <InputField
+          label="Start Date"
+          name="start"
+          type="date"
+          formData={dateRange}
+          handleInputChange={handleDateRangeChange}
+          className="flex-1 min-w-[160px]"
+        />
+        <InputField
+          label="End Date"
+          name="end"
+          type="date"
+          formData={dateRange}
+          handleInputChange={handleDateRangeChange}
+          className="flex-1 min-w-[160px]"
+        />
+        <button
+          type="button"
+          onClick={() => {
+            fetchSpecialDays(dateRange.start, dateRange.end);
+            setHasFetchedSpecialDays(true);
+          }}
+          className="btn-primary whitespace-nowrap h-10 px-6 w-full sm:w-auto"
+          disabled={loading}
+        >
+          {loading ? 'Loading...' : 'Get Special Working Days'}
+        </button>
+      </div>
+    </div>
+  );
+
+  return (
+    <OneAcademicYearPage
+      title="Manage Special Working Days"
+      filterOptions={{ academic_years: allAcademicYears, classes: [] }}
+      filters={filters}
+      setFilters={setFilters}
+      onFiltersChange={(newFilters) => {
+        setFilters(newFilters);
+        setSpecialDays([]);
+        setHasFetchedSpecialDays(false);
+      }}
+      showClassFilter={false}
+      showSearchFilter={false}
+      customFilters={customFilters}
+      addButtonText="Add Special Working Day"
+      onAddClick={handleAddClick}
+      canAdd={canCreateSpecialDay}
+    >
       <ConfirmationDialog
         isOpen={conflictDialog.isOpen}
         onClose={() => setConflictDialog({ isOpen: false, payload: null, isEdit: false })}
         onConfirm={() => proceedWithSave(conflictDialog.payload, conflictDialog.isEdit)}
         title="Holiday Conflict"
-        message="It is holiday for same day and same academic year do you still need to add it anyways?"
+        message="A holiday exists on the same date and academic year. Do you want to add this special working day anyway?"
         confirmText="Yes, Add Anyway"
         cancelText="Cancel"
         variant="warning"
+        isLoading={saving}
       />
 
-      {message.text && (
-        <div className={`p-4 rounded-md ${message.type === 'error' ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
-          {message.text}
-        </div>
-      )}
-
-      {/* ADD/EDIT FORM */}
-      {canCreateOrUpdateSpecialDay && (
+      <div className="space-y-6">
         <Card className="p-6">
-          <h2 className="text-lg font-semibold mb-4">{editingId ? 'Edit Special Working Day' : 'Add New Special Working Day'}</h2>
-          
-          <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Date *</label>
-                <input
-                  type="date"
-                  name="workDate"
-                  value={formData.workDate}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description *</label>
-                <input
-                  type="text"
-                  name="description"
-                  value={formData.description}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="e.g. Annual Function"
-                />
-              </div>
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <LoadingSpinner />
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Academic Year *</label>
-              <div className="w-full">
-                <AcademicYearSelector
-                  campusId={campusId}
-                  value={academicYearSelectorValue}
-                  onChange={handleAcademicYearChange}
-                  disabled={saving}
-                  required
-                />
-              </div>
-              <p className="text-xs text-gray-500 mt-1">
-                The special working day will be applied to the selected academic year.
-              </p>
+          ) : !hasFetchedSpecialDays ? (
+            <div className="text-center py-12 text-gray-500 bg-gray-50 rounded-xl border border border-gray-300">
+              Select filters and click Get Special Working Days to view results.
             </div>
-
-            <div className="flex justify-end gap-3">
-              {editingId && (
-                <button
-                  type="button"
-                  onClick={handleCancelEdit}
-                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-              )}
-              <button
-                type="submit"
-                disabled={saving}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
-              >
-                {saving ? <LoadingSpinner size="sm" color="white" /> : (editingId ? <Check size={16} /> : <Calendar size={16} />)}
-                {editingId ? 'Update Special Day' : 'Add Special Day'}
-              </button>
+          ) : specialDays.length === 0 ? (
+            <div className="text-center py-12 text-gray-500 bg-gray-50 rounded-xl border border-dashed border-gray-300">
+              No special working days found for the selected range.
             </div>
-          </form>
-        </Card>
-      )}
-
-      {/* FILTER SECTION */}
-      <Card className="p-6">
-        <h2 className="text-lg font-semibold mb-4">View Special Working Days</h2>
-        <form onSubmit={handleFilterSubmit} className="flex flex-col md:flex-row gap-4 items-end">
-          <div className="flex-1 w-full">
-            <label className="block text-sm font-medium text-gray-700 mb-1">From Date</label>
-            <input
-              type="date"
-              name="start"
-              value={dateRange.start}
-              onChange={handleDateRangeChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-          <div className="flex-1 w-full">
-            <label className="block text-sm font-medium text-gray-700 mb-1">To Date</label>
-            <input
-              type="date"
-              name="end"
-              value={dateRange.end}
-              onChange={handleDateRangeChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-          <button
-            type="submit"
-            className="px-4 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900 w-full md:w-auto"
-          >
-            Apply Filter
-          </button>
-        </form>
-      </Card>
-
-      {/* LIST SECTION */}
-      <Card className="overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-800">Special Working Days List</h2>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Date
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Description
-                </th>
-                {canCreateOrUpdateSpecialDay && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Applicable To
-                  </th>
-                )}
-                {canDeleteSpecialDay && (
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                )}
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {specialDays.length > 0 ? (
-                specialDays.map((day) => (
-                  <tr key={day.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {format(parseISO(day.work_date), 'MMM d, yyyy (EEEE)')}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {day.description}
-                    </td>
-                    {canCreateOrUpdateSpecialDay && (
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {day.academic_year_names || 'N/A'}
-                      </td>
-                    )}
-                    {canDeleteSpecialDay && (
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button
-                          onClick={() => handleEdit(day)}
-                          className="text-blue-600 hover:text-blue-900 mr-4"
-                          title="Edit"
-                        >
-                          <Edit2 size={18} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(day.id)}
-                          className="text-red-600 hover:text-red-900"
-                          title="Delete"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </td>
+          ) : (
+            <div className="overflow-x-auto border border-secondary-200 rounded-xl">
+              <table className="min-w-full divide-y divide-secondary-200">
+                <thead className="bg-secondary-50">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-secondary-600 uppercase tracking-wider">Date</th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-secondary-600 uppercase tracking-wider">Description</th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-secondary-600 uppercase tracking-wider">Academic Year</th>
+                    {(canEditSpecialDay || canDeleteSpecialDay) && (
+                      <th className="px-6 py-4 text-right text-xs font-bold text-secondary-600 uppercase tracking-wider">Actions</th>
                     )}
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td
-                    colSpan={canCreateOrUpdateSpecialDay || canDeleteSpecialDay ? 4 : 2}
-                    className="px-6 py-8 text-center text-gray-500"
-                  >
-                    No special working days found for the selected date range.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-    </div>
+                </thead>
+                <tbody className="bg-white divide-y divide-secondary-100">
+                  {specialDays.map((day) => (
+                    <tr key={day.id} className="hover:bg-secondary-50/50 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-900 font-medium">
+                        {format(parseISO(day.work_date), 'MMM d, yyyy')}
+                        <span className="text-secondary-400 font-normal"> ({format(parseISO(day.work_date), 'EEEE')})</span>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-secondary-900 font-bold">{day.description}</td>
+                      <td className="px-6 py-4 text-sm text-secondary-600">
+                        {day.academic_year_names || getAcademicYearNames(day.academic_year_ids)}
+                      </td>
+                      {(canEditSpecialDay || canDeleteSpecialDay) && (
+                        <td className="px-6 py-4 whitespace-nowrap text-right">
+                          <ActionButtonGroup className="justify-end">
+                            {canEditSpecialDay && (
+                              <EditButton onClick={() => handleEdit(day)} title="Edit special working day" />
+                            )}
+                            {canDeleteSpecialDay && (
+                              <DeleteButton
+                                onClick={() => handleDelete(day.id)}
+                                isDeleting={deletingId === day.id}
+                                title="Delete special working day"
+                                confirmMessage="Are you sure you want to delete this special working day?"
+                              />
+                            )}
+                          </ActionButtonGroup>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+      </div>
+
+      <Modal
+        isOpen={showModal}
+        onClose={closeModal}
+        title={editingId ? 'Edit Special Working Day' : 'Add Special Working Day'}
+        size="lg"
+      >
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <InputField
+              label="Work Date"
+              name="workDate"
+              type="date"
+              required
+              formData={formData}
+              handleInputChange={handleInputChange}
+            />
+            <InputField
+              label="Academic Year"
+              name="academic_year_id"
+              type="select"
+              required
+              options={allAcademicYears.map(y => ({
+                label: `${y.year_name} - ${(y.curriculum_code || y.curriculum_name || 'N/A')} - ${y.medium || 'N/A'}`,
+                value: y.academic_year_id
+              }))}
+              formData={formData}
+              handleInputChange={handleInputChange}
+            />
+            <InputField
+              label="Description"
+              name="description"
+              required
+              formData={formData}
+              handleInputChange={handleInputChange}
+              placeholder="e.g. Annual Function"
+              className="md:col-span-2"
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 pt-6 border-t border-secondary-100">
+            <button
+              type="button"
+              onClick={closeModal}
+              className="px-6 py-2.5 text-secondary-600 font-medium border border-secondary-300 rounded-xl hover:bg-secondary-50 transition-colors"
+              disabled={saving}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-8 py-2.5 bg-primary-600 text-white font-medium rounded-xl hover:bg-primary-700 transition-all flex items-center gap-2 shadow-lg shadow-primary-200 disabled:opacity-50"
+            >
+              {saving ? <LoadingSpinner size="sm" color="white" /> : <Calendar size={18} />}
+              {editingId ? 'Update Special Working Day' : 'Save Special Working Day'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+    </OneAcademicYearPage>
   );
 };
 
