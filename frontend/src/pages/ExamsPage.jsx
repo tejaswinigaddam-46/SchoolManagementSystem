@@ -496,7 +496,7 @@ export default function ExamsPage() {
                         try {
                             const assignmentData = {
                                 question_name: questionText,
-                                curriculum_book_name: 'GOV_SSC_PHYSICS',
+                                curriculum_book_name: 'GOV_SSC_MATHEMATICS',
                                 student_username: studentUsername,
                                 exam_id: selectedExamId
                             };

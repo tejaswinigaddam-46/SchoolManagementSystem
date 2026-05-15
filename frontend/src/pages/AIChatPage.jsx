@@ -15,7 +15,8 @@ import { toast } from 'react-hot-toast';
 const CURRICULUM_BOOKS = [
   { value: 'GOV_SSC_ENGLISH', label: 'SSC English' },
   { value: 'GOV_SSC_PHYSICS', label: 'SSC Physics' },
-  { value: 'GOV_SSC_CHEMISTRY', label: 'SSC Chemistry' }
+  { value: 'GOV_SSC_CHEMISTRY', label: 'SSC Chemistry' },
+  { value: 'GOV_SSC_MATHEMATICS', label: 'SSC Mathematics' }
 ];
 
 const MarkdownFallback = ({ text }) => {
