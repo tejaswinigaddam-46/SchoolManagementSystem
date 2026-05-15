@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Send, CheckCircle, Loader } from 'lucide-react';
+import { api } from '../../services/apiClient';
 
 export default function DemoForm() {
   const [formData, setFormData] = useState({
@@ -11,6 +12,7 @@ export default function DemoForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [errors, setErrors] = useState({});
+  const [submitError, setSubmitError] = useState('');
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -56,21 +58,28 @@ export default function DemoForm() {
     }
 
     setIsSubmitting(true);
+    setSubmitError('');
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    try {
+      await api.post('/contact/demo', formData, { suppressErrorToast: true });
+      setIsSubmitted(true);
 
-    // Here you would normally send data to your backend
-    console.log('Demo request:', formData);
-
-    setIsSubmitting(false);
-    setIsSubmitted(true);
-
-    // Reset form after 3 seconds
-    setTimeout(() => {
-      setIsSubmitted(false);
-      setFormData({ name: '', schoolName: '', email: '', phone: '' });
-    }, 3000);
+      // Reset form after 3 seconds
+      setTimeout(() => {
+        setIsSubmitted(false);
+        setFormData({ name: '', schoolName: '', email: '', phone: '' });
+      }, 3000);
+    } catch (error) {
+      const status = error.response?.status;
+      const message =
+        error.response?.data?.message ||
+        (status === 400
+          ? 'Please check the form details and try again.'
+          : 'Failed to send demo request. Please try again.');
+      setSubmitError(message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (isSubmitted) {
@@ -255,6 +264,12 @@ export default function DemoForm() {
                     </>
                   )}
                 </button>
+
+                {submitError && (
+                  <p className="text-sm text-error-600 text-center">
+                    {submitError}
+                  </p>
+                )}
               </form>
 
               <p className="mt-4 text-xs text-secondary-500 text-center">
