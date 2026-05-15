@@ -14,6 +14,13 @@ const getAssignmentsProgressPath = () => {
     : '/api/v1/questions/assignments/progress'
 }
 
+const getAssignmentsProgressNumericPath = () => {
+  const baseURL = String(aiApiClient?.defaults?.baseURL || '')
+  return baseURL.includes('/api/v1')
+    ? '/questions/assignments/progress/numeric'
+    : '/api/v1/questions/assignments/progress/numeric'
+}
+
 const getSubtopicProgressPath = (questionSubtopicsId) => {
   const baseURL = String(aiApiClient?.defaults?.baseURL || '')
   const id = encodeURIComponent(String(questionSubtopicsId ?? '').trim())
@@ -47,6 +54,11 @@ const questionService = {
 
   getQuestionsProgress: async (params = {}) => {
     const response = await aiApi.get(getAssignmentsProgressPath(), { params });
+    return response.data;
+  },
+
+  getAssignmentsProgressNumeric: async (data) => {
+    const response = await aiApi.post(getAssignmentsProgressNumericPath(), data);
     return response.data;
   },
 

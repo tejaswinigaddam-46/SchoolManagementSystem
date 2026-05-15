@@ -52,6 +52,7 @@ export default function ExamsPage() {
   const [toBeImprovedConcepts, setToBeImprovedConcepts] = useState({}); // studentId -> array of { question: string, status: string }
   const [questionAssignments, setQuestionAssignments] = useState({}); // studentId -> array of question assignments
   const [studentNotes, setStudentNotes] = useState({}); // studentId -> notes
+  const [numericProgressByStudent, setNumericProgressByStudent] = useState({}); // studentId -> array (aligned with concepts)
 
   const isStudentRole = isStudent();
   const isParentRole = isParent();
@@ -112,6 +113,7 @@ export default function ExamsPage() {
       setStudents([]);
       setExamResults({});
       setAttendanceMap({});
+      setNumericProgressByStudent({});
     }
   }, [selectedExamId, filters.class_id, filters.section_id]);
 
@@ -342,6 +344,7 @@ export default function ExamsPage() {
       
       const assignmentsMap = {};
       const initialConceptsMap = {};
+      const progressMap = {};
 
       for (const student of studentsForView) {
         const studentUsername = student.username;
@@ -371,10 +374,50 @@ export default function ExamsPage() {
               concepts.push({ question: '', status: 'yet_to_start', isExisting: false });
             }
             initialConceptsMap[studentId] = concepts;
+
+            const questionNames = [];
+            const questionIndexes = [];
+            concepts.forEach((concept, index) => {
+              const name = String(concept?.question || '').trim();
+              if (name) {
+                questionNames.push(name);
+                questionIndexes.push(index);
+              }
+            });
+
+            const progressArr = Array(concepts.length).fill(null);
+            if (questionNames.length > 0) {
+              try {
+                const progressResponse = await questionService.getAssignmentsProgressNumeric({
+                  exam_id: selectedExamId,
+                  student_username: studentUsername,
+                  question_names: questionNames
+                });
+
+                const progressItems =
+                  Array.isArray(progressResponse) ? progressResponse :
+                  Array.isArray(progressResponse?.data) ? progressResponse.data :
+                  Array.isArray(progressResponse?.results) ? progressResponse.results :
+                  Array.isArray(progressResponse?.data?.results) ? progressResponse.data.results :
+                  Array.isArray(progressResponse?.data?.data) ? progressResponse.data.data :
+                  [];
+
+                progressItems.forEach((item, idx) => {
+                  const originalIndex = questionIndexes[idx];
+                  if (originalIndex != null) {
+                    progressArr[originalIndex] = item;
+                  }
+                });
+              } catch (err) {
+                console.error(`Failed to fetch numeric progress for student ${studentUsername}:`, err);
+              }
+            }
+            progressMap[studentId] = progressArr;
         }
       }
       setQuestionAssignments(assignmentsMap);
       setToBeImprovedConcepts(initialConceptsMap);
+      setNumericProgressByStudent(progressMap);
     } catch (error) {
       console.error('Failed to load exam details', error);
     } finally {
@@ -706,7 +749,7 @@ export default function ExamsPage() {
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"></th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"></th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Question</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student Status</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Progress</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -737,7 +780,7 @@ export default function ExamsPage() {
                       { question: '', status: 'yet_to_start', isExisting: false }
                     ];
                     
-                    const existingAssignments = questionAssignments[studentId] || [];
+                    const progressArr = numericProgressByStudent[studentId] || [];
 
                     return (
                       <tr key={studentId} className="hover:bg-gray-50 transition-colors duration-150">
@@ -824,18 +867,45 @@ export default function ExamsPage() {
                         </td>
                         <td className="px-4 py-4 text-sm text-gray-600">
                           <div className="flex flex-col gap-2">
-                            {concepts.map((concept, index) => (
-                              <select
-                                key={index}
-                                className="w-40 px-3 py-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 transition-all"
-                                value={concept.status}
-                                onChange={(e) => handleToBeImprovedChange(studentId, index, 'status', e.target.value)}
-                              >
-                                <option value="yet_to_start">YET TO START</option>
-                                <option value="in_progress">IN PROGRESS</option>
-                                <option value="completed">COMPLETED</option>
-                              </select>
-                            ))}
+                            {concepts.map((concept, index) => {
+                              const questionName = String(concept?.question || '').trim();
+                              const progress = progressArr[index] || null;
+
+                              let label = '—';
+                              if (questionName) {
+                                const total = progress?.total_subtopics;
+                                const completed = progress?.completed_subtopics;
+                                const ratio = progress?.progress_ratio;
+                                if (
+                                  typeof ratio === 'number' &&
+                                  Number.isFinite(ratio) &&
+                                  typeof total === 'number' &&
+                                  Number.isFinite(total) &&
+                                  typeof completed === 'number' &&
+                                  Number.isFinite(completed)
+                                ) {
+                                  label = `${Math.round(ratio * 100)}% (${completed}/${total})`;
+                                } else if (
+                                  typeof total === 'number' &&
+                                  Number.isFinite(total) &&
+                                  typeof completed === 'number' &&
+                                  Number.isFinite(completed)
+                                ) {
+                                  label = `${completed}/${total}`;
+                                } else {
+                                  label = 'N/A';
+                                }
+                              }
+
+                              return (
+                                <div
+                                  key={index}
+                                  className="w-40 px-3 py-1.5 text-sm border rounded-md bg-gray-50 text-gray-700"
+                                >
+                                  {label}
+                                </div>
+                              );
+                            })}
                           </div>
                         </td>
                       </tr>
