@@ -15,8 +15,9 @@ const COUNTRY_CODES = [
  * @param {string} props.value - The full phone number string (e.g., "+919876543210")
  * @param {string} props.className - Additional classes for the container
  * @param {boolean} props.showFlag - Whether to show the country flag (default: true)
+ * @param {'default'|'compact'} props.size - Visual size variant
  */
-const PhoneNumberDisplay = ({ value, className = '', showFlag = true }) => {
+const PhoneNumberDisplay = ({ value, className = '', showFlag = true, size = 'default' }) => {
   if (!value) return <span className="text-gray-400">-</span>;
 
   // Find the country code that matches the start of the value
@@ -40,15 +41,25 @@ const PhoneNumberDisplay = ({ value, className = '', showFlag = true }) => {
     return <span className={`text-gray-700 ${className}`}>{value}</span>;
   }
 
+  const badgeClasses =
+    size === 'compact'
+      ? 'inline-flex items-center px-1 py-0.5 rounded text-[9px] font-medium bg-gray-100 text-gray-800 mr-1 border border-gray-200 shrink-0'
+      : 'inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 mr-2 border border-gray-200';
+
+  const numberClasses =
+    size === 'compact'
+      ? 'font-mono text-gray-700 text-[10px] truncate'
+      : 'font-mono text-gray-700';
+
   return (
-    <div className={`flex items-center ${className}`}>
+    <div className={`flex items-center min-w-0 ${className}`}>
       {code && (
-        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 mr-2 border border-gray-200">
+        <span className={badgeClasses}>
           {showFlag && <span className="mr-1">{flag}</span>}
           {code}
         </span>
       )}
-      <span className="font-mono text-gray-700">{number}</span>
+      <span className={numberClasses}>{number}</span>
     </div>
   );
 };

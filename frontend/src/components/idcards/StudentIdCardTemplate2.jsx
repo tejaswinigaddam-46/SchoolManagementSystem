@@ -19,8 +19,8 @@ const StudentIdCardTemplate2 = ({ data }) => {
     <div className="w-[220px] h-[360px] bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200 relative print:shadow-none print:border flex flex-col">
       {/* Header with Curve - Increased height to 100px */}
       <div className="bg-emerald-600 text-white p-3 text-center relative h-[100px] rounded-b-[40px]">
-        <h2 className="text-sm font-bold uppercase leading-tight pt-1">{orgName}</h2>
-        <p className="text-[10px] opacity-90 italic">{branch}</p>
+        <h2 className="text-sm font-bold uppercase leading-tight pt-1 truncate">{orgName}</h2>
+        <p className="text-[10px] opacity-90 italic truncate">{branch}</p>
       </div>
 
       {/* Photo Overlay - Lowered to top-[70px] to clear the branch name */}
@@ -68,8 +68,8 @@ const StudentIdCardTemplate2 = ({ data }) => {
           </div>
           <div className="flex justify-between">
             <span className="text-gray-500 italic shrink-0 mr-2">Phone:</span>
-            <div className="font-semibold text-gray-700 overflow-hidden">
-              <PhoneNumberDisplay value={phone} showFlag={true} />
+            <div className="font-semibold text-gray-700 overflow-hidden min-w-0">
+              <PhoneNumberDisplay value={phone} showFlag={false} size="compact" />
             </div>
           </div>
         </div>

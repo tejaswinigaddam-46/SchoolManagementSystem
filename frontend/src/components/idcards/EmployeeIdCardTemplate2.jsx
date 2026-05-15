@@ -23,9 +23,9 @@ const EmployeeIdCardTemplate2 = ({ data }) => {
         {/* Adjusted Text: Added more top padding so the photo doesn't touch the branch name */}
         <div className="relative z-10 pt-4 px-3 text-center">
           <h2 className="text-xs font-bold text-white uppercase tracking-wider leading-tight">
-            {orgName}
+            <span className="block truncate">{orgName}</span>
           </h2>
-          <p className="text-[10px] text-indigo-200 mt-1 italic">
+          <p className="text-[10px] text-indigo-200 mt-1 italic truncate">
             {branch}
           </p>
         </div>
@@ -74,8 +74,8 @@ const EmployeeIdCardTemplate2 = ({ data }) => {
             </div>
             <div className="flex justify-between">
                 <span className="text-gray-500 font-medium shrink-0 mr-2">Phone:</span>
-                <div className="text-gray-800">
-                    <PhoneNumberDisplay value={phone} showFlag={true} />
+                <div className="text-gray-800 min-w-0 overflow-hidden">
+                    <PhoneNumberDisplay value={phone} showFlag={false} size="compact" />
                 </div>
             </div>
         </div>

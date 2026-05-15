@@ -28,8 +28,8 @@ const EmployeeIdCardTemplate1 = ({ data }) => {
       <div className="ml-6 p-4 h-full flex flex-col">
         {/* Header */}
         <div className="border-b-2 border-slate-200 pb-2 mb-2">
-          <h2 className="text-base font-bold text-slate-800 uppercase leading-none">{orgName}</h2>
-          <p className="text-[10px] text-slate-500 uppercase tracking-wide">{branch}</p>
+          <h2 className="text-base font-bold text-slate-800 uppercase leading-none truncate">{orgName}</h2>
+          <p className="text-[10px] text-slate-500 uppercase tracking-wide truncate">{branch}</p>
         </div>
 
         <div className="flex gap-4 flex-1">
@@ -77,8 +77,8 @@ const EmployeeIdCardTemplate1 = ({ data }) => {
               </div>
               <div className="flex items-center">
                 <span className="w-16 text-slate-500 font-medium shrink-0">Phone:</span>
-                <div className="text-slate-800">
-                  <PhoneNumberDisplay value={phone} showFlag={true} />
+                <div className="text-slate-800 min-w-0 overflow-hidden">
+                  <PhoneNumberDisplay value={phone} showFlag={false} size="compact" />
                 </div>
               </div>
             </div>

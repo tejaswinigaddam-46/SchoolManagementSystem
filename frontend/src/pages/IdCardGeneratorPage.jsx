@@ -166,10 +166,10 @@ const IdCardGeneratorPage = () => {
   };
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="container mx-auto px-3 sm:px-6 py-4 space-y-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
         <h1 className="text-2xl font-bold text-gray-800">ID Card Generator</h1>
-        <div className="flex space-x-2">
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={handlePrint}
             className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
@@ -209,10 +209,10 @@ const IdCardGeneratorPage = () => {
               {/* Template Selection */}
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Select Template</label>
-                <div className="flex gap-4">
+                <div className="flex flex-wrap gap-3">
                   <div
                     onClick={() => setSelectedTemplate(1)}
-                    className={`cursor-pointer border-2 rounded-lg p-3 w-32 text-center transition-all ${
+                    className={`cursor-pointer border-2 rounded-lg p-3 w-full sm:w-32 text-center transition-all ${
                       selectedTemplate === 1 ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
@@ -221,7 +221,7 @@ const IdCardGeneratorPage = () => {
                   </div>
                   <div
                     onClick={() => setSelectedTemplate(2)}
-                    className={`cursor-pointer border-2 rounded-lg p-3 w-32 text-center transition-all ${
+                    className={`cursor-pointer border-2 rounded-lg p-3 w-full sm:w-32 text-center transition-all ${
                       selectedTemplate === 2 ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
@@ -342,7 +342,7 @@ const IdCardGeneratorPage = () => {
                         onChange={handleStudentChange}
                       />
                     </div>
-                    <div className="col-span-2">
+                    <div className="md:col-span-2">
                       <label className="block text-sm font-medium text-gray-700 mb-1">Student Photo</label>
                       <input
                         type="file"
@@ -461,7 +461,7 @@ const IdCardGeneratorPage = () => {
                         onChange={handleEmployeeChange}
                       />
                     </div>
-                    <div className="col-span-2">
+                    <div className="md:col-span-2">
                       <label className="block text-sm font-medium text-gray-700 mb-1">Employee Photo</label>
                       <input
                         type="file"
@@ -484,9 +484,14 @@ const IdCardGeneratorPage = () => {
               <h2 className="text-lg font-bold text-gray-800">Live Preview</h2>
               <p className="text-sm text-gray-500">See how your ID card looks</p>
             </div>
-            <div className="p-6 flex flex-col items-center justify-center min-h-[400px] bg-gray-50">
-              <div id="print-area" className="transform scale-90 sm:scale-100 transition-transform origin-top">
-                {renderTemplate()}
+            <div className="p-4 sm:p-6 flex flex-col items-center justify-center min-h-[280px] sm:min-h-[400px] bg-gray-50">
+              <div className="w-full overflow-x-auto">
+                <div
+                  id="print-area"
+                  className="inline-block transform scale-[0.82] min-[420px]:scale-90 sm:scale-100 transition-transform origin-top"
+                >
+                  {renderTemplate()}
+                </div>
               </div>
             </div>
           </Card>

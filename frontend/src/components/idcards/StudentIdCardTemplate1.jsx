@@ -70,8 +70,8 @@ const StudentIdCardTemplate1 = ({ data }) => {
           </div>
           <div className="grid grid-cols-3 gap-0.5">
             <span className="font-semibold text-gray-600 col-span-1">Phone:</span>
-            <div className="col-span-2 text-gray-800">
-              <PhoneNumberDisplay value={phone} showFlag={true} />
+            <div className="col-span-2 text-gray-800 min-w-0 overflow-hidden">
+              <PhoneNumberDisplay value={phone} showFlag={false} size="compact" />
             </div>
           </div>
           <div className="grid grid-cols-3 gap-0.5">
