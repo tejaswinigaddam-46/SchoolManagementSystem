@@ -93,7 +93,9 @@ function App() {
                 isAuthenticated ? (
                   <Navigate to="/home" replace />
                 ) : (
-                  <LandingPage />
+                  // <LandingPage />
+
+                  <Navigate to="/mobile-login" replace />
                 )
               }
             />

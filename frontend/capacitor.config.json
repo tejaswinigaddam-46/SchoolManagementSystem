@@ -1,5 +1,10 @@
 {
   "appId": "com.smsfrontend.app",
   "appName": "sms-frontend",
-  "webDir": "dist"
+  "webDir": "dist",
+  "server": {
+    "url": "http://10.0.2.2:3001",
+    "cleartext": true
+  },
+  "allowNavigation": ["10.0.2.2"]
 }

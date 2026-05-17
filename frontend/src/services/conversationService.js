@@ -7,24 +7,31 @@ import aiApiClient, { aiApi } from './aiApiClient';
  */
 const getHeaders = () => {
   const token = sessionStorage.getItem('accessToken');
-  
+
   let tenantId = null;
   try {
     if (token) {
       const payload = JSON.parse(atob(token.split('.')[1]));
       // Check for nested tenant object as seen in AuthContext.jsx
-      tenantId = payload.tenant?.tenant_id || payload.tenantId || payload.tenant_id || null;
+      tenantId =
+        payload.tenant?.tenant_id ||
+        payload.tenantId ||
+        payload.tenant_id ||
+        null;
     }
   } catch (error) {
-    console.error('Error extracting tenant ID for conversation service:', error);
+    console.error(
+      'Error extracting tenant ID for conversation service:',
+      error,
+    );
   }
 
   const headers = {
     'Content-Type': 'application/json',
-    'Authorization': token ? `Bearer ${token}` : '',
+    Authorization: token ? `Bearer ${token}` : '',
     'Cache-Control': 'no-cache, no-store, must-revalidate',
-    'Pragma': 'no-cache',
-    'Expires': '0',
+    Pragma: 'no-cache',
+    Expires: '0',
   };
 
   if (tenantId) {
@@ -34,12 +41,20 @@ const getHeaders = () => {
   // Add subdomain headers for backward compatibility
   const hostname = window.location.hostname;
   const hostParts = hostname.split('.');
+  const hasExplicitSubdomainHeader =
+    headers['X-Tenant-Subdomain'] || headers['X-Subdomain'];
   let subdomain = null;
-  if (hostname.startsWith('localhost') || hostname.startsWith('127.0.0.1')) {
-    const urlParams = new URLSearchParams(window.location.search);
-    subdomain = urlParams.get('tenantId');
-  } else if (hostParts.length >= 3 && !['www', 'api', 'admin'].includes(hostParts[0])) {
-    subdomain = hostParts[0];
+  if (!hasExplicitSubdomainHeader) {
+    // Respect explicit tenant headers (e.g., mobile login) to avoid overrides.
+    if (hostname.startsWith('localhost') || hostname.startsWith('127.0.0.1')) {
+      const urlParams = new URLSearchParams(window.location.search);
+      subdomain = urlParams.get('tenantId');
+    } else if (
+      hostParts.length >= 3 &&
+      !['www', 'api', 'admin'].includes(hostParts[0])
+    ) {
+      subdomain = hostParts[0];
+    }
   }
   if (subdomain) {
     headers['X-Tenant-Subdomain'] = subdomain;
@@ -51,13 +66,17 @@ const getHeaders = () => {
 
 const getConversationsAskPath = () => {
   const baseURL = String(aiApiClient?.defaults?.baseURL || '');
-  return baseURL.includes('/api/v1') ? '/conversations/ask' : '/api/v1/conversations/ask';
+  return baseURL.includes('/api/v1')
+    ? '/conversations/ask'
+    : '/api/v1/conversations/ask';
 };
 
 const getConversationPath = (conversationId) => {
   const baseURL = String(aiApiClient?.defaults?.baseURL || '');
   const id = encodeURIComponent(String(conversationId ?? '').trim());
-  return baseURL.includes('/api/v1') ? `/conversations/${id}` : `/api/v1/conversations/${id}`;
+  return baseURL.includes('/api/v1')
+    ? `/conversations/${id}`
+    : `/api/v1/conversations/${id}`;
 };
 
 const getConversationByQuestionPath = (questionId) => {
@@ -87,7 +106,7 @@ const conversationService = {
     title = null,
     question_id = null,
     question_subtopics_id = null,
-    question_subtopic_id = null
+    question_subtopic_id = null,
   }) => {
     const payload = {
       question,
@@ -101,9 +120,11 @@ const conversationService = {
     }
 
     const subtopicsId =
-      question_subtopics_id != null && String(question_subtopics_id).trim() !== ''
+      question_subtopics_id != null &&
+      String(question_subtopics_id).trim() !== ''
         ? question_subtopics_id
-        : question_subtopic_id != null && String(question_subtopic_id).trim() !== ''
+        : question_subtopic_id != null &&
+            String(question_subtopic_id).trim() !== ''
           ? question_subtopic_id
           : null;
 
@@ -111,32 +132,37 @@ const conversationService = {
       payload.question_subtopics_id = subtopicsId;
     }
 
-    const response = await aiApi.post(
-      getConversationsAskPath(),
-      payload,
-      { timeout: 60000, suppressErrorToast: true }
-    );
+    const response = await aiApi.post(getConversationsAskPath(), payload, {
+      timeout: 60000,
+      suppressErrorToast: true,
+    });
     return response.data;
   },
 
   getConversation: async (conversationId) => {
     const response = await aiApi.get(getConversationPath(conversationId), {
-      params: { _t: Date.now() }
+      params: { _t: Date.now() },
     });
     return response.data;
   },
 
   getConversationByQuestion: async (questionId) => {
-    const response = await aiApi.get(getConversationByQuestionPath(questionId), {
-      params: { _t: Date.now() }
-    });
+    const response = await aiApi.get(
+      getConversationByQuestionPath(questionId),
+      {
+        params: { _t: Date.now() },
+      },
+    );
     return response.data;
   },
 
   getConversationByQuestionSubtopic: async (questionSubtopicsId) => {
-    const response = await aiApi.get(getConversationByQuestionSubtopicPath(questionSubtopicsId), {
-      params: { _t: Date.now() }
-    });
+    const response = await aiApi.get(
+      getConversationByQuestionSubtopicPath(questionSubtopicsId),
+      {
+        params: { _t: Date.now() },
+      },
+    );
     return response.data;
   },
 
@@ -144,9 +170,13 @@ const conversationService = {
    * Create a new message in a conversation
    */
   createMessage: async (messageData) => {
-    const response = await axios.post(`${config.aiApiUrl}/conversations/messages`, messageData, { 
-      headers: getHeaders() 
-    });
+    const response = await axios.post(
+      `${config.aiApiUrl}/conversations/messages`,
+      messageData,
+      {
+        headers: getHeaders(),
+      },
+    );
     return response.data;
   },
 
@@ -157,8 +187,8 @@ const conversationService = {
     const response = await axios.get(`${config.aiApiUrl}/conversations`, {
       headers: getHeaders(),
       params: {
-        _t: Date.now()
-      }
+        _t: Date.now(),
+      },
     });
     return response.data;
   },
@@ -167,12 +197,15 @@ const conversationService = {
    * Get all messages for a specific conversation
    */
   getMessages: async (conversationId) => {
-    const response = await axios.get(`${config.aiApiUrl}/conversations/${conversationId}/messages`, {
-      headers: getHeaders(),
-      params: {
-        _t: Date.now()
-      }
-    });
+    const response = await axios.get(
+      `${config.aiApiUrl}/conversations/${conversationId}/messages`,
+      {
+        headers: getHeaders(),
+        params: {
+          _t: Date.now(),
+        },
+      },
+    );
     return response.data;
   },
 
@@ -180,9 +213,12 @@ const conversationService = {
    * Delete a conversation
    */
   deleteConversation: async (conversationId) => {
-    const response = await axios.delete(`${config.aiApiUrl}/conversations/${conversationId}`, {
-      headers: getHeaders()
-    });
+    const response = await axios.delete(
+      `${config.aiApiUrl}/conversations/${conversationId}`,
+      {
+        headers: getHeaders(),
+      },
+    );
     return response.data;
   },
 
@@ -190,11 +226,14 @@ const conversationService = {
    * Delete a specific message
    */
   deleteMessage: async (messageId) => {
-    const response = await axios.delete(`${config.aiApiUrl}/conversations/messages/${messageId}`, {
-      headers: getHeaders()
-    });
+    const response = await axios.delete(
+      `${config.aiApiUrl}/conversations/messages/${messageId}`,
+      {
+        headers: getHeaders(),
+      },
+    );
     return response.data;
-  }
+  },
 };
 
 export default conversationService;
