@@ -598,6 +598,29 @@ const StudentManagement = () => {
           delete params[key];
         }
       });
+
+      if (params.search && typeof params.search === 'string') {
+        params.search = params.search.trim();
+        if (!params.search) delete params.search;
+      }
+
+      if (params.academic_year_id !== undefined) {
+        const ay = parseInt(String(params.academic_year_id), 10);
+        if (Number.isFinite(ay)) {
+          params.academic_year_id = ay;
+        } else {
+          delete params.academic_year_id;
+        }
+      }
+
+      if (params.class_id !== undefined) {
+        const cid = parseInt(String(params.class_id), 10);
+        if (Number.isFinite(cid)) {
+          params.class_id = cid;
+        } else {
+          delete params.class_id;
+        }
+      }
       
       console.log('🔍 Fetching students with filters:', params);
       
@@ -1574,7 +1597,7 @@ const StudentManagement = () => {
                 <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
                   <path
                     fillRule="evenodd"
-                    d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4-4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+                    d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
                     clipRule="evenodd"
                   />
                 </svg>

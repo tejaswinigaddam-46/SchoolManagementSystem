@@ -461,11 +461,47 @@ const EmployeeList = ({
       const response = await employeeService.getAllEmployees(params);
       
       if (response.success) {
-        setEmployees(response.data.employees || []);
+        const employeesList =
+          response.data?.employees ||
+          response.data?.data?.employees ||
+          response.employees ||
+          [];
+
+        const rawPagination =
+          response.data?.pagination ||
+          response.pagination ||
+          response.data?.data?.pagination ||
+          {};
+
+        const nextPage =
+          Number(rawPagination.current_page ?? rawPagination.page ?? pagination.page ?? 1) || 1;
+        const nextLimit =
+          Number(rawPagination.limit ?? response.data?.limit ?? pagination.limit ?? 20) || 20;
+        const nextTotalPages =
+          Number(
+            rawPagination.total_pages ??
+              rawPagination.totalPages ??
+              response.data?.total_pages ??
+              response.data?.totalPages ??
+              1
+          ) || 1;
+        const nextTotal =
+          Number(
+            rawPagination.total_count ??
+              rawPagination.total ??
+              response.data?.total_count ??
+              response.data?.total ??
+              employeesList.length ??
+              0
+          ) || 0;
+
+        setEmployees(Array.isArray(employeesList) ? employeesList : []);
         setPagination(prev => ({
           ...prev,
-          total: response.data.total || 0,
-          totalPages: response.data.totalPages || 0
+          page: nextPage,
+          limit: nextLimit,
+          total: nextTotal,
+          totalPages: nextTotalPages
         }));
       }
       
@@ -622,7 +658,9 @@ const EmployeeList = ({
 
   // Handle pagination
   const handlePageChange = (newPage) => {
-    setPagination(prev => ({ ...prev, page: newPage }));
+    const maxPage = pagination.totalPages || 1;
+    const pageNum = Math.max(1, Math.min(maxPage, newPage));
+    setPagination(prev => ({ ...prev, page: pageNum }));
   };
 
   return (
