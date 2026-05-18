@@ -180,6 +180,7 @@ export const employeeService = {
     try {
       const response = await api.post('/employees/import', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 30000,
         responseType: 'blob'
       });
       const url = window.URL.createObjectURL(new Blob([response.data]));
@@ -220,6 +221,7 @@ export const employeeService = {
         headers: {
           'Content-Type': 'multipart/form-data'
         },
+        timeout: 30000,
         responseType: 'blob'
       });
 

@@ -112,6 +112,7 @@ const InputField = ({ label, name, type = 'text', required = false, options = nu
 
 const StudentManagement = () => {
   const { getCampusId, getCampusName, hasPermission } = useAuth();
+  const ITEMS_PER_PAGE = 20;
   const [showAddForm, setShowAddForm] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
   const [showBulkImport, setShowBulkImport] = useState(false);
@@ -123,7 +124,7 @@ const StudentManagement = () => {
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState({ show: false, student: null });
-  const [pagination, setPagination] = useState({ current_page: 1, total_pages: 1, total_count: 0 });
+  const [pagination, setPagination] = useState({ current_page: 1, total_pages: 1, total_count: 0, limit: ITEMS_PER_PAGE });
   const [hasSearched, setHasSearched] = useState(false);
   const [selectedStudents, setSelectedStudents] = useState(new Set());
 
@@ -582,12 +583,12 @@ const StudentManagement = () => {
 
 
   // Fetch students with specific filters
-  const fetchStudentsWithFilters = async (filtersToUse = filters) => {
+  const fetchStudentsWithFilters = async (filtersToUse = filters, pageToUse = pagination.current_page || 1) => {
     try {
       setLoading(true);
       const params = {
-        page: 1, // Always start from page 1 when filters change
-        limit: 20,
+        page: pageToUse,
+        limit: ITEMS_PER_PAGE,
         ...filtersToUse
       };
       
@@ -602,8 +603,18 @@ const StudentManagement = () => {
       
       const response = await studentService.getAllStudents(params);
       if (response.success) {
-        setStudents(response.data.students || []);
-        setPagination(response.data.pagination || { current_page: 1, total_pages: 1, total_count: 0 });
+        const studentsList = response.data?.students || response.data?.data?.students || response.students || [];
+        setStudents(studentsList);
+
+        const rawPagination = response.data?.pagination || response.pagination || response.data?.data?.pagination || {};
+        const normalizedPagination = {
+          current_page: rawPagination.current_page ?? rawPagination.page ?? 1,
+          total_pages: rawPagination.total_pages ?? rawPagination.totalPages ?? 1,
+          total_count: rawPagination.total_count ?? rawPagination.total ?? studentsList.length,
+          limit: rawPagination.limit ?? ITEMS_PER_PAGE
+        };
+
+        setPagination(normalizedPagination);
         setHasSearched(true);
         console.log('✅ Students fetched successfully:', response.data.students?.length || 0);
       } else {
@@ -619,7 +630,13 @@ const StudentManagement = () => {
   };
 
   // Update the original fetchStudents to use the new function
-  const fetchStudents = () => fetchStudentsWithFilters();
+  const fetchStudents = () => fetchStudentsWithFilters(filters, pagination.current_page || 1);
+
+  const handlePageChange = (nextPage) => {
+    const pageNum = Math.max(1, Math.min(pagination.total_pages || 1, nextPage));
+    setPagination(prev => ({ ...prev, current_page: pageNum }));
+    fetchStudentsWithFilters(filters, pageNum);
+  };
 
   const handleBulkImportSuccess = () => {
     setShowBulkImport(false);
@@ -918,7 +935,7 @@ const StudentManagement = () => {
     // Reset pagination when filters change
     setPagination(prev => ({ ...prev, current_page: 1 }));
     // Fetch students with new filters immediately
-    fetchStudentsWithFilters(newFilters);
+    fetchStudentsWithFilters(newFilters, 1);
   };
 
   if (showAddForm || showEditForm || showBulkImport || showBulkUpdate) {
@@ -1529,7 +1546,39 @@ const StudentManagement = () => {
           {/* Pagination */}
           {pagination.total_pages > 1 && (
             <div className="flex justify-center items-center space-x-2 mt-6 pt-4 border-t border-gray-200">
-              {/* ...existing pagination buttons... */}
+              <button
+                onClick={() => handlePageChange(pagination.current_page - 1)}
+                disabled={pagination.current_page === 1}
+                className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                type="button"
+              >
+                <span className="sr-only">Previous</span>
+                <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path
+                    fillRule="evenodd"
+                    d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </button>
+              <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                Page {pagination.current_page} of {pagination.total_pages} ({pagination.total_count} total students)
+              </span>
+              <button
+                onClick={() => handlePageChange(pagination.current_page + 1)}
+                disabled={pagination.current_page === pagination.total_pages}
+                className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                type="button"
+              >
+                <span className="sr-only">Next</span>
+                <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path
+                    fillRule="evenodd"
+                    d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4-4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </button>
             </div>
           )}
         </div>

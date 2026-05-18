@@ -166,6 +166,7 @@ export const studentService = {
         headers: {
           'Content-Type': 'multipart/form-data'
         },
+        timeout: 30000,
         responseType: 'blob'
       });
 
@@ -196,6 +197,55 @@ export const studentService = {
     }
   },
 
+  startBulkImportAsync: async (formData) => {
+    try {
+      const response = await api.post('/students/import/async', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        },
+        timeout: 30000
+      });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+
+  getBulkImportJob: async (jobId) => {
+    try {
+      const response = await api.get(`/students/import/jobs/${jobId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+
+  downloadBulkImportResult: async (jobId, fileName = 'Student_Import_Result.xlsx') => {
+    const tryDownload = async (url) => {
+      const response = await api.get(url, { responseType: 'blob', timeout: 30000 });
+      const blob = new Blob([response.data]);
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.setAttribute('download', fileName);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+      return true;
+    };
+
+    try {
+      return await tryDownload(`/students/import/jobs/${jobId}/download`);
+    } catch (error) {
+      try {
+        return await tryDownload(`/students/import/jobs/${jobId}/result`);
+      } catch (error2) {
+        throw error2.response?.data || error2;
+      }
+    }
+  },
+
   // Bulk update students
   bulkUpdate: async (formData) => {
     try {
@@ -203,6 +253,7 @@ export const studentService = {
         headers: {
           'Content-Type': 'multipart/form-data'
         },
+        timeout: 30000,
         responseType: 'blob'
       });
 

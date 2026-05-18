@@ -80,8 +80,20 @@ const StudentBulkUpdate = ({ onUpdateSuccess, onCancel, campusId }) => {
         <ol className="list-decimal list-inside text-sm text-blue-700 space-y-1">
           <li><strong>Export</strong> the students you want to edit from the student list.</li>
           <li><strong>Edit</strong> the downloaded Excel file. <span className="font-bold">Do not modify the Username column or locked fields.</span></li>
+          <li>For phone numbers, include country code (example: <span className="font-mono font-semibold">+919876543210</span>).</li>
           <li><strong>Upload</strong> the edited file here to apply changes.</li>
         </ol>
+        <div className="mt-3 text-xs text-blue-700">
+          <div className="font-semibold text-blue-800 mb-1">Allowed values for dropdown fields:</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div>
+              <span className="font-semibold">Admission Type:</span> New, Transfer, Re-admission
+            </div>
+            <div>
+              <span className="font-semibold">Blood Group:</span> A+, A-, B+, B-, AB+, AB-, O+, O-
+            </div>
+          </div>
+        </div>
       </div>
 
       <form onSubmit={handleUpload} className="space-y-4">
@@ -94,7 +106,7 @@ const StudentBulkUpdate = ({ onUpdateSuccess, onCancel, campusId }) => {
               onChange={handleFileChange}
               className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100 cursor-pointer"
             />
-            <p className="mt-2 text-xs text-gray-500">Supported formats: .xlsx, .xls</p>
+            <p className="mt-2 text-xs text-gray-500">Supported formats: .xlsx, .xls, .csv</p>
           </div>
         </div>
 
